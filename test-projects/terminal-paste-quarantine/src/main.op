@@ -9,12 +9,16 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture distinguishing trusted paste chunks from quarantined malformed and unknown bytes.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let mutable direct_text: int64 = 0
     let mutable trusted_paste: int64 = 0
     let mutable quarantined_chunks: int64 = 0
@@ -24,11 +28,9 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable command_activations: int64 = 0
     let mutable running = true
     let mutable reads: int64 = 0
-
     while running and reads < 8:
         let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         reads = reads + 1
-
         if event is TerminalInputEvent.TextInput:
             direct_text = direct_text + 1
         if event is TerminalInputEvent.Paste:
@@ -45,7 +47,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             command_activations = command_activations + 1
         if event is TerminalInputEvent.EndOfInput:
             running = false
-
     let summary = propagate trusted_terminal_output_from_application_text('PASTE_QUARANTINE_SUMMARY direct_text={direct_text} trusted_paste={trusted_paste} quarantined_chunks={quarantined_chunks} malformed_chunks={malformed_chunks} unknown_chunks={unknown_chunks} paste_fallback_resets={paste_fallback_resets} command_activations={command_activations} status=ok\n')
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)

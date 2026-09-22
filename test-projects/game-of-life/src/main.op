@@ -9,17 +9,19 @@ let frame_header = f(frame: int64): string =>
 ##
   Description: Renders a bounded deterministic ten-frame Game of Life transcript for integration testing.
 ##
-entry main = f(args: string[]): void errors StandardOutputHandleError, StdoutWriterErrors, TerminalWriteFailureError, InvalidDurationError, StringBuilderErrors =>
+entry main = f(args: string[]): void errors StandardOutputHandleError,
+                                            StdoutWriterErrors,
+                                            TerminalWriteFailureError,
+                                            InvalidDurationError,
+                                            StringBuilderErrors =>
     let writer = propagate stdout_writer()
     let terminal = propagate stdout_terminal()
     let mutable frame: int64 = 0
-
     while frame < 10:
         let header_builder: StringBuilder = new StringBuilder
         propagate string_builder_push(header_builder, frame_header(frame))
         propagate string_builder_push(header_builder, '\n')
         let header_text = propagate string_builder_finish(header_builder)
-
         propagate writer_write_sync(writer, header_text)
         if frame % 2 is 0:
             let even_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '.', '.', '.')]
@@ -28,9 +30,7 @@ entry main = f(args: string[]): void errors StandardOutputHandleError, StdoutWri
             let odd_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '#', '#', '#', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.')]
             propagate terminal_draw_rows_sync(terminal, odd_rows)
         propagate writer_write_sync(writer, '\n')
-
         propagate sleep_ms_sync(0)
         frame = frame + 1
-
     propagate writer_flush_sync(writer)
     return void

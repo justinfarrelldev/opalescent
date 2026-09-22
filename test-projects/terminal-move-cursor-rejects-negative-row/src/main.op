@@ -7,6 +7,5 @@ entry main = f(args: string[]): void errors TerminalControlErrors =>
     guard terminal_move_cursor_sync(-1, 0) else err =>
         print('row=-1:{err}')
         propagate err
-
     print('UNEXPECTED_SUCCESS row=-1')
     return void

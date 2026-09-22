@@ -3,7 +3,7 @@ import terminal_text_cell_width, terminal_text_clip_to_cells from standard
 ##
     Description: Exercises Unicode grapheme and terminal cell width helpers.
 ##
-entry main = f(): void errors TerminalTextLayoutError, AllocationFailureError => {
+entry main = f(): void errors TerminalTextLayoutError, AllocationFailureError =>
     let ascii_width = terminal_text_cell_width('abc')
     let combining_width = terminal_text_cell_width('é')
     let cjk_width = terminal_text_cell_width('界')
@@ -30,4 +30,3 @@ entry main = f(): void errors TerminalTextLayoutError, AllocationFailureError =>
     print('CLIP_EMOJI=[{clipped_emoji}]/{used_emoji}')
     print('CLIP_FLAG=[{clipped_flag}]/{used_flag}')
     print('CLIP_KEYCAP=[{clipped_keycap}]/{used_keycap}')
-}

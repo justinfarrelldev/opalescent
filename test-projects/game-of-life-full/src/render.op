@@ -4,7 +4,10 @@ import is_alive_at from ./board
 ##
   Description: Clears the terminal once when ANSI cursor control is available for animation.
 ##
-public let prepare_display = f(): void errors StandardOutputHandleError, StandardOutputCapabilityError, TerminalWriteFailureError, SinkClosedError =>
+public let prepare_display = f(): void errors StandardOutputHandleError,
+                 StandardOutputCapabilityError,
+                 TerminalWriteFailureError,
+                 SinkClosedError =>
     let terminal = propagate stdout_terminal()
     let supports_ansi = propagate terminal_supports_ansi(terminal)
     if supports_ansi:
@@ -14,7 +17,10 @@ public let prepare_display = f(): void errors StandardOutputHandleError, Standar
 ##
   Description: Clears supported terminals, streams one complete frame, and flushes after the final row.
 ##
-public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors StandardOutputHandleError, StandardOutputCapabilityError, StdoutWriterErrors, TerminalWriteFailureError =>
+public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors StandardOutputHandleError,
+                                                                              StandardOutputCapabilityError,
+                                                                              StdoutWriterErrors,
+                                                                              TerminalWriteFailureError =>
     let terminal = propagate stdout_terminal()
     let writer = propagate stdout_writer()
     let supports_ansi = propagate terminal_supports_ansi(terminal)
@@ -22,10 +28,8 @@ public let write_frame = f(width: int64, height: int64, board: int8[], generatio
         propagate terminal_clear_screen_on_sync(terminal)
     else:
         propagate writer_write_sync(writer, '\n')
-
     let generation_text = int64_to_string(generation)
     propagate writer_write_sync(writer, 'Generation {generation_text}\n')
-
     let mutable y: int64 = 0
     while y < height:
         let mutable x: int64 = 0
@@ -37,6 +41,5 @@ public let write_frame = f(width: int64, height: int64, board: int8[], generatio
             x = x + 1
         propagate writer_write_sync(writer, '\n')
         y = y + 1
-
     propagate writer_flush_sync(writer)
     return void

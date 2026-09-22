@@ -30,15 +30,12 @@ let guard_failure_sum = f(): int32 errors ParseError =>
 entry main = f(args: string[]): void errors ParseError =>
     let propagated_total = propagate sum_pair('7', '8')
     print('PROPAGATE_SUM={propagated_total}')
-
     guard parse_pair('5', '6') into left, right else err =>
         print('UNEXPECTED_GUARD_ERROR={err}')
         propagate err
     print('GUARD_SUCCESS={left},{right}')
-
     let recovered_total: int32 = guard guard_failure_sum() into value: int32 else 0
     if recovered_total is 0:
         return void
-
     print('UNEXPECTED_GUARD_SUCCESS={recovered_total}')
     return void

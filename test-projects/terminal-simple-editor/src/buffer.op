@@ -57,7 +57,9 @@ public let update_viewport = f(cursor_line: int64, viewport_top: int64, visible_
 ##
   Description: Inserts text at the current cursor position.
 ##
-public let insert_text_at_cursor = f(lines: string[], cursor: CursorPosition, text: string): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let insert_text_at_cursor = f(lines: string[], cursor: CursorPosition, text: string): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError,
+                                                                                                                         StringRangeOutOfBoundsError,
+                                                                                                                         AllocationFailureError =>
     let line = propagate lines.at(cursor.line)
     let updated_line = propagate string_insert_at(line, cursor.column, text)
     let mutable changed: string[] = lines
@@ -67,7 +69,10 @@ public let insert_text_at_cursor = f(lines: string[], cursor: CursorPosition, te
 ##
   Description: Splits the current line at the cursor position.
 ##
-public let split_line_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let split_line_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError,
+                                                                                                           StringRangeOrderError,
+                                                                                                           StringRangeOutOfBoundsError,
+                                                                                                           AllocationFailureError =>
     let line = propagate lines.at(cursor.line)
     let before = propagate string_extract_range(line, 0 as int64, cursor.column)
     let after = propagate string_extract_range(line, cursor.column, string_length(line))
@@ -79,14 +84,16 @@ public let split_line_at_cursor = f(lines: string[], cursor: CursorPosition): up
 ##
   Description: Deletes before the cursor or joins with the previous line.
 ##
-public let backspace_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let backspace_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError,
+                                                                                                           StringRangeOrderError,
+                                                                                                           StringRangeOutOfBoundsError,
+                                                                                                           AllocationFailureError =>
     if cursor.column > 0:
         let line = propagate lines.at(cursor.line)
         let updated_line = propagate string_delete_range(line, cursor.column - 1, cursor.column)
         let mutable changed: string[] = lines
         changed[cursor.line] = updated_line
         return updated_lines: changed, updated_cursor: buffer_cursor(cursor.line, cursor.column - 1)
-
     if cursor.line > 0:
         let previous = propagate lines.at(cursor.line - 1)
         let current = propagate lines.at(cursor.line)
@@ -95,20 +102,21 @@ public let backspace_at_cursor = f(lines: string[], cursor: CursorPosition): upd
         changed[cursor.line - 1] = joined
         let updated, _removed = propagate changed.remove_at(cursor.line)
         return updated_lines: updated, updated_cursor: buffer_cursor(cursor.line - 1, string_length(previous))
-
     return updated_lines: lines, updated_cursor: cursor
 
 ##
   Description: Deletes under the cursor or joins with the next line.
 ##
-public let delete_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let delete_at_cursor = f(lines: string[], cursor: CursorPosition): updated_lines: string[], updated_cursor: CursorPosition errors IndexOutOfBoundsError,
+                                                                                                           StringRangeOrderError,
+                                                                                                           StringRangeOutOfBoundsError,
+                                                                                                           AllocationFailureError =>
     let line = propagate lines.at(cursor.line)
     if cursor.column < string_length(line):
         let updated_line = propagate string_delete_range(line, cursor.column, cursor.column + 1)
         let mutable changed: string[] = lines
         changed[cursor.line] = updated_line
         return updated_lines: changed, updated_cursor: cursor
-
     if cursor.line + 1 < lines.length:
         let next_line = propagate lines.at(cursor.line + 1)
         let joined = '{line}{next_line}'
@@ -116,13 +124,13 @@ public let delete_at_cursor = f(lines: string[], cursor: CursorPosition): update
         changed[cursor.line] = joined
         let updated, _removed = propagate changed.remove_at(cursor.line + 1)
         return updated_lines: updated, updated_cursor: cursor
-
     return updated_lines: lines, updated_cursor: cursor
 
 ##
   Description: Writes all lines with newline separators using an atomic filesystem write.
 ##
-public let save_lines = f(file_path_text: string, lines: string[]): void errors FilesystemWriteErrors, AllocationFailureError =>
+public let save_lines = f(file_path_text: string, lines: string[]): void errors FilesystemWriteErrors,
+                                                        AllocationFailureError =>
     let path = path_from(file_path_text)
     let text = propagate string_join(lines, '\n')
     propagate write_text_atomic_sync(path, text)

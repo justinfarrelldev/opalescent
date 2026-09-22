@@ -1,14 +1,13 @@
-
 ##
-	Description: Accepts a Weak string parameter to validate Weak type usage
+    Description: Accepts a Weak string parameter to validate Weak type usage
 ##
 let accept_weak = f(w: Weak<string>): void =>
-	print('weak-ref: ok')
-	return void
+    print('weak-ref: ok')
+    return void
 
 ##
-	Description: starting point for weak reference project runtime output
+    Description: starting point for weak reference project runtime output
 ##
 entry main = f(args: string[]): void =>
-	print('weak-ref: ok')
-	return void
+    print('weak-ref: ok')
+    return void

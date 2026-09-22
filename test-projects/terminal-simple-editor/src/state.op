@@ -40,7 +40,6 @@ public let initial_editor_state = f(path: string, opened: boolean): EditorState 
         let status: EditorStatus = new EditorStatus.Opened:
             path: path
         return editor_state(cursor_position(0, 0), 0, false, false, new EditorMode.Normal, new EditorCommand.None, status, true, new EditorTermination.Running)
-
     return editor_state(cursor_position(0, 0), 0, false, false, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.NewEmpty, true, new EditorTermination.Running)
 
 ##

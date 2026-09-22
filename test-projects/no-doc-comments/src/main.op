@@ -3,7 +3,7 @@
 ##
     Description: Adds two numbers together
 ##
-public let add = f(num1: int32, num2: int32): int32 => 
+public let add = f(num1: int32, num2: int32): int32 =>
     return num1 + num2
 
 entry main = f(): void errors StandardInputReadError =>
@@ -12,15 +12,11 @@ entry main = f(): void errors StandardInputReadError =>
     let num1 = propagate take_input()
     print('Enter num 2:')
     let num2 = propagate take_input()
-
-    guard string_to_int32(num1) into num1_int else e => 
+    guard string_to_int32(num1) into num1_int else e =>
         print('An error occurred: {e}')
         return void
-
-    guard string_to_int32(num2) into num2_int else e => 
+    guard string_to_int32(num2) into num2_int else e =>
         print('An error occurred: {e}')
         return void
-
     print('Result: {add(num1_int, num2_int)}')
-
     return void

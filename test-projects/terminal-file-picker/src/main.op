@@ -5,7 +5,11 @@ import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSession
 ##
   Description: Selected typed-event-session fixture for deterministic file picker summary output.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
     let summary = propagate trusted_terminal_output_from_application_text('FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok\n')

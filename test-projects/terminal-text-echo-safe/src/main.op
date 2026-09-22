@@ -5,12 +5,16 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture proving committed text is echoed only through TrustedTerminalOutput.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let mutable text_count: int64 = 0
     let mutable paste_count: int64 = 0
     let mutable unknown_count: int64 = 0
@@ -18,7 +22,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable non_text_count: int64 = 0
     let mutable running = true
     let mutable reads: int64 = 0
-
     while running and reads < 10:
         let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         reads = reads + 1
@@ -43,7 +46,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
-
     let summary = propagate trusted_terminal_output_from_application_text('\nSAFE_ECHO_SUMMARY text={text_count} paste={paste_count} unknown={unknown_count} resets={reset_count} non_text={non_text_count} raw_session_writes=0\n')
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)

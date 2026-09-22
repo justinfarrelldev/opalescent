@@ -5,14 +5,18 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture for capability snapshot and terminal size probing.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
     let capabilities = terminal_session_capabilities(ref session)
     let enhanced_key_identity = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
     let trusted_paste = terminal_capabilities_trusted_paste_framing(capabilities)
     let size = propagate terminal_session_size_sync(ref session)
-
     let dimensions = propagate trusted_terminal_output_from_application_text('SIZE_PROBE 80x24\n')
     propagate terminal_session_write_sync(ref session, dimensions)
     let summary = propagate trusted_terminal_output_from_application_text('SIZE_PROBE_SUMMARY columns=80 rows=24 ordinary_capability=queried trusted_paste=queried\n')

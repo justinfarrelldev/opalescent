@@ -545,7 +545,32 @@ impl Parser {
                 let body = self.parse_type_definition_body(start_span)?;
 
                 if has_indent_block {
-                    self.skip_newlines_and_comments();
+                    self.skip_newlines();
+                    while !self.check(&TokenType::Dedent) && !self.is_at_end() {
+                        match self.current_token().token_type.clone() {
+                            TokenType::DocComment(content)
+                                if self.current_token().span.start.column == 1 =>
+                            {
+                                let doc_comment_span = self.current_token().span;
+                                self.deferred_doc_comments.push((content, doc_comment_span));
+                                self.advance();
+                                self.skip_newlines();
+                            }
+                            TokenType::Comment(_)
+                                if self.current_token().span.start.column == 1 =>
+                            {
+                                let comment_token = self.advance().clone();
+                                let id = self.next_node_id();
+                                self.deferred_comment_declarations.push(Decl::Comment {
+                                    text: comment_token.lexeme,
+                                    span: comment_token.span,
+                                    id,
+                                });
+                                self.skip_newlines();
+                            }
+                            _ => break,
+                        }
+                    }
                     self.consume(
                         &TokenType::Dedent,
                         "Expected dedent after type definition body",
@@ -593,8 +618,9 @@ impl Parser {
         let mut is_product_type = None;
 
         while !self.is_at_end() && !self.is_type_body_terminator() {
-            // Skip newlines
-            self.skip_newlines_and_comments();
+            // Skip newlines and ordinary comments while preserving top-level
+            // documentation comments for the following declaration.
+            self.skip_trivia_defer_top_level_comments();
 
             if self.is_at_end() || self.is_type_body_terminator() {
                 break;
@@ -670,7 +696,7 @@ impl Parser {
                 } else {
                     self.skip_newlines_and_comments();
                     self.consume(&TokenType::Indent, "Expected indent for variant fields")?;
-                    self.skip_newlines_and_comments();
+                    self.skip_trivia_defer_top_level_comments();
                     let mut fields = Vec::new();
                     while !self.is_at_end()
                         && !self.check(&TokenType::Dedent)
@@ -698,7 +724,7 @@ impl Parser {
                             type_annotation: field_type,
                             span: Span::new(field_start.start, field_end.end),
                         });
-                        self.skip_newlines_and_comments();
+                        self.skip_trivia_defer_top_level_comments();
                     }
                     self.consume(&TokenType::Dedent, "Expected dedent after variant fields")?;
                     let variant_end_span = self.previous_token().span;

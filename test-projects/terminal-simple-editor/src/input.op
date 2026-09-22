@@ -5,7 +5,7 @@ import with_cursor_dirty_status, with_command_result, with_stopped_status from .
 import copy_text from ./text_helpers
 import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
 import type EditorState, EditorTransition, CursorPosition from ./editor.types
-import type TerminalNamedKey from 'standard.terminal'
+import type TerminalNamedKey from standard.terminal
 
 ##
   Description: Updates the compact colon-command state with committed text.
@@ -22,25 +22,23 @@ public let update_command = f(command: EditorCommand, text: string): EditorComma
             return new EditorCommand.ForceQuit
         return new EditorCommand.Invalid:
             text: text
-
     if command is EditorCommand.Write:
         if text is 'q':
             return new EditorCommand.WriteQuit
         return new EditorCommand.Invalid:
             text: text
-
     if command is EditorCommand.Quit:
         if text is '!':
             return new EditorCommand.ForceQuit
         return new EditorCommand.Invalid:
             text: text
-
     return command
 
 ##
   Description: Builds an invalid named-key transition with a safe owned label.
 ##
-public let invalid_named_key_transition = f(state: EditorState): EditorTransition errors StringRangeOutOfBoundsError, AllocationFailureError =>
+public let invalid_named_key_transition = f(state: EditorState): EditorTransition errors StringRangeOutOfBoundsError,
+                                               AllocationFailureError =>
     let key = propagate copy_text('named')
     let status: EditorStatus = new EditorStatus.InvalidKey:
         key: key
@@ -49,7 +47,8 @@ public let invalid_named_key_transition = f(state: EditorState): EditorTransitio
 ##
   Description: Applies a finite colon command to the editor state.
 ##
-public let execute_command = f(file_path_text: string, lines: string[], state: EditorState): EditorTransition errors FilesystemWriteErrors, AllocationFailureError =>
+public let execute_command = f(file_path_text: string, lines: string[], state: EditorState): EditorTransition errors FilesystemWriteErrors,
+                                                                                        AllocationFailureError =>
     let command = state.command
     if command is EditorCommand.Write:
         propagate save_lines(file_path_text, lines)
@@ -57,29 +56,24 @@ public let execute_command = f(file_path_text: string, lines: string[], state: E
             path: file_path_text
         let next = with_command_result(state, false, true, new EditorMode.Normal, new EditorCommand.None, status, true, new EditorTermination.Running)
         return editor_transition(next, false)
-
     if command is EditorCommand.Quit:
         if state.dirty:
             let next = with_command_result(state, state.dirty, state.saved, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.UnsavedChanges, true, new EditorTermination.Running)
             return editor_transition(next, true)
         let next = with_command_result(state, state.dirty, state.saved, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.Ok, false, new EditorTermination.CommandQ)
         return editor_transition(next, false)
-
     if command is EditorCommand.WriteQuit:
         propagate save_lines(file_path_text, lines)
         let next = with_command_result(state, false, true, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.Ok, false, new EditorTermination.CommandWq)
         return editor_transition(next, false)
-
     if command is EditorCommand.ForceQuit:
         let next = with_command_result(state, state.dirty, state.saved, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.QuitWithoutSaving, false, new EditorTermination.CommandQBang)
         return editor_transition(next, false)
-
     if command is EditorCommand.Invalid into invalid:
         let status: EditorStatus = new EditorStatus.InvalidCommand:
             text: invalid.text
         let next = with_command_result(state, state.dirty, state.saved, new EditorMode.Normal, new EditorCommand.None, status, true, new EditorTermination.Running)
         return editor_transition(next, true)
-
     let fallback: EditorStatus = new EditorStatus.InvalidCommand:
         text: file_path_text
     let next = with_command_result(state, state.dirty, state.saved, new EditorMode.Normal, new EditorCommand.None, fallback, true, new EditorTermination.Running)
@@ -102,62 +96,54 @@ public let edit_transition = f(state: EditorState, cursor: CursorPosition, statu
 ##
   Description: Applies committed text or text-key identity to the editor state.
 ##
-public let apply_text_input = f(lines: string[], state: EditorState, text: string): updated_lines: string[], transition: EditorTransition errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let apply_text_input = f(lines: string[], state: EditorState, text: string): updated_lines: string[], transition: EditorTransition errors IndexOutOfBoundsError,
+                                                                                                                   StringRangeOrderError,
+                                                                                                                   StringRangeOutOfBoundsError,
+                                                                                                                   AllocationFailureError =>
     let mode = state.mode
     let current_cursor: CursorPosition = state.cursor
     if mode is EditorMode.Insert:
         let updated_lines: inserted_lines, updated_cursor: inserted_cursor = propagate insert_text_at_cursor(lines, current_cursor, text)
         return updated_lines: inserted_lines, transition: edit_transition(state, inserted_cursor, new EditorStatus.InsertedText)
-
     if mode is EditorMode.Command:
         let new_command = update_command(state.command, text)
         let next = with_command(state, new_command, new EditorStatus.CommandMode)
         return updated_lines: lines, transition: editor_transition(next, false)
-
     if text is 'i':
         let next = with_mode_command_status(state, new EditorMode.Insert, state.command, new EditorStatus.InsertMode)
         return updated_lines: lines, transition: editor_transition(next, false)
-
     if text is ':':
         let next = with_mode_command_status(state, new EditorMode.Command, new EditorCommand.None, new EditorStatus.CommandMode)
         return updated_lines: lines, transition: editor_transition(next, false)
-
     if text is 'q':
         if state.dirty:
             let next = with_status(state, new EditorStatus.UnsavedChanges)
             return updated_lines: lines, transition: editor_transition(next, true)
         let next = with_stopped_status(state, new EditorStatus.Ok, new EditorTermination.NormalQ)
         return updated_lines: lines, transition: editor_transition(next, false)
-
     if text is 'h':
         let moved_cursor: CursorPosition = propagate move_left(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if text is 'l':
         let moved_cursor: CursorPosition = propagate move_right(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if text is 'k':
         let moved_cursor: CursorPosition = propagate move_up(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if text is 'j':
         let moved_cursor: CursorPosition = propagate move_down(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if text is '0':
         let moved_cursor: CursorPosition = new CursorPosition:
             line: current_cursor.line
             column: 0
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.LineStart)
-
     if text is '$':
         let end_column = propagate line_length_at(lines, current_cursor.line)
         let moved_cursor: CursorPosition = new CursorPosition:
             line: current_cursor.line
             column: end_column
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.LineEnd)
-
     if text is 'G':
         let end_line = lines.length - 1
         let end_column = propagate clamp_column_to_line(lines, end_line, current_cursor.column)
@@ -165,7 +151,6 @@ public let apply_text_input = f(lines: string[], state: EditorState, text: strin
             line: end_line
             column: end_column
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.FileEnd)
-
     let status: EditorStatus = new EditorStatus.InvalidKey:
         key: text
     return updated_lines: lines, transition: editor_transition(with_status(state, status), true)
@@ -173,7 +158,11 @@ public let apply_text_input = f(lines: string[], state: EditorState, text: strin
 ##
   Description: Applies a terminal named key to the editor state.
 ##
-public let apply_named_key = f(file_path_text: string, lines: string[], state: EditorState, named_key: TerminalNamedKey): updated_lines: string[], transition: EditorTransition errors FilesystemWriteErrors, IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let apply_named_key = f(file_path_text: string, lines: string[], state: EditorState, named_key: TerminalNamedKey): updated_lines: string[], transition: EditorTransition errors FilesystemWriteErrors,
+                                                                                                                                                          IndexOutOfBoundsError,
+                                                                                                                                                          StringRangeOrderError,
+                                                                                                                                                          StringRangeOutOfBoundsError,
+                                                                                                                                                          AllocationFailureError =>
     let mode = state.mode
     let current_cursor: CursorPosition = state.cursor
     if named_key is TerminalNamedKey.Escape:
@@ -181,7 +170,6 @@ public let apply_named_key = f(file_path_text: string, lines: string[], state: E
             let next = with_mode_command_status(state, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.NormalMode)
             return updated_lines: lines, transition: editor_transition(next, false)
         return updated_lines: lines, transition: editor_transition(with_status(state, new EditorStatus.NormalMode), true)
-
     if named_key is TerminalNamedKey.Enter:
         if mode is EditorMode.Insert:
             let updated_lines: split_lines, updated_cursor: split_cursor = propagate split_line_at_cursor(lines, current_cursor)
@@ -189,7 +177,6 @@ public let apply_named_key = f(file_path_text: string, lines: string[], state: E
         if mode is EditorMode.Command:
             return updated_lines: lines, transition: propagate execute_command(file_path_text, lines, state)
         return updated_lines: lines, transition: editor_transition(with_status(state, new EditorStatus.EnterInsertOnly), true)
-
     if named_key is TerminalNamedKey.Backspace:
         if mode is EditorMode.Insert:
             let updated_lines: backspace_lines, updated_cursor: backspace_cursor = propagate backspace_at_cursor(lines, current_cursor)
@@ -198,43 +185,34 @@ public let apply_named_key = f(file_path_text: string, lines: string[], state: E
             let next = with_command(state, new EditorCommand.None, new EditorStatus.CommandMode)
             return updated_lines: lines, transition: editor_transition(next, false)
         return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
-
     if named_key is TerminalNamedKey.Delete:
         if mode is EditorMode.Insert:
             let updated_lines: delete_lines, updated_cursor: delete_cursor = propagate delete_at_cursor(lines, current_cursor)
             return updated_lines: delete_lines, transition: edit_transition(state, delete_cursor, new EditorStatus.Deleted)
         return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
-
     if mode is EditorMode.Command:
         return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
-
     if named_key is TerminalNamedKey.ArrowLeft:
         let moved_cursor: CursorPosition = propagate move_left(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if named_key is TerminalNamedKey.ArrowRight:
         let moved_cursor: CursorPosition = propagate move_right(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if named_key is TerminalNamedKey.ArrowUp:
         let moved_cursor: CursorPosition = propagate move_up(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if named_key is TerminalNamedKey.ArrowDown:
         let moved_cursor: CursorPosition = propagate move_down(lines, current_cursor)
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.Moved)
-
     if named_key is TerminalNamedKey.Home:
         let moved_cursor: CursorPosition = new CursorPosition:
             line: current_cursor.line
             column: 0
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.LineStart)
-
     if named_key is TerminalNamedKey.End:
         let end_column = propagate line_length_at(lines, current_cursor.line)
         let moved_cursor: CursorPosition = new CursorPosition:
             line: current_cursor.line
             column: end_column
         return updated_lines: lines, transition: moved_transition(state, moved_cursor, new EditorStatus.LineEnd)
-
     return updated_lines: lines, transition: propagate invalid_named_key_transition(state)

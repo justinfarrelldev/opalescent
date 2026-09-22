@@ -1,12 +1,3 @@
-##
-  Description: Validates the Bytes stdlib surface end to end.
-
-  Expected stdout:
-    length: 4
-    first: deadbeef
-    doubled: 8
-    slice: deadbeef
-##
 import bytes_from_hex, bytes_to_hex, bytes_concatenate, bytes_slice from standard
 
 ##
@@ -21,22 +12,16 @@ entry main = f(args: string[]): void errors BytesErrors =>
     guard bytes_from_hex('deadbeef') into buffer else decode_error =>
         print('decode error: {decode_error}')
         propagate decode_error
-
     let original_length: int32 = buffer.length
     print('length: {original_length}')
-
     let hex_first: string = bytes_to_hex(buffer)
     print('first: {hex_first}')
-
     let doubled: Bytes = bytes_concatenate(buffer, buffer)
     let doubled_length: int32 = doubled.length
     print('doubled: {doubled_length}')
-
     guard bytes_slice(doubled, 0, 4) into first_half else slice_error =>
         print('slice error: {slice_error}')
         propagate slice_error
-
     let hex_slice: string = bytes_to_hex(first_half)
     print('slice: {hex_slice}')
     return void
-

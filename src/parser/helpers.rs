@@ -336,6 +336,33 @@ impl Parser {
         }
     }
 
+    /// Skip trivia after an indented sub-block while deferring top-level comments.
+    pub(super) fn skip_trivia_defer_top_level_comments(&mut self) {
+        while !self.is_at_end() {
+            match self.current_token().token_type.clone() {
+                TokenType::DocComment(content) if self.current_token().span.start.column == 1 => {
+                    let span = self.current_token().span;
+                    self.deferred_doc_comments.push((content, span));
+                    self.advance();
+                }
+                TokenType::Comment(_) if self.current_token().span.start.column == 1 => {
+                    let comment_token = self.advance().clone();
+                    let id = self.next_node_id();
+                    self.deferred_comment_declarations
+                        .push(crate::ast::Decl::Comment {
+                            text: comment_token.lexeme,
+                            span: comment_token.span,
+                            id,
+                        });
+                }
+                TokenType::Newline | TokenType::Comment(_) | TokenType::DocComment(_) => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+    }
+
     /// Skip newline tokens only, preserving all comment tokens.
     pub(super) fn skip_newlines(&mut self) {
         while !self.is_at_end() {

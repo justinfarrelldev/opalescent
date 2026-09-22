@@ -108,12 +108,16 @@ let create_horizontal_seed_board = f(): int8[] =>
 ##
   Description: Selected typed-event-session fixture for deterministic interactive Game of Life controls and final state accounting.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let width: int64 = 3
     let height: int64 = 3
     let mutable board: int8[] = create_vertical_seed_board()
@@ -128,18 +132,15 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable reseeds: int64 = 0
     let mutable quit = false
     let mutable running = true
-
     while running and frames < 6:
         if not paused:
             board = next_generation(board, width, height)
             generation = generation + 1
-
         frames = frames + 1
         let live_cells = count_live_cells(board)
         let frame = propagate trusted_terminal_output_from_application_text('LIFE_FRAME generation={generation} frame={frames} paused={paused} speed_ms={speed_ms} live_cells={live_cells}\n')
         propagate terminal_session_write_sync(ref session, frame)
         propagate terminal_session_flush_sync(ref session)
-
         let wait = new TerminalWait.Poll
         let event = propagate terminal_session_read_event_sync(mutable ref session, wait, token)
         if event is TerminalInputEvent.Key:
@@ -166,7 +167,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
-
     let final_live_cells = count_live_cells(board)
     let summary = propagate trusted_terminal_output_from_application_text('LIFE_INTERACTIVE_SUMMARY generation={generation} frames={frames} paused={paused} speed_ms={speed_ms} pauses={pauses} resumes={resumes} speed_ups={speed_ups} speed_downs={speed_downs} reseeds={reseeds} quit={quit} live_cells={final_live_cells} status=ok\n')
     propagate terminal_session_write_sync(ref session, summary)

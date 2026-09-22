@@ -1,9 +1,3 @@
-##
-  Description: Verifies the legacy empty Bytes constructor still compiles and runs.
-
-  Expected stdout:
-    legacy length: 0
-##
 import bytes_new from standard
 
 ##

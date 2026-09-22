@@ -11,7 +11,6 @@ let string_match = f(actual: string, expected: string): int64 =>
 entry main = f(args: string[]): void errors FilesystemPathErrors =>
     let mutable passed: int64 = 0
     let total: int64 = 50
-
     passed = passed + string_match(path_to_string(normalize_path(path_from(''))), '')
     passed = passed + string_match(path_to_string(normalize_path(path_from('.'))), '')
     passed = passed + string_match(path_to_string(normalize_path(path_from('./a'))), 'a')
@@ -27,7 +26,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors =>
     passed = passed + string_match(path_to_string(normalize_path(path_from('alpha/beta/../gamma'))), 'alpha/gamma')
     passed = passed + string_match(path_to_string(normalize_path(path_from('nested///path///leaf'))), 'nested/path/leaf')
     passed = passed + string_match(path_to_string(normalize_path(path_from('root/./branch/leaf.txt'))), 'root/branch/leaf.txt')
-
     passed = passed + string_match(path_to_string(join_path_components(path_from('home'), ['user', 'docs'])), 'home/user/docs')
     passed = passed + string_match(path_to_string(join_path_components(path_from('a/'), ['b'])), 'a/b')
     passed = passed + string_match(path_to_string(join_path_components(path_from('a'), ['/b', 'c'])), '/b/c')
@@ -41,7 +39,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors =>
     passed = passed + string_match(path_to_string(join_path_components(path_from('alpha'), ['.', 'beta'])), 'alpha/beta')
     passed = passed + string_match(path_to_string(join_path_components(path_from('alpha//'), ['beta', './leaf'])), 'alpha/beta/leaf')
     passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['nested///path', 'file.txt'])), 'base/nested/path/file.txt')
-
     let q0 = path_from('/home/user/doc.pdf')
     if path_file_name(q0) is 'doc.pdf' and path_file_extension(q0) is 'pdf' and path_to_string(path_parent_directory(q0)) is '/home/user':
         passed = passed + 1
@@ -84,37 +81,28 @@ entry main = f(args: string[]): void errors FilesystemPathErrors =>
     let q13 = path_from('relative/path/noext')
     if path_file_name(q13) is 'noext' and path_file_extension(q13) is '' and path_to_string(path_parent_directory(q13)) is 'relative/path':
         passed = passed + 1
-
     let a0 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/main.op'))
     if path_file_name(path_parent_directory(a0)) is 'src' and path_file_name(a0) is 'main.op':
         passed = passed + 1
-
     let a1 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/normalize.op'))
     if path_file_name(path_parent_directory(a1)) is 'path_ops' and path_file_name(a1) is 'normalize.op':
         passed = passed + 1
-
     let a2 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/join.op'))
     if path_file_name(path_parent_directory(a2)) is 'path_ops' and path_file_name(a2) is 'join.op':
         passed = passed + 1
-
     let a3 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.txt'))
     if path_file_name(path_parent_directory(a3)) is 'fixtures' and path_file_name(a3) is 'sample.txt':
         passed = passed + 1
-
     let a4 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.bad.txt'))
     if path_file_name(path_parent_directory(a4)) is 'fixtures' and path_file_name(a4) is 'sample.bad.txt':
         passed = passed + 1
-
     let a5 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/ghost.txt'))
     if path_file_name(path_parent_directory(a5)) is 'fixtures' and path_file_name(a5) is 'ghost.txt':
         passed = passed + 1
-
     let a6 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/../README.md'))
     if path_file_name(path_parent_directory(a6)) is 'fs-path-manipulation' and path_file_name(a6) is 'README.md':
         passed = passed + 1
-
     let a7 = propagate absolute_path_sync(path_from('/'))
     passed = passed + string_match(path_to_string(a7), '/')
-
     print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
     return void

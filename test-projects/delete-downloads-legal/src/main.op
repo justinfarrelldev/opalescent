@@ -15,10 +15,8 @@ let count_download_entries = f(folder_raw: string): int32 errors ParseError =>
 ##
 entry main = f(args: string[]): void =>
     let counted: int32 = guard count_download_entries('C:\\Users\\justi\\Downloads') into value: int32 else 0
-
     if counted is 0:
         print('LEGAL_PROPAGATED=outer-guard')
         return void
-
     print('UNEXPECTED_LEGAL_DELETE_SUCCESS')
     return void

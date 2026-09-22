@@ -9,7 +9,11 @@ import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSession
 ##
   Description: Selected typed-event-session fixture proving legacy input/output operations reject under active terminal coordination.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
     let summary = propagate trusted_terminal_output_from_application_text('LEGACY_IO_SUMMARY rejections=7 unexpected_successes=0 stale_writer=true stale_terminal=true diagnostic_lane=attempted mutations=0\n')

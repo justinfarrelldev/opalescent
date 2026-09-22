@@ -9,19 +9,21 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture for sticky cancellation winning before queued terminal input consumption.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let mutable source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     cancellation_request(mutable ref source)
-
     let mutable read_attempts: int64 = 0
     let mutable cancellations: int64 = 0
     let mutable consumed_after_cancel: int64 = 0
     let mutable running = true
-
     while running and read_attempts < 3:
         let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Forever, token)
         read_attempts = read_attempts + 1
@@ -32,7 +34,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
-
     let summary = propagate trusted_terminal_output_from_application_text('CANCEL_DEMO_SUMMARY read_attempts={read_attempts} cancellations={cancellations} consumed_after_cancel={consumed_after_cancel} sticky=true cleanup=closed\n')
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)

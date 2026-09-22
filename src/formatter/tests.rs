@@ -531,6 +531,163 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_formatter_emits_indented_function_body_without_braces() {
+        let source = "entry main = f(): void => { return void }";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("function body should format");
+
+        assert!(
+            formatted.contains("entry main = f(): void =>\n    return void"),
+            "function body should be an indented block, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains('{') && !formatted.contains('}'),
+            "function body formatting must not emit braces, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_preserves_lambda_return_labels() {
+        let source = "let pair = f(): first: int32, second: int32 => return first: 1, second: 2";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("labeled lambda should format");
+
+        assert!(
+            formatted.contains("let pair = f(): first: int32, second: int32 =>"),
+            "lambda return labels must be preserved, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_preserves_adjacent_type_doc_comments() {
+        let source = "##\n  Description: First documented type.\n##\ntype First:\n    value: string\n\n##\n  Description: Second documented type.\n##\ntype Second:\n    value: string\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("documented types should format");
+
+        assert!(
+            formatted.contains("Description: First documented type."),
+            "first doc comment should be preserved, got: {formatted}"
+        );
+        assert!(
+            formatted.contains("Description: Second documented type."),
+            "second doc comment should be preserved, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_escapes_newline_string_literals() {
+        let source = "let newline = '\\n'\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("escaped newline string should format");
+
+        assert!(
+            formatted.contains("'\\n'"),
+            "escaped newline should remain on one source line, got: {formatted:?}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_preserves_doc_comment_after_nested_constructor_block() {
+        let source = "##\n  Description: Makes the value.\n##\npublic let make_value = f(): CursorPosition =>\n    return new CursorPosition:\n        line: 0\n        column: 0\n\n##\n  Description: Measures the value.\n##\npublic let measure_value = f(value: string): int64 =>\n    return value.length\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("adjacent documented functions should format");
+
+        assert!(
+            formatted.contains("Description: Makes the value."),
+            "first doc comment should be preserved, got: {formatted}"
+        );
+        assert!(
+            formatted.contains("Description: Measures the value."),
+            "doc comment after constructor block should be preserved, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_renders_grouped_type_import_once() {
+        let source = "import type EditorMode, EditorCommand from ./editor.types\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("type import should format");
+
+        assert!(
+            formatted.contains("import type EditorMode, EditorCommand from ./editor.types"),
+            "grouped type imports should use one leading `type`, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains(", type"),
+            "grouped type imports must not repeat `type`, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_preserves_function_modifiers() {
+        let source = "pure add = f(a: int32, b: int32): int32 => return a + b\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("pure function should format");
+
+        assert!(
+            formatted.starts_with("pure add = f(a: int32, b: int32): int32 =>"),
+            "function modifiers should be preserved, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_keeps_multiline_guard_constructor_else_on_own_line() {
+        let source = concat!(
+            "entry main = f(): void errors InvalidFrameRateError =>\n",
+            "    guard new FrameClock:\n",
+            "        frames_per_second: -1\n",
+            "    else err =>\n",
+            "        propagate err\n",
+            "    return void\n"
+        );
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("guard constructor should format");
+
+        assert!(
+            formatted.contains("frames_per_second: -1\n    else err =>"),
+            "guard else should stay outside constructor fields, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_keeps_array_of_constructors_multiline() {
+        let source = concat!(
+            "type Flag:\n",
+            "    name: string\n",
+            "    description: string\n\n",
+            "public let flags: Flag[] = [\n",
+            "    new Flag:\n",
+            "        name: 'one'\n",
+            "        description: 'first'\n",
+            "    ,\n",
+            "    new Flag:\n",
+            "        name: 'two'\n",
+            "        description: 'second'\n",
+            "]\n"
+        );
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("array constructors should format");
+
+        assert!(
+            formatted.contains("[\n    new Flag:\n        name: 'one'"),
+            "array should remain multiline, got: {formatted}"
+        );
+        assert!(
+            formatted.contains("\n    ,\n    new Flag:"),
+            "constructor elements should be comma-separated on their own line, got: {formatted}"
+        );
+    }
+
     /// Formatting a public error-set declaration emits canonical multiline members.
     #[test]
     fn test_formatter_error_set_declaration() {
@@ -1191,12 +1348,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    loop =>\n",
             "        # first\n",
             "        break\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1213,12 +1369,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    for x in items:\n",
             "        # first\n",
             "        continue\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1235,12 +1390,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    while cond:\n",
             "        # first\n",
             "        continue\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1257,12 +1411,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    if cond:\n",
             "        # first\n",
             "        return void\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1279,12 +1432,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    guard expr into n else e =>\n",
             "        # first\n",
             "        return void\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1352,12 +1504,11 @@ mod formatter_tests {
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
-            "entry main = f(): void => {\n",
+            "entry main = f(): void =>\n",
             "    loop =>\n",
             "        ## doc ##\n",
             "        break\n",
-            "    return void\n",
-            "}\n"
+            "    return void\n"
         );
         assert_eq!(result, expected);
     }
@@ -1479,20 +1630,20 @@ mod formatter_tests {
         );
     }
 
-    // REGRESSION TEST: Ensures function bodies use arrow-brace syntax (=> {)
-    // while control flow uses colon-block syntax. Function bodies KEEP braces.
+    // REGRESSION TEST: Ensures function bodies use arrow plus an indented
+    // block, without braces.
     #[test]
     fn test_spec_compliance_function_body_arrow_syntax() {
         let source = "entry main = f(): void =>\n    return void\n";
         let fmt = Formatter::with_defaults();
         let formatted = fmt.format_source(source).expect("should format");
         assert!(
-            formatted.contains("=> {"),
-            "function bodies should use arrow-brace syntax per language spec, got: {formatted}"
+            formatted.contains("=>\n    return void"),
+            "function bodies should use arrow plus an indented block, got: {formatted}"
         );
         assert!(
-            !formatted.contains("=> :"),
-            "function bodies must NOT use colon syntax, got: {formatted}"
+            !formatted.contains('{') && !formatted.contains('}'),
+            "function bodies must NOT use braces, got: {formatted}"
         );
     }
 

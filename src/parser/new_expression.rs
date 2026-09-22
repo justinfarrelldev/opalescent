@@ -106,7 +106,7 @@ impl Parser {
         let mut fields = Vec::new();
         self.skip_newlines_and_comments();
         self.consume(&TokenType::Indent, "Expected indentation block start")?;
-        self.skip_newlines_and_comments();
+        self.skip_trivia_defer_top_level_comments();
 
         while !self.is_at_end() && !self.check(&TokenType::Dedent) {
             let field_token = self.advance().clone();
@@ -127,7 +127,7 @@ impl Parser {
                 span: field_span,
             });
 
-            self.skip_newlines_and_comments();
+            self.skip_trivia_defer_top_level_comments();
         }
 
         self.consume(

@@ -3,9 +3,6 @@
 
   Expected stdout:
     new syntax length: 0
-##
-
-##
   Description: Entry point that constructs an empty Bytes buffer and prints its length.
 ##
 entry main = f(args: string[]): void =>

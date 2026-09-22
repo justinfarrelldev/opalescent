@@ -7,13 +7,12 @@
 # import standard # not allowed
 
 import take_input, string_to_int32 from standard
-
 import random_int32 from math
 
 ##
   Description: starting point of the application
 ##
-entry main = f(args: string[]): void errors StandardInputReadError => {
+entry main = f(args: string[]): void errors StandardInputReadError =>
     print('What is your name?')
     let name = propagate take_input()
     # a random number between 1 and 5, inclusive for both (can be 1, can be 5)
@@ -21,7 +20,7 @@ entry main = f(args: string[]): void errors StandardInputReadError => {
     print('Hello, {name}! Guess a number between 1 and 5')
     # while and for are still available, but they're for loops that do not return values
     # These variables (user_input, user_number) are still immutable
-    let user_input, user_number = loop => {
+    let user_input, user_number = loop =>
         # take_input is part of standard library package
         let s = propagate take_input()
         ##
@@ -46,7 +45,6 @@ entry main = f(args: string[]): void errors StandardInputReadError => {
             # it makes it easy to skim and determine what is going on
         break user_input: s, user_number: n
         # success -> exit loop returning both values. Treated similar to a multiple-return
-    }
     print('{user_number}, huh? Let\'s see how close you are, {name}...')
     ##
       using "is" for == since it is more readable and you would use
@@ -64,4 +62,3 @@ entry main = f(args: string[]): void errors StandardInputReadError => {
         print('Too high, you lose!')
     return void
     # explicit "return void" is always required to ensure termination of functions is intentional
-}

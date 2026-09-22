@@ -1,4 +1,4 @@
-import pair, forwarded_pair from './producer'
+import pair, forwarded_pair from ./producer
 
 ##
   Description: Entry point validating imported labeled multi-return metadata for exact-name and explicit-renaming destructuring.

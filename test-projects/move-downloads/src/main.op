@@ -12,14 +12,11 @@ entry main = f(args: string[]): void errors FilesystemErrors, StandardInputReadE
     let folder = path_from('C:\\Users\\justi\\Downloads')
     let desktop_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop')
     let destination_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop\\To-Be-Deleted')
-
     wait_for_input('READY: press Enter to check the Desktop folder')
-
     guard path_exists_sync(desktop_folder) into desktop_exists else desktop_exists_err =>
         print('DESKTOP_EXISTS_ERR={desktop_exists_err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
         propagate desktop_exists_err
-
     if desktop_exists:
         wait_for_input('DESKTOP_EXISTS={path_to_string(desktop_folder)}; press Enter to check To-Be-Deleted')
     else:
@@ -27,12 +24,10 @@ entry main = f(args: string[]): void errors FilesystemErrors, StandardInputReadE
         print('The configured Desktop path was not found. If Desktop is under OneDrive, update desktop_folder and destination_folder.')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
         return void
-
     guard path_exists_sync(destination_folder) into destination_exists else exists_err =>
         print('DEST_EXISTS_ERR={exists_err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
         propagate exists_err
-
     if destination_exists:
         wait_for_input('DEST_EXISTS: press Enter to list Downloads')
     else:
@@ -42,27 +37,20 @@ entry main = f(args: string[]): void errors FilesystemErrors, StandardInputReadE
             wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
             propagate create_err
         wait_for_input('DEST_CREATED: press Enter to list Downloads')
-
     guard list_directory_sync(folder) into entries else err =>
         print('LIST_ERR={err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
         propagate err
-
     wait_for_input('LIST_OK: found {int64_to_string(entries.length)} entries; press Enter to begin moving')
-
     for item in entries:
         let child = join_path_components(folder, [item])
         let destination = join_path_components(destination_folder, [item])
-
         wait_for_input('NEXT_MOVE={path_to_string(child)} -> {path_to_string(destination)}; press Enter to move')
-
         guard move_path_sync(child, destination) else move_err =>
             print('MOVE_ERR={path_to_string(child)} -> {path_to_string(destination)}: {move_err}')
             wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
             propagate move_err
-
         wait_for_input('MOVE_ATTEMPT_DONE={path_to_string(child)}; press Enter to continue')
-
     print('moved_or_attempted={int64_to_string(entries.length)}')
     wait_for_input('DONE: press Enter to exit')
     return void

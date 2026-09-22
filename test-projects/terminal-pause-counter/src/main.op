@@ -5,22 +5,25 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture for pause delivery accounting through the final InputReset.PauseBoundary.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError,
+                                            IndexOutOfBoundsError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let mutable pre_pause_reads: int64 = 0
     while pre_pause_reads < 2:
         let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         pre_pause_reads = pre_pause_reads + 1
-
     let _pause_result = propagate terminal_session_pause_sync(mutable ref session)
     let event_count: int64 = 2
     let reset_count: int64 = 1
     let final_boundary = true
-
     let summary = propagate trusted_terminal_output_from_application_text('PAUSE_COUNTER_SUMMARY pre_pause_reads={pre_pause_reads} pause_events={event_count} input_resets={reset_count} final_boundary=InputReset.PauseBoundary observed={final_boundary}\n')
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)

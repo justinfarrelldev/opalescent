@@ -20,8 +20,9 @@ use crate::ast::{
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
 use crate::formatter::printer_helpers::{
-    escape_single_quoted_string, format_signature_errors_and_arrow, print_binary_op,
-    print_declaration_annotation, print_literal, print_pattern, print_type,
+    escape_single_quoted_string, format_array_literal, format_guard_header,
+    format_signature_errors_and_arrow, print_binary_op, print_declaration_annotation,
+    print_function_modifier_prefix, print_literal, print_pattern, print_type,
     print_type_declaration_form, print_unary_op,
 };
 use crate::formatter::rules;
@@ -163,7 +164,10 @@ impl Formatter {
                 let prev_is_comment = matches!(*prev, Decl::Comment { .. });
                 let current_is_comment = matches!(*decl, Decl::Comment { .. });
 
-                if prev_is_comment && current_is_comment {
+                if (prev_is_comment && current_is_comment)
+                    || (matches!(*prev, Decl::Import { .. })
+                        && matches!(*decl, Decl::Import { .. }))
+                {
                     parts.push(String::from("\n"));
                 } else {
                     parts.push(String::from("\n\n"));
@@ -190,6 +194,7 @@ impl Formatter {
                 ref body,
                 ref visibility,
                 ref is_entry,
+                ref modifiers,
                 ref doc_comment,
                 ref metadata,
                 ..
@@ -200,6 +205,7 @@ impl Formatter {
                     ""
                 };
                 let entry = if *is_entry { "entry " } else { "" };
+                let modifier_prefix = print_function_modifier_prefix(modifiers, *is_entry);
                 let params: Vec<String> = parameters
                     .iter()
                     .map(crate::ast::Parameter::to_signature_string)
@@ -222,7 +228,7 @@ impl Formatter {
                     _ => String::new(),
                 };
                 let signature_prefix = format!(
-                    "{indent}{vis}{entry}{name} = f({params_str}){returns}",
+                    "{indent}{vis}{modifier_prefix}{entry}{name} = f({params_str}){returns}",
                     indent = self.indent(depth)
                 );
                 let signature = format_signature_errors_and_arrow(
@@ -230,8 +236,8 @@ impl Formatter {
                     error_types,
                     self.config.max_line_width,
                 );
-                let body_str = self.print_stmt(body, depth);
-                let decl_str = format!("{signature} {body_str}");
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                let decl_str = format!("{signature}\n{body_str}");
                 if let Some(ref doc) = *doc_comment {
                     let doc_lines: Vec<String> = doc
                         .raw
@@ -352,6 +358,9 @@ impl Formatter {
                 ref source,
                 ..
             } => {
+                let all_type_imports = items
+                    .iter()
+                    .all(|item| matches!(*item, crate::ast::ImportItem::Type { .. }));
                 let items_str: Vec<String> = items
                     .iter()
                     .map(|item| match *item {
@@ -367,14 +376,14 @@ impl Formatter {
                             ref name,
                             ref alias,
                             ..
-                        } => alias.as_ref().map_or_else(
-                            || format!("type {name}"),
-                            |a| format!("type {name} as {a}"),
-                        ),
+                        } => alias
+                            .as_ref()
+                            .map_or_else(|| name.clone(), |a| format!("{name} as {a}")),
                     })
                     .collect();
+                let type_prefix = if all_type_imports { "type " } else { "" };
                 format!(
-                    "{}import {} from {source}",
+                    "{}import {type_prefix}{} from {source}",
                     self.indent(depth),
                     items_str.join(", ")
                 )
@@ -547,15 +556,13 @@ impl Formatter {
         match *stmt {
             Stmt::Block { ref statements, .. } => {
                 if statements.is_empty() {
-                    return String::from("{}");
+                    return format!("{indent}# empty");
                 }
-                let mut lines: Vec<String> = Vec::new();
-                lines.push(String::from("{"));
-                for s in statements {
-                    lines.push(self.print_stmt(s, depth.saturating_add(1)));
-                }
-                lines.push(format!("{indent}}}"));
-                lines.join("\n")
+                statements
+                    .iter()
+                    .map(|statement| self.print_stmt(statement, depth))
+                    .collect::<Vec<_>>()
+                    .join("\n")
             }
             Stmt::Let {
                 ref binding,
@@ -675,42 +682,15 @@ impl Formatter {
                 ..
             } => {
                 let expression_str = self.print_expr(expression, depth);
-                let uses_multi_bindings = success_bindings.len() > 1
-                    || success_bindings
-                        .first()
-                        .is_some_and(|binding| binding.returned_label.is_some());
-                let guard_header = if uses_multi_bindings {
-                    let rendered_bindings = success_bindings
-                        .iter()
-                        .map(|binding| {
-                            binding.returned_label.as_ref().map_or_else(
-                                || binding.name.clone(),
-                                |returned_label| format!("{returned_label}: {}", binding.name),
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    format!(
-                        "{indent}guard {expression_str} into {rendered_bindings} else {error_binding} =>"
-                    )
-                } else {
-                    success_binding.as_ref().map_or_else(
-                        || format!("{indent}guard {expression_str} else {error_binding} =>"),
-                        |binding| {
-                            let binding_type = success_binding_type
-                                .as_ref()
-                                .map_or_else(String::new, |ty| format!(": {}", print_type(ty)));
-                            let mutable = if *success_binding_is_mutable {
-                                " mutable"
-                            } else {
-                                ""
-                            };
-                            format!(
-                                "{indent}guard {expression_str} into {binding}{binding_type}{mutable} else {error_binding} =>"
-                            )
-                        },
-                    )
-                };
+                let guard_header = format_guard_header(
+                    &indent,
+                    &expression_str,
+                    success_binding.as_ref(),
+                    success_binding_type.as_ref(),
+                    *success_binding_is_mutable,
+                    success_bindings,
+                    error_binding,
+                );
                 if let Stmt::Block { ref statements, .. } = **else_body {
                     let mut lines = vec![guard_header];
                     lines.extend(
@@ -944,9 +924,11 @@ impl Formatter {
                 format!("({})", self.print_expr(expr, depth))
             }
             Expr::Array { ref elements, .. } => {
-                let elems: Vec<String> =
-                    elements.iter().map(|e| self.print_expr(e, depth)).collect();
-                format!("[{}]", elems.join(", "))
+                let elems: Vec<String> = elements
+                    .iter()
+                    .map(|element| self.print_expr(element, depth.saturating_add(1)))
+                    .collect();
+                format_array_literal(&elems, depth, &self.config.indent_unit())
             }
             Expr::If {
                 ref condition,
@@ -967,38 +949,51 @@ impl Formatter {
                 ..
             } => self.print_match_expr(scrutinee, arms, depth),
             Expr::Loop { ref body, .. } => {
-                let body_str = self.print_stmt(body, depth);
-                format!("loop => {body_str}")
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                format!("loop =>\n{body_str}")
             }
             Expr::Lambda {
                 ref params,
                 ref return_types,
                 ref body,
                 ref error_types,
+                ref metadata,
                 ..
             } => {
                 let params_str: Vec<String> = params
                     .iter()
                     .map(crate::ast::Parameter::to_signature_string)
                     .collect();
-                let ret_strs: Vec<String> = return_types.iter().map(print_type).collect();
-                let errors = if error_types.is_empty() {
-                    String::new()
-                } else {
-                    format!(" errors {}", error_types.join(", "))
-                };
-                let body_str = match *body {
-                    LambdaBody::Expression(ref e) => self.print_expr(e, depth),
-                    LambdaBody::Block(ref stmts) => {
-                        let inner: Vec<String> = stmts
-                            .iter()
-                            .map(|s| self.print_stmt(s, depth.saturating_add(1)))
-                            .collect();
-                        format!("{{\n{}\n{}}}", inner.join("\n"), self.indent(depth))
-                    }
-                };
+                let ret_strs: Vec<String> = return_types
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ty)| {
+                        metadata.return_labels.get(index).map_or_else(
+                            || print_type(ty),
+                            |label| format!("{label}: {}", print_type(ty)),
+                        )
+                    })
+                    .collect();
                 let ret = ret_strs.join(", ");
-                format!("f({}): {ret}{errors} => {body_str}", params_str.join(", "))
+                let signature_prefix = format!("f({}): {ret}", params_str.join(", "));
+                let signature = format_signature_errors_and_arrow(
+                    &signature_prefix,
+                    error_types,
+                    self.config.max_line_width,
+                );
+                match *body {
+                    LambdaBody::Expression(ref e) => {
+                        format!("{signature} {}", self.print_expr(e, depth))
+                    }
+                    LambdaBody::Block(ref statements) => {
+                        let body_str = statements
+                            .iter()
+                            .map(|statement| self.print_stmt(statement, depth.saturating_add(1)))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        format!("{signature}\n{body_str}")
+                    }
+                }
             }
             Expr::Guard {
                 ref expr,

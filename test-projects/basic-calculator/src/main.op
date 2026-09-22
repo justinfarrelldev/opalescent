@@ -1,4 +1,3 @@
-
 import take_input, string_to_float64 from standard
 
 ##
@@ -34,16 +33,13 @@ entry main = f(args: string[]): void errors ParseError, StandardInputReadError =
     guard string_to_float64(input1) into num1 else e =>
         print('Error: {e}')
         propagate e
-
     print('Enter an operation (+, -, *, /):')
     let operation = propagate take_input()
-
     print('Enter the second number:')
     let input2 = propagate take_input()
     guard string_to_float64(input2) into num2 else e =>
         print('Error: {e}')
         propagate e
-
     if operation is '+':
         let result = handle_add(num1, num2)
         print('{num1} + {num2} = {result}')
@@ -60,6 +56,5 @@ entry main = f(args: string[]): void errors ParseError, StandardInputReadError =
         let result = handle_divide(num1, num2)
         print('{num1} / {num2} = {result}')
         return void
-
     print('Unknown operation: {operation}')
-    return void    
+    return void

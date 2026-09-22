@@ -3,7 +3,21 @@ import path_from, path_to_string, path_file_name, join_path_components, create_d
 ##
   Description: Exercises Windows/MSVC file operations using spaced and non-ASCII paths and prints deterministic markers for the Wine harness.
 ##
-entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureError, FilesystemFullError, FileAlreadyExistsError, FileNotFoundError, WriteFailureError, IsADirectoryError, ReadFailureError, InvalidUtf8Error, DirectoryNotFoundError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, MoveFailureError, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors FilesystemPathErrors,
+                                            CreateFailureError,
+                                            FilesystemFullError,
+                                            FileAlreadyExistsError,
+                                            FileNotFoundError,
+                                            WriteFailureError,
+                                            IsADirectoryError,
+                                            ReadFailureError,
+                                            InvalidUtf8Error,
+                                            DirectoryNotFoundError,
+                                            DeleteFailureError,
+                                            DirectoryNotEmptyError,
+                                            IsNotADirectoryError,
+                                            MoveFailureError,
+                                            IndexOutOfBoundsError =>
     let project_root = 'test-projects/windows-file-ops/'
     let workspace = path_from('{project_root}workspace')
     let nested_dir = path_from('{project_root}workspace/dir with spaces')
@@ -15,7 +29,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
     let long_nested_dir = join_path_components(path_from('{project_root}workspace'), ['segment-0-long-name', 'segment-1-long-name', 'segment-2-long-name', 'segment-3-long-name', 'segment-4-long-name', 'segment-5-long-name', 'segment-6-long-name', 'segment-7-long-name', 'segment-8-long-name', 'segment-9-long-name', 'segment-10-long-name', 'segment-11-long-name', 'segment-12-long-name', 'segment-13-long-name', 'segment-14-long-name', 'segment-15-long-name', 'segment-16-long-name', 'segment-17-long-name'])
     let long_nested_file = join_path_components(long_nested_dir, [long_file_suffix])
     let long_nested_file_string = path_to_string(long_nested_file)
-
     guard delete_file_sync(summary_file) else cleanup_summary_err =>
         let _ignored_cleanup_summary_err = cleanup_summary_err
     guard delete_file_sync(renamed_file) else cleanup_renamed_err =>
@@ -30,13 +43,10 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
         let _ignored_cleanup_long_dir_err = cleanup_long_dir_err
     guard delete_directory_sync(workspace) else cleanup_workspace_err =>
         let _ignored_cleanup_workspace_err = cleanup_workspace_err
-
     propagate create_directory_recursive_sync(unicode_dir)
     print('MARKER:DIR_CREATED={path_to_string(unicode_dir)}')
-
     propagate create_file_sync(original_file)
     print('MARKER:FILE_CREATED={path_to_string(original_file)}')
-
     propagate append_text_sync(original_file, 'alpha')
     propagate append_text_sync(original_file, '\nbeta')
     let original_text = propagate read_text_sync(original_file)
@@ -44,7 +54,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
         print('MARKER:READ_BEFORE_RENAME=ok')
     else:
         print('MARKER:READ_BEFORE_RENAME=mismatch')
-
     let listed = propagate list_directory_sync(unicode_dir)
     let original_file_name = path_file_name(original_file)
     let mutable original_match_count = 0
@@ -53,16 +62,13 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
             original_match_count = original_match_count + 1
     print('MARKER:LIST_COUNT={int64_to_string(listed.length)}')
     print('MARKER:LIST_HAS_ORIGINAL={int64_to_string(original_match_count)}')
-
     let dir_open_ok = propagate is_directory_sync(unicode_dir)
     if dir_open_ok:
         print('MARKER:DIR_OPEN=ok')
     else:
         print('MARKER:DIR_OPEN=unexpected-false')
-
     propagate move_path_sync(original_file, renamed_file)
     print('MARKER:RENAMED_TO={path_to_string(renamed_file)}')
-
     let original_exists_after_move = propagate path_exists_sync(original_file)
     let renamed_exists_after_move = propagate path_exists_sync(renamed_file)
     if original_exists_after_move:
@@ -73,16 +79,13 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
         print('MARKER:RENAMED_EXISTS_AFTER_MOVE=true')
     else:
         print('MARKER:RENAMED_EXISTS_AFTER_MOVE=false')
-
     let renamed_text = propagate read_text_sync(renamed_file)
     if renamed_text is 'alpha\nbeta':
         print('MARKER:READ_AFTER_RENAME=ok')
     else:
         print('MARKER:READ_AFTER_RENAME=mismatch')
-
     let nearest_supported_replace_note = 'move_path_sync used as nearest supported rename/replace operation'
     print('MARKER:RENAME_REPLACE_NOTE={nearest_supported_replace_note}')
-
     propagate create_directory_recursive_sync(long_nested_dir)
     propagate write_text_sync(long_nested_file, 'Hello, Opal!\n')
     let long_path_readback = propagate read_text_sync(long_nested_file)
@@ -91,7 +94,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
     else:
         print('MARKER:LONG_PATH_OK=false')
     print('MARKER:LONG_PATH_LEN={int64_to_string(long_nested_file_string.length)}')
-
     let summary_text = 'status=ready\nfile=résumé final.txt\ncontent=alpha\nbeta\ndir=dir with spaces/café'
     propagate write_text_sync(summary_file, summary_text)
     let summary_readback = propagate read_text_sync(summary_file)
@@ -99,20 +101,17 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureE
         print('MARKER:SUMMARY_WRITE=ok')
     else:
         print('MARKER:SUMMARY_WRITE=mismatch')
-
     propagate delete_file_sync(renamed_file)
     let renamed_exists_after_delete = propagate path_exists_sync(renamed_file)
     if renamed_exists_after_delete:
         print('MARKER:RENAMED_EXISTS_AFTER_DELETE=true')
     else:
         print('MARKER:RENAMED_EXISTS_AFTER_DELETE=false')
-
     propagate delete_directory_sync(unicode_dir)
     let unicode_dir_exists_after_delete = propagate path_exists_sync(unicode_dir)
     if unicode_dir_exists_after_delete:
         print('MARKER:UNICODE_DIR_EXISTS_AFTER_DELETE=true')
     else:
         print('MARKER:UNICODE_DIR_EXISTS_AFTER_DELETE=false')
-
     print('MARKER:FINAL_STATUS=ok')
     return void

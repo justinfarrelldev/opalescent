@@ -9,12 +9,16 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture for deterministic stopwatch and Pomodoro-style tick accounting without wall-clock assertions.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let mutable running_timer = false
     let mutable elapsed_ticks: int64 = 0
     let mutable starts: int64 = 0
@@ -24,12 +28,10 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable quit = false
     let mutable running = true
     let mutable reads: int64 = 0
-
     while running and reads < 10:
         let wait = new TerminalWait.Poll
         let event = propagate terminal_session_read_event_sync(mutable ref session, wait, token)
         reads = reads + 1
-
         if event is TerminalInputEvent.TimedOut:
             if running_timer:
                 elapsed_ticks = elapsed_ticks + 1
@@ -55,11 +57,9 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
-
         let tick_view = propagate trusted_terminal_output_from_application_text('STOPWATCH_TICK reads={reads} elapsed_ticks={elapsed_ticks} running={running_timer} stale_wakes={stale_wakes}\n')
         propagate terminal_session_write_sync(ref session, tick_view)
         propagate terminal_session_flush_sync(ref session)
-
     let summary = propagate trusted_terminal_output_from_application_text('STOPWATCH_POMODORO_SUMMARY elapsed_ticks={elapsed_ticks} starts={starts} stops={stops} resets={resets} stale_wakes={stale_wakes} running={running_timer} quit={quit} status=ok\n')
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)

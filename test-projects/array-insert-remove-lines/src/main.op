@@ -5,7 +5,6 @@ entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFai
     let lines: string[] = ['alpha', 'gamma']
     let inserted = propagate lines.insert(1 as int64, 'beta')
     let updated, removed = propagate inserted.remove_at(0 as int64)
-
     print('inserted length {inserted.length}')
     print('inserted {propagate inserted.at(0)} {propagate inserted.at(1)} {propagate inserted.at(2)}')
     print('updated length {updated.length}')

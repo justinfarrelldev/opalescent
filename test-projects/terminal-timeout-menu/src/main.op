@@ -7,7 +7,11 @@ import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSession
 ##
   Description: Selected typed-event-session fixture for a finite-wait timeout menu with deterministic default selection.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
     let menu = propagate trusted_terminal_output_from_application_text('Choose an action:\n1) Continue\n2) Use default\n3) Help\n')

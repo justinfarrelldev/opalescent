@@ -1,0 +1,9 @@
+- [x] Revert experimental `terminal-simple-editor` formatting output that contained braces
+- [x] Fix formatter so block bodies do not emit `{ ... }`
+- [x] Verify formatter preserves multi-return labels, doc comments, and escaped string literals on `terminal-simple-editor`
+- [x] Format `test-projects/terminal-simple-editor` first and inspect results
+- [x] Identify valid test projects to format
+- [x] Format every valid test project
+- [x] Run bounded validation after formatting
+- [x] Review formatting changes
+- [x] Commit formatting changes

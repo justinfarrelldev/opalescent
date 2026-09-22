@@ -6,7 +6,6 @@ import append from standard
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let empty: int32[] = []
     print('empty length {empty.length}')
-
     let literal: int32[] = [1, 2]
     let alias = literal
     let appended_value: int32 = 3
@@ -16,7 +15,6 @@ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     print('alias sees literal {propagate alias.at(0)} {propagate alias.at(1)}')
     print('appended length {appended.length}')
     print('appended values {propagate appended.at(0)} {propagate appended.at(1)} {propagate appended.at(2)}')
-
     let mutable rebound: int32[] = [7, 8]
     let rebound_alias = rebound
     rebound.push(9)

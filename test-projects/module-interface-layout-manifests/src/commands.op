@@ -39,7 +39,6 @@ public let apply_editor_command = f(state: EditorState, command: EditorCommand):
             command: command
             status: state.status
             running: false
-
     if command is EditorCommand.Invalid into invalid:
         return new EditorState:
             lines: state.lines
@@ -51,5 +50,4 @@ public let apply_editor_command = f(state: EditorState, command: EditorCommand):
             status: new EditorStatus.CommandError:
                 text: invalid.text
             running: true
-
     return state

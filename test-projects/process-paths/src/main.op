@@ -4,7 +4,11 @@ import path_to_string, path_exists_sync, is_directory_sync from standard
 ##
   Description: Exercises process cwd/path runtime functions with structural checks only.
 ##
-entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError =>
+entry main = f(args: string[]): void errors FilesystemPathErrors,
+                                            CurrentWorkingDirectoryUnavailableError,
+                                            CurrentExecutablePathUnavailableError,
+                                            FileNotFoundError,
+                                            IsNotADirectoryError =>
     let original_cwd = propagate current_working_directory_sync()
     let original_cwd_string = path_to_string(original_cwd)
     let original_cwd_exists = propagate path_exists_sync(original_cwd)
@@ -21,7 +25,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorking
         print('cwd_is_directory=true')
     else:
         print('cwd_is_directory=false')
-
     let executable_path = propagate current_executable_path_sync()
     let executable_path_string = path_to_string(executable_path)
     let executable_path_exists = propagate path_exists_sync(executable_path)
@@ -33,7 +36,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorking
         print('exe_path_exists=true')
     else:
         print('exe_path_exists=false')
-
     let executable_directory = propagate current_executable_directory_sync()
     let executable_directory_string = path_to_string(executable_directory)
     let executable_directory_exists = propagate path_exists_sync(executable_directory)
@@ -50,7 +52,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorking
         print('exe_dir_is_directory=true')
     else:
         print('exe_dir_is_directory=false')
-
     propagate set_current_working_directory_sync(executable_directory)
     let changed_cwd = propagate current_working_directory_sync()
     let changed_cwd_string = path_to_string(changed_cwd)
@@ -68,7 +69,6 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorking
         print('changed_cwd_is_directory=true')
     else:
         print('changed_cwd_is_directory=false')
-
     propagate set_current_working_directory_sync(original_cwd)
     let restored_cwd = propagate current_working_directory_sync()
     let restored_cwd_string = path_to_string(restored_cwd)
@@ -76,5 +76,4 @@ entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorking
         print('cwd_restored=true')
     else:
         print('cwd_restored=false')
-
     return void

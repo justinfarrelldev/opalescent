@@ -1,6 +1,3 @@
-##
-  Description: Imports from the offending types module
-##
 import type Person from ./models.types
 
 ##

@@ -8,10 +8,8 @@ entry main = f(args: string[]): void errors StringBuilderErrors =>
     propagate string_builder_push(builder, 'done')
     let text = propagate string_builder_finish(builder)
     print(text)
-
     guard string_builder_push(builder, '!') else err =>
         print('BuilderFinishedError:{err}')
         propagate err
-
     print('UNEXPECTED_SUCCESS')
     return void

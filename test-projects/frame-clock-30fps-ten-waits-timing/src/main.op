@@ -7,9 +7,7 @@ entry main = f(args: string[]): void errors InvalidFrameRateError =>
     let clock = propagate new FrameClock:
         frames_per_second: 30
     let mutable count = 0
-
     while count < 10:
         propagate frame_clock_wait_next_sync(clock)
         count = count + 1
-
     return void

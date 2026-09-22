@@ -1,11 +1,10 @@
-
 ##
-	Description: Builds RC string and array values and prints stable output
+    Description: Builds RC string and array values and prints stable output
 ##
 entry main = f(args: string[]): void =>
-	let first = 'hello'
-	let second = 'world'
-	let words = [first, second]
-	let _words_count = words.length
-	print('rc-basic: {first} {second}')
-	return void
+    let first = 'hello'
+    let second = 'world'
+    let words = [first, second]
+    let _words_count = words.length
+    print('rc-basic: {first} {second}')
+    return void

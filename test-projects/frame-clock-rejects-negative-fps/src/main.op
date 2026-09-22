@@ -10,6 +10,5 @@ entry main = f(args: string[]): void errors InvalidFrameRateError =>
     else err =>
         print('fps=-1:{err}')
         propagate err
-
     print('UNEXPECTED_SUCCESS fps=-1')
     return void

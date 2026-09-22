@@ -20,30 +20,37 @@ let should_confirm = f(prompt: string): boolean errors StandardInputReadError =>
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNotFoundError, FilesystemPathErrors, ReadFailureError, IsNotADirectoryError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors StandardInputReadError,
+                                            DirectoryNotFoundError,
+                                            FilesystemPathErrors,
+                                            ReadFailureError,
+                                            IsNotADirectoryError,
+                                            CurrentWorkingDirectoryUnavailableError,
+                                            FileNotFoundError,
+                                            MoveFailureError,
+                                            FileAlreadyExistsError,
+                                            CreateFailureError,
+                                            FilesystemFullError,
+                                            InvalidEnvironmentVariableNameError,
+                                            InvalidUtf8Error,
+                                            IndexOutOfBoundsError =>
     let dest = propagate trash_directory()
-
     if args.length < 2:
         print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
         return void
-
     let first_arg = propagate args.at(1)
     if first_arg is '--help' or first_arg is 'help':
         print_help(dest)
         return void
-
     if first_arg is '--version':
         print('saferm 1.0.0')
         return void
-
     guard current_working_directory_sync() into cwd else e =>
         print('An error occurred: {e}')
         propagate e
-
     guard create_trash_path_if_not_exists(dest) else e =>
         print('An error occurred while creating {path_to_string(dest)}: {e}')
         propagate e
-
     let mutable force = false
     let mutable verbose = false
     let mutable recursive = false
@@ -57,85 +64,67 @@ entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNot
     let mutable parse_options = true
     let mutable operands: string[] = []
     let mutable operand_count: int64 = 0
-
     let mutable option_index = 1
     while option_index < args.length:
         let arg: string = propagate args.at(option_index)
-
         if parse_options:
             let mutable handled_option = false
-
             # `--` is getopt's end-of-options marker; everything after it is a path.
             if arg is '--':
                 parse_options = false
                 handled_option = true
-
             if arg is '--restore':
                 restore = true
                 handled_option = true
-
             if contains_string(help_options, arg):
                 print_help(dest)
                 return void
-
             if contains_string(version_options, arg):
                 print('saferm 1.0.0')
                 return void
-
             if contains_string(force_options, arg):
                 force = true
                 prompt_each = false
                 prompt_once = false
                 handled_option = true
-
             if contains_string(prompt_each_options, arg):
                 prompt_each = true
                 prompt_once = false
                 force = false
                 handled_option = true
-
             if contains_string(prompt_once_options, arg):
                 prompt_each = false
                 prompt_once = true
                 force = false
                 handled_option = true
-
             if contains_string(prompt_never_options, arg):
                 prompt_each = false
                 prompt_once = false
                 handled_option = true
-
             if contains_string(recursive_options, arg):
                 recursive = true
                 handled_option = true
-
             if contains_string(no_preserve_root_options, arg):
                 preserve_root = false
                 preserve_root_all = false
                 handled_option = true
-
             if contains_string(preserve_root_options, arg):
                 preserve_root = true
                 preserve_root_all = false
                 handled_option = true
-
             if contains_string(preserve_root_all_options, arg):
                 preserve_root = true
                 preserve_root_all = true
                 handled_option = true
-
             if contains_string(verbose_options, arg):
                 verbose = true
                 handled_option = true
-
             if contains_string(dir_options, arg):
                 dir_mode = true
                 handled_option = true
-
             if contains_string(one_file_system_options, arg):
                 one_file_system = true
                 handled_option = true
-
             if handled_option is false:
                 if starts_with_dash(arg):
                     print('saferm: unrecognized option {arg}')
@@ -145,32 +134,24 @@ entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNot
         else:
             operands.push(arg)
             operand_count = operand_count + 1
-
         option_index = option_index + 1
-
     if preserve_root_all:
         print('saferm: --preserve-root=all requires filesystem device identity support that Opalescent does not expose yet')
         return void
-
     if one_file_system:
         print('saferm: --one-file-system requires filesystem device identity support that Opalescent does not expose yet')
         return void
-
     if restore and operand_count is 0:
         print('Options that can be restored:')
         let trash_files: string[] = propagate get_trash_entries(dest)
-
         for file in trash_files:
             print('- {file}')
-
         return void
-
     if operand_count is 0:
         if force:
             return void
         print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
         return void
-
     if prompt_once:
         if operand_count > 3 or recursive:
             let confirmed = propagate should_confirm('saferm: move selected items to trash?')
@@ -178,24 +159,19 @@ entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNot
                 print('saferm: proceeding')
             else:
                 return void
-
     for operand in operands:
         let source = join_path_components(cwd, [operand])
-
         if restore is false:
             if operand is '.' or operand is '..':
                 print('saferm: refusing to remove . or .. directory')
                 continue
-
             if targets_current_directory(cwd, source):
                 print('saferm: refusing to remove . or .. directory')
                 continue
-
             if preserve_root and recursive:
                 if targets_root_directory(source):
                     print('saferm: it is dangerous to operate recursively on /')
                     continue
-
         if prompt_each:
             let confirmed = propagate should_confirm('saferm: move {operand} to trash?')
             if confirmed:
@@ -203,7 +179,6 @@ entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNot
                     print('saferm: confirmed {operand}')
             else:
                 continue
-
         if restore:
             if propagate trash_entry_exists(dest, operand):
                 guard move_to_destination(operand, dest, cwd, force, verbose) else e =>
@@ -219,15 +194,12 @@ entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNot
                     if recursive is false and dir_mode is false:
                         print('saferm: cannot remove {operand}: Is a directory')
                         continue
-
                     if recursive is false and dir_mode:
                         let directory_entries = propagate list_directory_sync(source)
                         if directory_entries.length > 0:
                             print('saferm: cannot remove {operand}: Directory not empty')
                             continue
-
             guard move_to_destination(operand, cwd, dest, force, verbose) else e =>
                 print('An error occurred while moving {operand}: {e}')
                 propagate e
-
     return void

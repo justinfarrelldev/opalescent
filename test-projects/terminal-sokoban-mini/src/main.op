@@ -28,12 +28,16 @@ let is_wall = f(x: int64, y: int64): boolean =>
 ##
   Description: Selected typed-event-session fixture for deterministic tiny Sokoban movement, reset, redraw, and quit handling.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+entry main = f(args: string[]): void errors TerminalSessionOpenError,
+                                            TerminalSessionReadError,
+                                            TerminalSessionWriteError,
+                                            TerminalSessionStateError,
+                                            TerminalSessionRestoreError,
+                                            AllocationFailureError =>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let start_player_x: int64 = 1
     let start_player_y: int64 = 1
     let start_box_x: int64 = 2
@@ -52,7 +56,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable quit = false
     let mutable running = true
     let mutable reads: int64 = 0
-
     while running and reads < 6:
         let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         reads = reads + 1
@@ -60,7 +63,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
         let mutable dy: int64 = 0
         let mutable requested_move = false
         let mutable requested_reset = false
-
         if event is TerminalInputEvent.Key:
             if reads is 1:
                 dx = 1
@@ -79,7 +81,6 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             box_x = start_box_x
             box_y = start_box_y
             resets = resets + 1
-
         if requested_move:
             let next_player_x = player_x + dx
             let next_player_y = player_y + dy
@@ -102,19 +103,16 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
                     player_x = next_player_x
                     player_y = next_player_y
                     moves = moves + 1
-
         if event is TerminalInputEvent.EndOfInput:
             running = false
         if event is TerminalInputEvent.Cancelled:
             running = false
-
         if requested_move or requested_reset or quit:
             redraws = redraws + 1
             let solved = box_x is target_x and box_y is target_y
             let frame = propagate trusted_terminal_output_from_application_text('SOKOBAN_FRAME redraw={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved}\n')
             propagate terminal_session_write_sync(ref session, frame)
             propagate terminal_session_flush_sync(ref session)
-
     let solved = box_x is target_x and box_y is target_y
     let summary = propagate trusted_terminal_output_from_application_text('SOKOBAN_MINI_SUMMARY moves={moves} pushes={pushes} illegal_moves={illegal_moves} resets={resets} redraws={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved} quit={quit} status=ok\n')
     propagate terminal_session_write_sync(ref session, summary)

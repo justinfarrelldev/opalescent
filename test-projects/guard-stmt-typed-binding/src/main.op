@@ -7,7 +7,6 @@ entry main = f(args: string[]): void errors ParseError =>
     guard string_to_int32('42') into value: int32 mutable else parse_err =>
         print('UNEXPECTED_TYPED_BINDING_ERROR={parse_err}')
         propagate parse_err
-
     print('TYPED_BINDING_VALUE={int32_to_string(value)}')
     print('TYPED_BINDING_TYPED_MUTABLE=accepted')
     print('typed-binding-ok')
