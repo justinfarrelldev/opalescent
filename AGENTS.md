@@ -1,6 +1,6 @@
 # Plans
 
-Plans live in the `plans` folder on the top-level of the project. Follow plans exactly. While implementing a plan, create a checklist in the checklists folder (in `plans`) that is full of checklist bullet points that are kept UP-TO-DATE with the implementation status.
+Plans live in the `plans` folder on the top-level of the project. Follow plans exactly. While implementing a feature, create a checklist in the checklists folder (in `plans`) that is full of checklist bullet points that are kept UP-TO-DATE with the implementation status.
 
 ## Methodology
 
