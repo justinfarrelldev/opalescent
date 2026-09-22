@@ -21,3 +21,37 @@ After all planned work has been implemented, you must do a thorough code review 
 ## On Match Statements
 
 Match statements will not be coming to Opalescent for the time being. Please keep this in mind when drafting proposals.
+
+## Absolutely No Brackets
+
+No brackets around if-statements, no brackets around function bodies, no brackets around loops or guards....
+
+Correct:
+
+```opal
+entry main = f() => 
+    print('Hello, world!')
+```
+
+Incorrect:
+
+```opal
+entry main = f() => {
+    print('Hello, world!')
+}
+```
+
+Correct:
+
+```opal
+if num1 is 0:
+    print('Number is 0')
+```
+
+Incorrect:
+
+```
+if num1 is 0 {
+    print('Number is 0')
+}
+```
