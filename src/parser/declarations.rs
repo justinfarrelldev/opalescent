@@ -874,6 +874,7 @@ impl Parser {
 
         self.advance(); // consume 'errors' keyword
         let mut types = Vec::new();
+        self.skip_newlines();
 
         // Parse first error type (required after 'errors' keyword)
         if self.check_identifier() {
@@ -894,9 +895,12 @@ impl Parser {
             });
         }
 
-        // Parse additional error types separated by commas
+        // Parse additional error types separated by commas. The formatter may
+        // place each error on its own physical line while keeping the clause as
+        // one logical signature, so newlines after commas are trivia here.
         while self.check(&TokenType::Comma) {
             self.advance(); // consume comma
+            self.skip_newlines();
             if self.check_identifier() {
                 let token = self.advance();
                 if let &TokenType::Identifier(ref error_type_name) = &token.token_type {

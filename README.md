@@ -297,7 +297,7 @@ Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must 
 | `opal run` | working | Compile and run the current `opal.toml` project. |
 | `opal check <file.op>` | working | Lex, parse, validate file role, and type-check. |
 | `opal build` | working | Build the current `opal.toml` project. |
-| `opal fmt [--check] [--config <path>] [--output <path>] <file>` | working, but not perfect | Format Opalescent source. Needs additional work done in the future. |
+| `opal fmt [--check] [--config <path>] [--output <path>] <file>` / `opal fmt --project [path] [--check] [--config <path>]` | working, but not perfect | Format one Opalescent source file or every `.op` file in a project. Needs additional work done in the future. |
 | `opal doc <file.op>` | working | Generate Markdown documentation from doc comments. |
 | `opal test [--filter <pattern>] [--target <triple>]` | stub | CLI is wired up but runs against an empty test suite; no project test discovery is implemented. |
 | `opal bench` | stub | Runs two hard-coded micro-benchmarks (`parse` and `typecheck` on `"let x = 1"`); project-level benchmark discovery is not implemented. |

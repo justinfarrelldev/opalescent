@@ -483,6 +483,54 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_formatter_wraps_long_error_clause_at_default_width() {
+        let source = "##\n  Description: Runs a tiny modal terminal editor with normal, insert, and command modes.\n##\nentry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemWriteErrors, IndexOutOfBoundsError, AllocationFailureError, StringRangeErrors, TerminalTextLayoutError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError, InvalidEnvironmentVariableNameError => return void";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("long error clause should format");
+
+        assert!(
+            formatted.contains(
+                "entry main = f(args: string[]): void errors FilesystemReadErrors,\n                                            FilesystemWriteErrors,\n                                            IndexOutOfBoundsError,"
+            ),
+            "long errors should wrap and align under the first error, got: {formatted}"
+        );
+        assert!(
+            formatted.contains(
+                "                                            InvalidEnvironmentVariableNameError =>"
+            ),
+            "last wrapped error should carry the function arrow, got: {formatted}"
+        );
+        let second_pass = Formatter::with_defaults()
+            .format_source(&formatted)
+            .expect("wrapped error clause should reformat cleanly");
+        assert_eq!(
+            formatted, second_pass,
+            "wrapped error clause formatting should be idempotent"
+        );
+    }
+
+    #[test]
+    fn test_formatter_honors_configured_error_clause_width() {
+        let source = "entry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemWriteErrors => return void";
+        let wide = Formatter::new(FormatterConfig::new(4, 120, false))
+            .format_source(source)
+            .expect("wide formatting should succeed");
+        let narrow = Formatter::new(FormatterConfig::new(4, 60, false))
+            .format_source(source)
+            .expect("narrow formatting should succeed");
+
+        assert!(
+            wide.contains("errors FilesystemReadErrors, FilesystemWriteErrors =>"),
+            "wide config should keep short error clauses on one line, got: {wide}"
+        );
+        assert!(
+            narrow.contains("errors FilesystemReadErrors,\n                                            FilesystemWriteErrors =>"),
+            "narrow config should wrap error clauses, got: {narrow}"
+        );
+    }
+
     /// Formatting a public error-set declaration emits canonical multiline members.
     #[test]
     fn test_formatter_error_set_declaration() {

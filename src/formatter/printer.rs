@@ -20,8 +20,9 @@ use crate::ast::{
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
 use crate::formatter::printer_helpers::{
-    escape_single_quoted_string, print_binary_op, print_declaration_annotation, print_literal,
-    print_pattern, print_type, print_type_declaration_form, print_unary_op,
+    escape_single_quoted_string, format_signature_errors_and_arrow, print_binary_op,
+    print_declaration_annotation, print_literal, print_pattern, print_type,
+    print_type_declaration_form, print_unary_op,
 };
 use crate::formatter::rules;
 use crate::lexer::Lexer;
@@ -220,16 +221,17 @@ impl Formatter {
                     }
                     _ => String::new(),
                 };
-                let errors = if error_types.is_empty() {
-                    String::new()
-                } else {
-                    format!(" errors {}", error_types.join(", "))
-                };
-                let body_str = self.print_stmt(body, depth);
-                let decl_str = format!(
-                    "{indent}{vis}{entry}{name} = f({params_str}){returns}{errors} => {body_str}",
+                let signature_prefix = format!(
+                    "{indent}{vis}{entry}{name} = f({params_str}){returns}",
                     indent = self.indent(depth)
                 );
+                let signature = format_signature_errors_and_arrow(
+                    &signature_prefix,
+                    error_types,
+                    self.config.max_line_width,
+                );
+                let body_str = self.print_stmt(body, depth);
+                let decl_str = format!("{signature} {body_str}");
                 if let Some(ref doc) = *doc_comment {
                     let doc_lines: Vec<String> = doc
                         .raw

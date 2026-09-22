@@ -1,5 +1,16 @@
 use super::{help_text, run_with_args};
 
+fn unique_temp_dir(name: &str) -> std::path::PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let path =
+        std::env::temp_dir().join(format!("opalescent-{name}-{}-{nanos}", std::process::id()));
+    std::fs::create_dir_all(&path).expect("temp directory should be created");
+    path
+}
+
 #[test]
 fn top_level_help_contains_all_commands() {
     let help = help_text(None);
@@ -36,6 +47,7 @@ fn help_fmt_shows_all_flags() {
     let help = help_text(Some("fmt"));
     assert!(help.contains("--check"));
     assert!(help.contains("--config"));
+    assert!(help.contains("--project"));
 }
 
 #[test]
@@ -155,6 +167,97 @@ fn fmt_config_flag_accepted() {
     drop(std::fs::remove_file(&tmp_src));
     drop(std::fs::remove_file(&tmp_cfg));
     assert!(result == Ok(()) || result == Err(1));
+}
+
+#[test]
+fn fmt_project_formats_opalescent_files_recursively() {
+    let root = unique_temp_dir("fmt-project");
+    let src_dir = root.join("src");
+    let nested_dir = src_dir.join("nested");
+    let target_dir = root.join("target");
+    std::fs::create_dir_all(&nested_dir).unwrap();
+    std::fs::create_dir_all(&target_dir).unwrap();
+    std::fs::write(
+        root.join("opal.toml"),
+        "name = 'fmt_project'\nversion = '0.1.0'\n",
+    )
+    .unwrap();
+    std::fs::write(
+        src_dir.join("main.op"),
+        "entry main = f(): void => return void\n",
+    )
+    .unwrap();
+    std::fs::write(
+        nested_dir.join("helper.op"),
+        "let helper = f(): int32 => return 1\n",
+    )
+    .unwrap();
+    std::fs::write(
+        src_dir.join("models.types.op"),
+        "type Person:\n    name:string\n",
+    )
+    .unwrap();
+    std::fs::write(
+        target_dir.join("generated.op"),
+        "let generated=f():int32=>return 1\n",
+    )
+    .unwrap();
+
+    let args = [
+        "opal".to_string(),
+        "fmt".to_string(),
+        "--project".to_string(),
+        root.to_string_lossy().to_string(),
+    ];
+    let result = run_with_args(&args);
+
+    let main = std::fs::read_to_string(src_dir.join("main.op")).unwrap();
+    let helper = std::fs::read_to_string(nested_dir.join("helper.op")).unwrap();
+    let types = std::fs::read_to_string(src_dir.join("models.types.op")).unwrap();
+    let generated = std::fs::read_to_string(target_dir.join("generated.op")).unwrap();
+    drop(std::fs::remove_dir_all(&root));
+
+    assert_eq!(result, Ok(()));
+    assert!(
+        main.contains("    return void"),
+        "main.op should be formatted: {main}"
+    );
+    assert!(
+        helper.contains("    return 1"),
+        "nested helper should be formatted: {helper}"
+    );
+    assert!(
+        types.contains("name: string"),
+        "types file should be formatted: {types}"
+    );
+    assert_eq!(
+        generated, "let generated=f():int32=>return 1\n",
+        "target directory should not be formatted"
+    );
+}
+
+#[test]
+fn fmt_project_check_reports_unformatted_file_without_writing() {
+    let root = unique_temp_dir("fmt-project-check");
+    let src_dir = root.join("src");
+    std::fs::create_dir_all(&src_dir).unwrap();
+    let source_path = src_dir.join("main.op");
+    let original = "entry main = f(): void => return void\n";
+    std::fs::write(&source_path, original).unwrap();
+
+    let args = [
+        "opal".to_string(),
+        "fmt".to_string(),
+        "--project".to_string(),
+        root.to_string_lossy().to_string(),
+        "--check".to_string(),
+    ];
+    let result = run_with_args(&args);
+    let after = std::fs::read_to_string(&source_path).unwrap();
+    drop(std::fs::remove_dir_all(&root));
+
+    assert_eq!(result, Err(1));
+    assert_eq!(after, original, "--check should not rewrite files");
 }
 
 #[test]

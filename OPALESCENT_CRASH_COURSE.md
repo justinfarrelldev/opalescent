@@ -643,10 +643,17 @@ Format one file:
 opal fmt src/main.op
 ```
 
+Format every `.op` file under the current project directory:
+
+```bash
+opal fmt --project
+```
+
 Check formatting without rewriting:
 
 ```bash
 opal fmt --check src/main.op
+opal fmt --project --check
 ```
 
 ## 25. Common footguns

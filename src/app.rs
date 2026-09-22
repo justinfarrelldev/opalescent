@@ -28,7 +28,7 @@ use crate::parser::Parser;
 use crate::testing::runner::{TestCommand, TestSuite};
 use std::fs;
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::time::Duration;
 
@@ -49,7 +49,7 @@ fn help_text(topic: Option<&str>) -> String {
             out.push_str("opal pkg <command>\n\nCommands:\n  init <name>              Initialise a new project manifest\n  add <pkg> <version>      Add a dependency\n  remove <pkg>             Remove a dependency\n  install                  Install all declared dependencies\n  publish                  Publish the package to the registry\n");
         }
         Some("fmt") => {
-            out.push_str("opal fmt [--check] [--config <path>] <file>\n\nFormat an Opalescent source file.\n  --check     Exit with error if file would change (CI mode)\n  --config    Path to opal-fmt.toml configuration file\n");
+            out.push_str("opal fmt [--check] [--config <path>] <file>\nopal fmt --project [path] [--check] [--config <path>]\n\nFormat Opalescent source files.\n  --check     Exit with error if any file would change (CI mode)\n  --config    Path to opal-fmt.toml configuration file\n  --project   Format every .op file under a project directory (default: .)\n");
         }
         Some("lsp") => {
             out.push_str("opal lsp [options]\n\nStart the Opalescent language server.\n  --stdio    Communicate over stdin/stdout (required for editor integration)\n");
@@ -349,77 +349,241 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
 
 /// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
 fn run_fmt_command(args: &[String]) -> Result<(), i32> {
-    let fmt_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
-    let check_mode = fmt_args.contains(&"--check");
-    let find_flag = |flag: &str| {
-        fmt_args
-            .iter()
-            .position(|&a| a == flag)
-            .and_then(|i| fmt_args.get(i.saturating_add(1)).copied())
-    };
-    let config_path = find_flag("--config");
-    let output_path = find_flag("--output");
-    let source_path = fmt_args
-        .iter()
-        .find(|&&a| !a.starts_with("--") && Some(a) != config_path && Some(a) != output_path)
-        .copied();
-    let Some(source_path) = source_path else {
-        eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
-        return Err(1);
-    };
+    let mut check_mode = false;
+    let mut config_path: Option<String> = None;
+    let mut output_path: Option<String> = None;
+    let mut project_root: Option<String> = None;
+    let mut source_path: Option<String> = None;
+
+    let mut index = 2_usize;
+    while let Some(arg) = args.get(index).map(String::as_str) {
+        match arg {
+            "--check" => {
+                check_mode = true;
+                index = index.saturating_add(1);
+            }
+            "--config" => {
+                let Some(path) = args.get(index.saturating_add(1)) else {
+                    eprintln!("error: --config requires a path");
+                    return Err(1);
+                };
+                config_path = Some(path.clone());
+                index = index.saturating_add(2);
+            }
+            "--output" => {
+                let Some(path) = args.get(index.saturating_add(1)) else {
+                    eprintln!("error: --output requires a path");
+                    return Err(1);
+                };
+                output_path = Some(path.clone());
+                index = index.saturating_add(2);
+            }
+            "--project" => {
+                if args
+                    .get(index.saturating_add(1))
+                    .is_some_and(|next| !next.starts_with("--"))
+                {
+                    project_root = args.get(index.saturating_add(1)).cloned();
+                    index = index.saturating_add(2);
+                } else {
+                    project_root = Some(String::from("."));
+                    index = index.saturating_add(1);
+                }
+            }
+            unknown if unknown.starts_with("--") => {
+                eprintln!("error: unknown fmt option '{unknown}'");
+                return Err(1);
+            }
+            path => {
+                if source_path.is_some() {
+                    eprintln!("error: opal fmt accepts only one source file");
+                    return Err(1);
+                }
+                source_path = Some(path.to_owned());
+                index = index.saturating_add(1);
+            }
+        }
+    }
+
     if check_mode && output_path.is_some() {
         eprintln!("error: --check and --output cannot be used together");
         return Err(1);
     }
-    let source = fs::read_to_string(source_path).map_err(|e| {
-        eprintln!("error: failed to read '{source_path}': {e}");
-        1_i32
-    })?;
-    let formatted = if let Some(cfg_path) = config_path {
-        let cfg_str = match fs::read_to_string(cfg_path) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("error: failed to read config '{cfg_path}': {e}");
-                return Err(1);
-            }
-        };
-        let config = match FormatterConfig::from_toml_str(&cfg_str) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("error: invalid formatter config: {e}");
-                return Err(1);
-            }
-        };
-        match FormatCommand::new(source.clone()).execute_with_config(config) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("error: formatting failed: {e}");
-                return Err(1);
-            }
+
+    let config = load_formatter_config(config_path.as_deref())?;
+
+    if let Some(root) = project_root {
+        if source_path.is_some() {
+            eprintln!("error: --project cannot be combined with an explicit source file");
+            return Err(1);
         }
-    } else {
-        match FormatCommand::new(source.clone()).execute() {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("error: formatting failed: {e}");
-                return Err(1);
-            }
+        if output_path.is_some() {
+            eprintln!("error: --project and --output cannot be used together");
+            return Err(1);
+        }
+        return format_project(Path::new(&root), check_mode, &config);
+    }
+
+    let Some(source_path) = source_path else {
+        eprintln!(
+            "error: opal fmt requires a source file or --project — run 'opal help fmt' for usage"
+        );
+        return Err(1);
+    };
+
+    format_single_file(
+        Path::new(&source_path),
+        output_path.as_deref().map(Path::new),
+        check_mode,
+        &config,
+    )
+}
+
+/// Load formatter configuration from an optional TOML file path.
+fn load_formatter_config(config_path: Option<&str>) -> Result<FormatterConfig, i32> {
+    let Some(cfg_path) = config_path else {
+        return Ok(FormatterConfig::default());
+    };
+    let cfg_str = match fs::read_to_string(cfg_path) {
+        Ok(content) => content,
+        Err(error) => {
+            eprintln!("error: failed to read config '{cfg_path}': {error}");
+            return Err(1);
         }
     };
+    FormatterConfig::from_toml_str(&cfg_str).map_err(|error| {
+        eprintln!("error: invalid formatter config: {error}");
+        1_i32
+    })
+}
+
+/// Format one source file in place, to an output path, or in check-only mode.
+fn format_single_file(
+    source_path: &Path,
+    output_path: Option<&Path>,
+    check_mode: bool,
+    config: &FormatterConfig,
+) -> Result<(), i32> {
+    let source = fs::read_to_string(source_path).map_err(|error| {
+        eprintln!("error: failed to read '{}': {error}", source_path.display());
+        1_i32
+    })?;
+    let formatted = FormatCommand::new(source.clone())
+        .execute_with_config(config.clone())
+        .map_err(|error| {
+            eprintln!(
+                "error: formatting failed for '{}': {error}",
+                source_path.display()
+            );
+            1_i32
+        })?;
     if check_mode {
         if formatted != source {
-            eprintln!("error: {source_path} would be reformatted");
+            eprintln!("error: {} would be reformatted", source_path.display());
             return Err(1);
         }
         return Ok(());
     }
     let write_path = output_path.unwrap_or(source_path);
-    fs::write(write_path, &formatted).map_err(|e| {
-        eprintln!("error: failed to write '{write_path}': {e}");
+    fs::write(write_path, &formatted).map_err(|error| {
+        eprintln!("error: failed to write '{}': {error}", write_path.display());
         1_i32
     })?;
-    println!("{write_path}");
+    println!("{}", write_path.display());
     Ok(())
+}
+
+/// Format every Opalescent source file found under a project root.
+fn format_project(root: &Path, check_mode: bool, config: &FormatterConfig) -> Result<(), i32> {
+    let files = collect_opalescent_project_files(root).map_err(|error| {
+        eprintln!(
+            "error: failed to collect Opalescent files under '{}': {error}",
+            root.display()
+        );
+        1_i32
+    })?;
+
+    let mut would_change = Vec::new();
+    for file in &files {
+        let source = fs::read_to_string(file).map_err(|error| {
+            eprintln!("error: failed to read '{}': {error}", file.display());
+            1_i32
+        })?;
+        let formatted = FormatCommand::new(source.clone())
+            .execute_with_config(config.clone())
+            .map_err(|error| {
+                eprintln!("error: formatting failed for '{}': {error}", file.display());
+                1_i32
+            })?;
+        if formatted == source {
+            continue;
+        }
+        if check_mode {
+            would_change.push(file.clone());
+        } else {
+            fs::write(file, formatted).map_err(|error| {
+                eprintln!("error: failed to write '{}': {error}", file.display());
+                1_i32
+            })?;
+        }
+    }
+
+    if check_mode && !would_change.is_empty() {
+        for file in would_change {
+            eprintln!("error: {} would be reformatted", file.display());
+        }
+        return Err(1);
+    }
+
+    println!("formatted {} Opalescent file(s)", files.len());
+    Ok(())
+}
+
+/// Collect all project files with the `.op` extension in deterministic order.
+fn collect_opalescent_project_files(root: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
+    if !root.is_dir() {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "project path must be a directory",
+        ));
+    }
+
+    let mut files = Vec::new();
+    collect_opalescent_project_files_recursive(root, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+/// Recursively collect Opalescent source files, skipping generated/cache directories.
+fn collect_opalescent_project_files_recursive(
+    directory: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), std::io::Error> {
+    let mut entries = fs::read_dir(directory)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(std::fs::DirEntry::path);
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            if should_skip_fmt_project_directory(&path) {
+                continue;
+            }
+            collect_opalescent_project_files_recursive(&path, files)?;
+        } else if !file_type.is_dir() && path.extension().is_some_and(|extension| extension == "op")
+        {
+            files.push(path);
+        }
+    }
+
+    Ok(())
+}
+
+/// Return true for project subdirectories that should not be formatted recursively.
+fn should_skip_fmt_project_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| matches!(name, ".git" | "target"))
 }
 
 /// Dispatch `opal test` subcommand arguments to [`TestCommand`].

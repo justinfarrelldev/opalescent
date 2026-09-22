@@ -6646,6 +6646,29 @@ fn test_function_with_errors_whitespace_variations() {
 }
 
 #[test]
+fn test_function_with_multiline_errors_clause() {
+    let input = "entry main = f(args: string[]): void errors FilesystemReadErrors,\n                                            FilesystemWriteErrors,\n                                            IndexOutOfBoundsError =>\n    return void";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "formatter-style multiline errors clause should parse: {result:?}"
+    );
+
+    let program = result.unwrap();
+    let Decl::Function { error_types, .. } = &program.declarations[0] else {
+        unreachable!("Expected function declaration");
+    };
+    assert_eq!(
+        error_types,
+        &vec![
+            "FilesystemReadErrors".to_owned(),
+            "FilesystemWriteErrors".to_owned(),
+            "IndexOutOfBoundsError".to_owned(),
+        ]
+    );
+}
+
+#[test]
 fn test_function_declaration_with_errors() {
     // Test entry function with errors clause
     let input = "entry main = f(args: string[]): int32 errors AppError => 0";

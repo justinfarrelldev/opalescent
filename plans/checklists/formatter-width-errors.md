@@ -1,0 +1,6 @@
+- [x] Add failing formatter tests for default/configurable line width and multiline error clauses
+- [x] Implement formatter line width config defaulting to 100
+- [x] Implement multiline error clause formatting with aligned continuation errors
+- [x] Add parser support for formatted multiline error clauses before idempotency tests
+- [x] Add project-level `opal fmt` option and tests
+- [x] Run bounded targeted formatter/parser/project-format tests and review changes

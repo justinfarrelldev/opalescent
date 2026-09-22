@@ -9,6 +9,40 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+/// Format the optional `errors ...` clause and function arrow for a signature.
+pub(super) fn format_signature_errors_and_arrow(
+    prefix: &str,
+    error_types: &[String],
+    max_line_width: usize,
+) -> String {
+    if error_types.is_empty() {
+        return format!("{prefix} =>");
+    }
+
+    let one_line = format!("{prefix} errors {} =>", error_types.join(", "));
+    if one_line.chars().count() <= max_line_width || error_types.len() == 1 {
+        return one_line;
+    }
+
+    let error_prefix = format!("{prefix} errors ");
+    let continuation_indent = " ".repeat(error_prefix.chars().count());
+    let mut lines = Vec::with_capacity(error_types.len());
+    for (index, error_type) in error_types.iter().enumerate() {
+        let line_prefix = if index == 0 {
+            error_prefix.as_str()
+        } else {
+            continuation_indent.as_str()
+        };
+        let suffix = if index.saturating_add(1) == error_types.len() {
+            " =>"
+        } else {
+            ","
+        };
+        lines.push(format!("{line_prefix}{error_type}{suffix}"));
+    }
+    lines.join("\n")
+}
+
 /// Pretty-print a type annotation.
 pub(super) fn print_type(ty: &Type) -> String {
     match *ty {
