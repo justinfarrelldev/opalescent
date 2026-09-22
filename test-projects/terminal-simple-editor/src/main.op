@@ -1,15 +1,14 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync from 'standard.terminal'
-import terminal_session_write_sync, terminal_session_flush_sync from 'standard.terminal'
+import terminal_session_flush_sync from 'standard.terminal'
 import terminal_session_clear_screen_sync, terminal_session_draw_rows_sync, terminal_session_move_cursor_sync, terminal_session_bell_sync from 'standard.terminal'
 import cancellation_source_new, cancellation_token from 'standard.system'
 import path_from, read_lines_sync, string_length from standard
-import mode_normal, mode_command, command_none from ./constants
-import status_new_empty, status_opened, status_resized, status_cancelled, status_end_of_input from ./constants
-import termination_running, termination_cancelled, termination_end_of_input from ./constants
 import command_text_for, status_text_for, termination_text_for from ./labels
-import ensure_nonempty_lines, clamp_column_to_line, update_viewport from ./buffer
+import ensure_nonempty_lines, clamp_cursor_to_line, update_viewport from ./buffer
 import build_render_rows, cursor_display_column from ./render
 import apply_text_input, apply_named_key from ./input
+import initial_editor_state, with_cursor_and_viewport, with_status, with_stopped_status from ./state
+import type EditorMode, EditorStatus, EditorTermination, CursorPosition, EditorState, EditorTransition from ./editor.types
 import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from 'standard.terminal'
 
 ##
@@ -32,36 +31,26 @@ entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWrite
 
     let visible_rows: int64 = 10
     let max_cells: int64 = 80
-    let _command_mode = mode_command
-    let mutable cursor_line: int64 = 0
-    let mutable cursor_column: int64 = 0
-    let mutable viewport_top: int64 = 0
-    let mutable dirty = false
-    let mutable saved = false
-    let mutable mode = mode_normal
-    let mutable command_code = command_none
-    let mutable status_code = status_new_empty
-    if opened:
-        status_code = status_opened
-
-    let mutable running = true
+    let mutable state = initial_editor_state(file_path_text, opened)
     let mutable reads: int64 = 0
     let mutable redraws: int64 = 0
-    let mutable termination_code = termination_running
 
     using session = propagate terminal_session_open_sync(options):
-        while running and reads < 1000:
-            cursor_column = propagate clamp_column_to_line(lines, cursor_line, cursor_column)
-            viewport_top = update_viewport(cursor_line, viewport_top, visible_rows)
-            let command_text = propagate command_text_for(command_code)
-            let rows = propagate build_render_rows(lines, file_path_text, mode, command_text, status_code, dirty, cursor_line, cursor_column, viewport_top, visible_rows, max_cells)
+        while state.running and reads < 1000:
+            let clamped_cursor: CursorPosition = propagate clamp_cursor_to_line(lines, state.cursor)
+            let next_viewport = update_viewport(clamped_cursor.line, state.viewport_top, visible_rows)
+            state = with_cursor_and_viewport(state, clamped_cursor, next_viewport)
+            let command_text = propagate command_text_for(state.command)
+            let rows = propagate build_render_rows(lines, state, file_path_text, command_text, visible_rows, max_cells)
             propagate terminal_session_clear_screen_sync(mutable ref session)
             propagate terminal_session_draw_rows_sync(mutable ref session, rows)
-            if mode is _command_mode:
+            let mode = state.mode
+            if mode is EditorMode.Command:
                 propagate terminal_session_move_cursor_sync(mutable ref session, (visible_rows + 1) as int32, (string_length(command_text) + 2) as int32)
             else:
-                let display_column = propagate cursor_display_column(lines, cursor_line, cursor_column)
-                propagate terminal_session_move_cursor_sync(mutable ref session, (cursor_line - viewport_top + 1) as int32, (display_column + 1) as int32)
+                let display_column = propagate cursor_display_column(lines, state)
+                let cursor: CursorPosition = state.cursor
+                propagate terminal_session_move_cursor_sync(mutable ref session, (cursor.line - state.viewport_top + 1) as int32, (display_column + 1) as int32)
             propagate terminal_session_flush_sync(ref session)
             redraws = redraws + 1
 
@@ -69,63 +58,41 @@ entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWrite
             reads = reads + 1
 
             if event is TerminalInputEvent.TextInput into text_event:
-                let updated_lines: text_lines, updated_mode: text_mode, updated_dirty: text_dirty, updated_cursor_line: text_cursor_line, updated_cursor_column: text_cursor_column, updated_command_code: text_command_code, status_code: text_status_code, running: text_running, termination_code: text_termination_code, should_bell: text_should_bell = propagate apply_text_input(lines, mode, dirty, cursor_line, cursor_column, command_code, text_event.text)
+                let updated_lines: text_lines, transition: text_transition = propagate apply_text_input(lines, state, text_event.text)
                 lines = text_lines
-                mode = text_mode
-                dirty = text_dirty
-                cursor_line = text_cursor_line
-                cursor_column = text_cursor_column
-                command_code = text_command_code
-                status_code = text_status_code
-                running = text_running
-                termination_code = text_termination_code
-                if text_should_bell:
+                state = text_transition.state
+                if text_transition.should_bell:
                     propagate terminal_session_bell_sync(mutable ref session)
 
             if event is TerminalInputEvent.Key into key_event:
                 let logical = key_event.key
                 if logical is TerminalLogicalKey.Text into text_key:
-                    let updated_lines: key_text_lines, updated_mode: key_text_mode, updated_dirty: key_text_dirty, updated_cursor_line: key_text_cursor_line, updated_cursor_column: key_text_cursor_column, updated_command_code: key_text_command_code, status_code: key_text_status_code, running: key_text_running, termination_code: key_text_termination_code, should_bell: key_text_should_bell = propagate apply_text_input(lines, mode, dirty, cursor_line, cursor_column, command_code, text_key.logical_text)
+                    let updated_lines: key_text_lines, transition: key_text_transition = propagate apply_text_input(lines, state, text_key.logical_text)
                     lines = key_text_lines
-                    mode = key_text_mode
-                    dirty = key_text_dirty
-                    cursor_line = key_text_cursor_line
-                    cursor_column = key_text_cursor_column
-                    command_code = key_text_command_code
-                    status_code = key_text_status_code
-                    running = key_text_running
-                    termination_code = key_text_termination_code
-                    if key_text_should_bell:
+                    state = key_text_transition.state
+                    if key_text_transition.should_bell:
                         propagate terminal_session_bell_sync(mutable ref session)
 
                 if logical is TerminalLogicalKey.Named into named:
-                    let updated_lines: named_lines, updated_mode: named_mode, updated_dirty: named_dirty, saved: named_saved, updated_cursor_line: named_cursor_line, updated_cursor_column: named_cursor_column, updated_command_code: named_command_code, status_code: named_status_code, running: named_running, termination_code: named_termination_code, should_bell: named_should_bell = propagate apply_named_key(file_path_text, lines, mode, dirty, cursor_line, cursor_column, command_code, named.key)
+                    let updated_lines: named_lines, transition: named_transition = propagate apply_named_key(file_path_text, lines, state, named.key)
                     lines = named_lines
-                    mode = named_mode
-                    dirty = named_dirty
-                    if named_saved:
-                        saved = true
-                    cursor_line = named_cursor_line
-                    cursor_column = named_cursor_column
-                    command_code = named_command_code
-                    status_code = named_status_code
-                    running = named_running
-                    termination_code = named_termination_code
-                    if named_should_bell:
+                    state = named_transition.state
+                    if named_transition.should_bell:
                         propagate terminal_session_bell_sync(mutable ref session)
 
             if event is TerminalInputEvent.Resize:
-                status_code = status_resized
+                state = with_status(state, new EditorStatus.Resized)
             if event is TerminalInputEvent.Cancelled:
-                status_code = status_cancelled
-                termination_code = termination_cancelled
-                running = false
+                state = with_stopped_status(state, new EditorStatus.Cancelled, new EditorTermination.Cancelled)
             if event is TerminalInputEvent.EndOfInput:
-                status_code = status_end_of_input
-                termination_code = termination_end_of_input
-                running = false
+                state = with_stopped_status(state, new EditorStatus.EndOfInput, new EditorTermination.EndOfInput)
 
-    let final_status = propagate status_text_for(status_code)
-    let final_termination = propagate termination_text_for(termination_code)
-    print('EDITOR_SUMMARY opened={opened} saved={saved} dirty={dirty} lines={lines.length} cursor={cursor_line},{cursor_column} viewport={viewport_top} redraws={redraws} termination={final_termination} status={final_status}')
+    let final_status = propagate status_text_for(state.status)
+    let final_termination = propagate termination_text_for(state.termination)
+    let final_cursor: CursorPosition = state.cursor
+    let final_saved = state.saved
+    let final_dirty = state.dirty
+    let final_line_count = lines.length
+    let final_viewport = state.viewport_top
+    print('EDITOR_SUMMARY opened={opened} saved={final_saved} dirty={final_dirty} lines={final_line_count} cursor={final_cursor.line},{final_cursor.column} viewport={final_viewport} redraws={redraws} termination={final_termination} status={final_status}')
     return void

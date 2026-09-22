@@ -1,8 +1,8 @@
 import string_extract_range from standard
 import terminal_text_cell_width, terminal_text_clip_to_cells from standard
 import trusted_terminal_output_from_application_text from 'standard.terminal'
-import mode_command from ./constants
 import dirty_text_for, mode_name, status_text_for from ./labels
+import type EditorState, EditorMode, CursorPosition from ./editor.types
 import type TrustedTerminalOutput from 'standard.terminal'
 
 ##
@@ -15,25 +15,27 @@ public let line_number_prefix = f(line_index: int64): string =>
 ##
   Description: Builds the editor status line or colon command prompt.
 ##
-public let editor_status_line = f(file_path_text: string, mode: int64, command_text: string, status_code: int64, dirty: boolean, cursor_line: int64, cursor_column: int64): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
-    if mode is mode_command:
+public let editor_status_line = f(file_path_text: string, state: EditorState, command_text: string): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    let mode = state.mode
+    if mode is EditorMode.Command:
         return ':{command_text}'
 
-    let dirty_text = propagate dirty_text_for(dirty)
-    let display_line = cursor_line + 1
-    let display_column = cursor_column + 1
+    let dirty_text = propagate dirty_text_for(state.dirty)
+    let cursor: CursorPosition = state.cursor
+    let display_line = cursor.line + 1
+    let display_column = cursor.column + 1
     let current_mode = propagate mode_name(mode)
-    let status_text = propagate status_text_for(status_code)
+    let status_text = propagate status_text_for(state.status)
     return '-- {current_mode} -- {file_path_text} [{dirty_text}] {display_line}:{display_column} {status_text}'
 
 ##
   Description: Renders buffer rows, status, and help text as trusted terminal rows.
 ##
-public let build_render_rows = f(lines: string[], file_path_text: string, mode: int64, command_text: string, status_code: int64, dirty: boolean, cursor_line: int64, cursor_column: int64, viewport_top: int64, visible_rows: int64, max_cells: int64): TrustedTerminalOutput[] errors IndexOutOfBoundsError, TerminalTextLayoutError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let build_render_rows = f(lines: string[], state: EditorState, file_path_text: string, command_text: string, visible_rows: int64, max_cells: int64): TrustedTerminalOutput[] errors IndexOutOfBoundsError, TerminalTextLayoutError, StringRangeOutOfBoundsError, AllocationFailureError =>
     let mutable rows: TrustedTerminalOutput[] = []
     let mutable row_index: int64 = 0
     while row_index < visible_rows:
-        let line_index = viewport_top + row_index
+        let line_index = state.viewport_top + row_index
         if line_index < lines.length:
             let line = propagate lines.at(line_index)
             let prefix = line_number_prefix(line_index)
@@ -47,7 +49,7 @@ public let build_render_rows = f(lines: string[], file_path_text: string, mode: 
             rows.push(output)
         row_index = row_index + 1
 
-    let raw_status = propagate editor_status_line(file_path_text, mode, command_text, status_code, dirty, cursor_line, cursor_column)
+    let raw_status = propagate editor_status_line(file_path_text, state, command_text)
     let clipped_status, _used_status_cells = propagate terminal_text_clip_to_cells(raw_status, max_cells)
     let status_output = propagate trusted_terminal_output_from_application_text(clipped_status)
     rows.push(status_output)
@@ -61,8 +63,9 @@ public let build_render_rows = f(lines: string[], file_path_text: string, mode: 
 ##
   Description: Converts cursor scalar position into terminal display-column position.
 ##
-public let cursor_display_column = f(lines: string[], cursor_line: int64, cursor_column: int64): int64 errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, TerminalTextLayoutError, AllocationFailureError =>
-    let line = propagate lines.at(cursor_line)
-    let prefix = line_number_prefix(cursor_line)
-    let before_cursor = propagate string_extract_range(line, 0 as int64, cursor_column)
+public let cursor_display_column = f(lines: string[], state: EditorState): int64 errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, TerminalTextLayoutError, AllocationFailureError =>
+    let cursor: CursorPosition = state.cursor
+    let line = propagate lines.at(cursor.line)
+    let prefix = line_number_prefix(cursor.line)
+    let before_cursor = propagate string_extract_range(line, 0 as int64, cursor.column)
     return terminal_text_cell_width(prefix) + terminal_text_cell_width(before_cursor)

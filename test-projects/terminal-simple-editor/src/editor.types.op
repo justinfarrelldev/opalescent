@@ -1,0 +1,90 @@
+##
+  Description: Current modal editor input mode.
+##
+public type EditorMode:
+    Normal
+    Insert
+    Command
+
+##
+  Description: Parsed command-mode state.
+##
+public type EditorCommand:
+    None
+    Write
+    Quit
+    WriteQuit
+    ForceQuit
+    Invalid:
+        text: string
+
+##
+  Description: User-visible editor status message.
+##
+public type EditorStatus:
+    NewEmpty
+    Opened:
+        path: string
+    NormalMode
+    InsertMode
+    CommandMode
+    Moved
+    LineStart
+    LineEnd
+    InsertedText
+    LineSplit
+    Deleted
+    Written:
+        path: string
+    Ok
+    UnsavedChanges
+    InvalidKey:
+        key: string
+    EnterInsertOnly
+    Resized
+    Cancelled
+    EndOfInput
+    QuitWithoutSaving
+    FileEnd
+    InvalidCommand:
+        text: string
+
+##
+  Description: Reason the editor loop stopped.
+##
+public type EditorTermination:
+    Running
+    NormalQ
+    CommandQ
+    CommandWq
+    CommandQBang
+    Cancelled
+    EndOfInput
+
+##
+  Description: Text cursor position in scalar-indexed buffer coordinates.
+##
+public type CursorPosition:
+    line: int64
+    column: int64
+
+##
+  Description: Complete simple editor state shared by modules.
+##
+public type EditorState:
+    cursor: CursorPosition
+    viewport_top: int64
+    dirty: boolean
+    saved: boolean
+    mode: EditorMode
+    command: EditorCommand
+    status: EditorStatus
+    running: boolean
+    termination: EditorTermination
+
+##
+  Description: Result of applying one input event to editor state.
+##
+public type EditorTransition:
+    state: EditorState
+    should_bell: boolean

@@ -1,105 +1,97 @@
-import mode_normal, mode_insert, mode_command from ./constants
-import command_none, command_write, command_quit, command_write_quit, command_force_quit from ./constants
-import status_new_empty, status_opened, status_normal_mode, status_insert_mode, status_command_mode from ./constants
-import status_moved, status_line_start, status_line_end, status_inserted_text, status_line_split from ./constants
-import status_deleted, status_written, status_ok, status_unsaved, status_invalid_key from ./constants
-import status_enter_insert_only, status_resized, status_cancelled, status_end_of_input from ./constants
-import status_quit_without_saving, status_file_end, status_invalid_command from ./constants
-import termination_normal_q, termination_command_q, termination_command_wq from ./constants
-import termination_command_q_bang, termination_cancelled, termination_end_of_input from ./constants
+import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
 import copy_text from ./text_helpers
 
 ##
   Description: Returns a display label for the active editor mode.
 ##
-public let mode_name = f(mode: int64): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
-    if mode is mode_insert:
+public let mode_name = f(mode: EditorMode): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    if mode is EditorMode.Insert:
         return propagate copy_text('INSERT')
-    if mode is mode_command:
+    if mode is EditorMode.Command:
         return propagate copy_text('COMMAND')
     return propagate copy_text('NORMAL')
 
 ##
   Description: Returns the colon-command text for the compact command state.
 ##
-public let command_text_for = f(command_code: int64): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
-    if command_code is command_write:
+public let command_text_for = f(command: EditorCommand): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    if command is EditorCommand.Write:
         return propagate copy_text('w')
-    if command_code is command_quit:
+    if command is EditorCommand.Quit:
         return propagate copy_text('q')
-    if command_code is command_write_quit:
+    if command is EditorCommand.WriteQuit:
         return propagate copy_text('wq')
-    if command_code is command_force_quit:
+    if command is EditorCommand.ForceQuit:
         return propagate copy_text('q!')
-    if command_code is command_none:
-        return propagate copy_text('')
-    return propagate copy_text('?')
+    if command is EditorCommand.Invalid into invalid:
+        return propagate copy_text(invalid.text)
+    return propagate copy_text('')
 
 ##
   Description: Returns a display label for the current editor status.
 ##
-public let status_text_for = f(status_code: int64): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
-    if status_code is status_new_empty:
+public let status_text_for = f(status: EditorStatus): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    if status is EditorStatus.NewEmpty:
         return propagate copy_text('new empty buffer')
-    if status_code is status_opened:
-        return propagate copy_text('opened')
-    if status_code is status_normal_mode:
+    if status is EditorStatus.Opened into opened:
+        return 'opened {opened.path}'
+    if status is EditorStatus.NormalMode:
         return propagate copy_text('normal mode')
-    if status_code is status_insert_mode:
+    if status is EditorStatus.InsertMode:
         return propagate copy_text('insert mode')
-    if status_code is status_command_mode:
+    if status is EditorStatus.CommandMode:
         return propagate copy_text('command mode')
-    if status_code is status_moved:
+    if status is EditorStatus.Moved:
         return propagate copy_text('moved')
-    if status_code is status_line_start:
+    if status is EditorStatus.LineStart:
         return propagate copy_text('line start')
-    if status_code is status_line_end:
+    if status is EditorStatus.LineEnd:
         return propagate copy_text('line end')
-    if status_code is status_inserted_text:
+    if status is EditorStatus.InsertedText:
         return propagate copy_text('inserted text')
-    if status_code is status_line_split:
+    if status is EditorStatus.LineSplit:
         return propagate copy_text('line split')
-    if status_code is status_deleted:
+    if status is EditorStatus.Deleted:
         return propagate copy_text('deleted')
-    if status_code is status_written:
-        return propagate copy_text('written')
-    if status_code is status_ok:
+    if status is EditorStatus.Written into written:
+        return 'written {written.path}'
+    if status is EditorStatus.Ok:
         return propagate copy_text('ok')
-    if status_code is status_unsaved:
+    if status is EditorStatus.UnsavedChanges:
         return propagate copy_text('unsaved changes: use :q! or :wq')
-    if status_code is status_invalid_key:
-        return propagate copy_text('invalid key')
-    if status_code is status_enter_insert_only:
+    if status is EditorStatus.InvalidKey into invalid:
+        return 'invalid key {invalid.key}'
+    if status is EditorStatus.EnterInsertOnly:
         return propagate copy_text('enter opens lines only in insert mode')
-    if status_code is status_resized:
+    if status is EditorStatus.Resized:
         return propagate copy_text('terminal resized')
-    if status_code is status_cancelled:
+    if status is EditorStatus.Cancelled:
         return propagate copy_text('cancelled')
-    if status_code is status_end_of_input:
+    if status is EditorStatus.EndOfInput:
         return propagate copy_text('end of input')
-    if status_code is status_quit_without_saving:
+    if status is EditorStatus.QuitWithoutSaving:
         return propagate copy_text('quit without saving')
-    if status_code is status_file_end:
+    if status is EditorStatus.FileEnd:
         return propagate copy_text('file end')
-    if status_code is status_invalid_command:
-        return propagate copy_text('not an editor command')
+    if status is EditorStatus.InvalidCommand into invalid_command:
+        return 'not an editor command: {invalid_command.text}'
     return propagate copy_text('ok')
 
 ##
   Description: Returns a display label for why the editor stopped.
 ##
-public let termination_text_for = f(termination_code: int64): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
-    if termination_code is termination_normal_q:
+public let termination_text_for = f(termination: EditorTermination): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    if termination is EditorTermination.NormalQ:
         return propagate copy_text('normal-q')
-    if termination_code is termination_command_q:
+    if termination is EditorTermination.CommandQ:
         return propagate copy_text('command-q')
-    if termination_code is termination_command_wq:
+    if termination is EditorTermination.CommandWq:
         return propagate copy_text('command-wq')
-    if termination_code is termination_command_q_bang:
+    if termination is EditorTermination.CommandQBang:
         return propagate copy_text('command-q-bang')
-    if termination_code is termination_cancelled:
+    if termination is EditorTermination.Cancelled:
         return propagate copy_text('cancelled')
-    if termination_code is termination_end_of_input:
+    if termination is EditorTermination.EndOfInput:
         return propagate copy_text('end-of-input')
     return propagate copy_text('running')
 

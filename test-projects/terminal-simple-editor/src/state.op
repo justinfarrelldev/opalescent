@@ -1,0 +1,86 @@
+import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
+import type CursorPosition, EditorState, EditorTransition from ./editor.types
+
+##
+  Description: Constructs a cursor position from scalar line and column coordinates.
+##
+public let cursor_position = f(line: int64, column: int64): CursorPosition =>
+    return new CursorPosition:
+        line: line
+        column: column
+
+##
+  Description: Constructs a complete editor state value.
+##
+public let editor_state = f(cursor: CursorPosition, viewport_top: int64, dirty: boolean, saved: boolean, mode: EditorMode, command: EditorCommand, status: EditorStatus, running: boolean, termination: EditorTermination): EditorState =>
+    return new EditorState:
+        cursor: cursor
+        viewport_top: viewport_top
+        dirty: dirty
+        saved: saved
+        mode: mode
+        command: command
+        status: status
+        running: running
+        termination: termination
+
+##
+  Description: Constructs an input transition from updated state and bell request.
+##
+public let editor_transition = f(state: EditorState, should_bell: boolean): EditorTransition =>
+    return new EditorTransition:
+        state: state
+        should_bell: should_bell
+
+##
+  Description: Creates the first editor state after loading or creating a buffer.
+##
+public let initial_editor_state = f(path: string, opened: boolean): EditorState =>
+    if opened:
+        let status: EditorStatus = new EditorStatus.Opened:
+            path: path
+        return editor_state(cursor_position(0, 0), 0, false, false, new EditorMode.Normal, new EditorCommand.None, status, true, new EditorTermination.Running)
+
+    return editor_state(cursor_position(0, 0), 0, false, false, new EditorMode.Normal, new EditorCommand.None, new EditorStatus.NewEmpty, true, new EditorTermination.Running)
+
+##
+  Description: Returns state with a replacement cursor and viewport.
+##
+public let with_cursor_and_viewport = f(state: EditorState, cursor: CursorPosition, viewport_top: int64): EditorState =>
+    return editor_state(cursor, viewport_top, state.dirty, state.saved, state.mode, state.command, state.status, state.running, state.termination)
+
+##
+  Description: Returns state with a replacement status.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    return editor_state(state.cursor, state.viewport_top, state.dirty, state.saved, state.mode, state.command, status, state.running, state.termination)
+
+##
+  Description: Returns state with replacement running, status, and termination values.
+##
+public let with_stopped_status = f(state: EditorState, status: EditorStatus, termination: EditorTermination): EditorState =>
+    return editor_state(state.cursor, state.viewport_top, state.dirty, state.saved, state.mode, state.command, status, false, termination)
+
+##
+  Description: Returns state after a command-mode edit.
+##
+public let with_command = f(state: EditorState, command: EditorCommand, status: EditorStatus): EditorState =>
+    return editor_state(state.cursor, state.viewport_top, state.dirty, state.saved, state.mode, command, status, state.running, state.termination)
+
+##
+  Description: Returns state after a mode or command-state change.
+##
+public let with_mode_command_status = f(state: EditorState, mode: EditorMode, command: EditorCommand, status: EditorStatus): EditorState =>
+    return editor_state(state.cursor, state.viewport_top, state.dirty, state.saved, mode, command, status, state.running, state.termination)
+
+##
+  Description: Returns state after a cursor edit.
+##
+public let with_cursor_dirty_status = f(state: EditorState, cursor: CursorPosition, dirty: boolean, status: EditorStatus): EditorState =>
+    return editor_state(cursor, state.viewport_top, dirty, state.saved, state.mode, state.command, status, state.running, state.termination)
+
+##
+  Description: Returns state after a save or quit command changes command bookkeeping.
+##
+public let with_command_result = f(state: EditorState, dirty: boolean, saved: boolean, mode: EditorMode, command: EditorCommand, status: EditorStatus, running: boolean, termination: EditorTermination): EditorState =>
+    return editor_state(state.cursor, state.viewport_top, dirty, saved, mode, command, status, running, termination)
