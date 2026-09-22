@@ -1,0 +1,8 @@
+import run_invalid_command from ./app
+
+##
+  Description: Entry point for the module interface layout manifest fixture.
+##
+entry main = f(args: string[]): void =>
+    print(run_invalid_command())
+    return void

@@ -3,12 +3,13 @@
     reason = "internal ADT lowering patterns intentionally match borrowed layout metadata directly"
 )]
 extern crate alloc;
-
 use crate::ast::{Expr, Pattern};
+#[path = "adts_manifest.rs"]
+#[doc = "Manifest-backed ADT layout helpers."]
+mod adts_manifest;
 #[path = "adts_sum.rs"]
 #[doc = "Extracted sum-constructor lowering helpers to keep adts.rs under the repository line-count cap."]
 mod adts_sum;
-
 use crate::codegen::affine_aggregates::maybe_codegen_transactional_aggregate_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -30,7 +31,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
 use inkwell::values::{BasicValue, BasicValueEnum};
-
 #[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
 #[must_use]
 pub fn instantiate_generic_adt_name(name: &str, type_args: &[CoreType]) -> String {
@@ -41,8 +41,11 @@ pub fn instantiate_generic_adt_name(name: &str, type_args: &[CoreType]) -> Strin
     }
     specialized
 }
-
 #[doc = "Lower constructor expressions for product and sum ADTs."]
+#[expect(
+    clippy::too_many_lines,
+    reason = "constructor lowering handles fallible, product, and sum cases together"
+)]
 pub fn codegen_constructor_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -55,8 +58,12 @@ pub fn codegen_constructor_expression<'context>(
         ..
     } = *expr
     {
+        let inferred_expected_type = expected_type
+            .cloned()
+            .or_else(|| adts_manifest::constructor_nominal_expected_type(env, callee.as_ref()));
+        let effective_expected_type = inferred_expected_type.as_ref();
         if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
-            let canonical_entry = expected_type
+            let canonical_entry = effective_expected_type
                 .and_then(CanonicalTypeIdentity::from_core_type)
                 .and_then(lookup_fallible_constructor);
             let imported_entry = env
@@ -112,13 +119,17 @@ pub fn codegen_constructor_expression<'context>(
                 ..
             } = *object.as_ref()
             {
+                let layout_name = format!("{type_name}.{member}");
                 (
-                    crate::type_system::terminal_proposal_variant_id(
-                        type_name.as_str(),
-                        member.as_str(),
-                    )
-                    .unwrap_or(0),
-                    Some(format!("{type_name}.{member}")),
+                    env.adt_variant_discriminant(layout_name.as_str())
+                        .or_else(|| {
+                            crate::type_system::terminal_proposal_variant_id(
+                                type_name.as_str(),
+                                member.as_str(),
+                            )
+                        })
+                        .unwrap_or(0),
+                    Some(layout_name),
                 )
             } else {
                 (0, None)
@@ -127,18 +138,22 @@ pub fn codegen_constructor_expression<'context>(
                 codegen_context,
                 env,
                 fields.as_slice(),
-                expected_type,
+                effective_expected_type,
                 variant_tag,
                 variant_layout_name.as_deref(),
             );
         }
-        return codegen_product_constructor(codegen_context, env, fields.as_slice(), expected_type);
+        return codegen_product_constructor(
+            codegen_context,
+            env,
+            fields.as_slice(),
+            effective_expected_type,
+        );
     }
     Err(CodegenError::new(String::from(
         "expected constructor expression",
     )))
 }
-
 #[doc = "Lower field access for product ADT values using tracked field indices."]
 #[expect(
     clippy::too_many_lines,
@@ -163,7 +178,6 @@ pub fn codegen_field_access_expression<'context>(
             "expected member expression",
         )));
     };
-
     if let Ok((receiver_name, member_name)) = member_parts(expr) {
         let mut effective_receiver_name = receiver_name.clone();
         let effective_member_name = member_name.as_str();
@@ -174,7 +188,6 @@ pub fn codegen_field_access_expression<'context>(
                 }
             }
         }
-
         if let Some(binding) = env.variables.get(effective_receiver_name.as_str()).cloned() {
             if let Some(lowered) = codegen_intrinsic_member_access(
                 codegen_context,
@@ -185,10 +198,9 @@ pub fn codegen_field_access_expression<'context>(
             )? {
                 return Ok(lowered);
             }
-
             let uses_pointer_backed_nominal_path = matches!(
                 &binding.core_type,
-                &CoreType::Generic { ref name, .. } if env.adt_field_layouts.contains_key(name)
+                &CoreType::Generic { ref name, .. } if env.adt_field_layout(name).is_some()
             );
             if !uses_pointer_backed_nominal_path {
                 if let Some(field_indices) = env
@@ -218,7 +230,6 @@ pub fn codegen_field_access_expression<'context>(
             }
         }
     }
-
     let object_core_type = infer_product_core_type(env, object.as_ref()).ok_or_else(|| {
         CodegenError::new(String::from(
             "receiver expression is not a known product type",
@@ -247,7 +258,7 @@ pub fn codegen_field_access_expression<'context>(
                 "pointer-backed receiver expression does not support field '{member}'"
             )));
         };
-        let Some(field_layout) = env.adt_field_layouts.get(name) else {
+        let Some(field_layout) = env.adt_field_layout(name) else {
             return Err(CodegenError::new(format!(
                 "missing field layout metadata for receiver type '{name}'"
             )));
@@ -563,16 +574,16 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
                         _ => None,
                     }
                 }
-                CoreType::Generic { name, .. } => env
-                    .adt_field_layouts
-                    .get(name.as_str())
-                    .and_then(|field_layout| {
-                        field_layout
-                            .iter()
-                            .find_map(|&(ref field_name, ref field_type)| {
-                                (field_name == member).then(|| field_type.clone())
-                            })
-                    }),
+                CoreType::Generic { name, .. } => {
+                    env.adt_field_layout(name.as_str())
+                        .and_then(|field_layout| {
+                            field_layout
+                                .iter()
+                                .find_map(|&(ref field_name, ref field_type)| {
+                                    (field_name == member).then(|| field_type.clone())
+                                })
+                        })
+                }
                 _ => None,
             }
         }
@@ -638,8 +649,7 @@ fn product_field_index_for_core_type(
             _ => None,
         },
         CoreType::Generic { ref name, .. } => env
-            .adt_field_indices
-            .get(name)
+            .adt_field_indices_for(name)
             .and_then(|field_indices| field_indices.get(member).copied()),
         _ => None,
     }
@@ -737,7 +747,7 @@ pub(crate) fn codegen_product_constructor<'context>(
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Some(&CoreType::Generic { ref name, .. }) = expected_type {
-        if let Some(field_layout) = env.adt_field_layouts.get(name.as_str()).cloned() {
+        if let Some(field_layout) = env.adt_field_layout(name.as_str()).cloned() {
             if let Some(aggregate) = maybe_codegen_transactional_aggregate_constructor(
                 codegen_context,
                 env,

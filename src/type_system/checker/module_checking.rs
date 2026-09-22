@@ -1,13 +1,19 @@
 extern crate alloc;
 
-use super::super::module_resolver::{ModuleAvailability, ModuleInterface};
-use crate::ast::{ImportItem, TypeDeclarationForm, Visibility as AstVisibility};
+use super::super::module_resolver::{
+    AdtFieldManifest, AdtLayoutManifest, AdtLayoutManifestKind, AdtTypeId, AdtVariantManifest,
+    ModuleAvailability, ModuleInterface, ModuleTypeDeclaration,
+};
+use crate::ast::{
+    DeclarationAnnotation, ImportItem, TypeDeclarationForm, TypeDef, Visibility as AstVisibility,
+};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
-use alloc::{format, string::String};
+use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
     /// Set the canonical path for the module currently being type checked.
@@ -77,6 +83,184 @@ impl TypeChecker {
             self.module_resolver.register_module_interface(interface);
         }
         Ok(())
+    }
+
+    /// Register parsed type metadata and public layout manifests for the current module.
+    pub(super) fn register_current_module_type_declaration(
+        &mut self,
+        name: String,
+        annotations: Vec<DeclarationAnnotation>,
+        form: TypeDeclarationForm,
+        type_def: &TypeDef,
+        visibility: &AstVisibility,
+        span: Span,
+    ) {
+        let mut interface = self
+            .module_resolver
+            .module_interface(&self.current_module_path)
+            .unwrap_or_else(|| ModuleInterface::new(self.current_module_path.clone()));
+        let declaration = ModuleTypeDeclaration {
+            name: name.clone(),
+            source_path: self.current_module_path.clone(),
+            annotations,
+            form,
+            type_def: type_def.clone(),
+            visibility: visibility.clone(),
+            span,
+        };
+        interface.register_type_declaration(declaration);
+        if *visibility == AstVisibility::Public {
+            if let Some(manifest) = self.build_adt_layout_manifest(name, type_def) {
+                interface.register_adt_layout_manifest(manifest);
+            }
+        }
+        self.module_resolver.register_module_interface(interface);
+    }
+
+    /// Build a public ADT layout manifest from a checked source type definition.
+    fn build_adt_layout_manifest(
+        &self,
+        type_name: String,
+        type_def: &TypeDef,
+    ) -> Option<AdtLayoutManifest> {
+        let type_id = AdtTypeId::new(self.current_module_path.clone(), type_name);
+        let kind = match *type_def {
+            TypeDef::Product { ref fields, .. } => AdtLayoutManifestKind::Product {
+                fields: fields
+                    .iter()
+                    .map(Self::field_manifest)
+                    .collect::<Option<Vec<_>>>()?,
+            },
+            TypeDef::Sum { ref variants, .. } => AdtLayoutManifestKind::Sum {
+                variants: variants
+                    .iter()
+                    .enumerate()
+                    .map(|(index, variant)| {
+                        let discriminant =
+                            variant.explicit_id.unwrap_or(i64::try_from(index).ok()?);
+                        let fields = variant
+                            .fields
+                            .iter()
+                            .map(Self::field_manifest)
+                            .collect::<Option<Vec<_>>>()?;
+                        Some(AdtVariantManifest {
+                            name: variant.name.clone(),
+                            discriminant,
+                            propertyless: fields.is_empty(),
+                            fields,
+                        })
+                    })
+                    .collect::<Option<Vec<_>>>()?,
+            },
+            TypeDef::Alias {
+                ref target_type, ..
+            } => AdtLayoutManifestKind::Alias {
+                target: ast_type_to_core_type(target_type).ok()?,
+            },
+            TypeDef::Opaque { .. } => AdtLayoutManifestKind::Opaque {
+                layout_public: false,
+            },
+        };
+        let layout_hash = Self::adt_layout_hash(&type_id, &kind);
+        Some(AdtLayoutManifest {
+            type_id,
+            kind,
+            layout_hash,
+        })
+    }
+
+    /// Convert one AST field into manifest field metadata.
+    fn field_manifest(field: &crate::ast::Field) -> Option<AdtFieldManifest> {
+        let core_type = ast_type_to_core_type(&field.type_annotation).ok()?;
+        Some(AdtFieldManifest {
+            name: field.name.clone(),
+            requires_drop: Self::core_type_requires_drop(&core_type),
+            core_type,
+            is_public: true,
+        })
+    }
+
+    /// Return whether a core type owns RC-managed children.
+    fn core_type_requires_drop(core_type: &CoreType) -> bool {
+        match *core_type {
+            CoreType::String | CoreType::Array(_) | CoreType::Generic { .. } => true,
+            CoreType::Function {
+                ref return_types,
+                ref parameters,
+                ref error_types,
+                ref generic_params,
+            } => {
+                parameters.iter().any(Self::core_type_requires_drop)
+                    || return_types.iter().any(Self::core_type_requires_drop)
+                    || error_types.iter().any(Self::core_type_requires_drop)
+                    || generic_params
+                        .iter()
+                        .any(|param| param.constraints.iter().any(Self::core_type_requires_drop))
+            }
+            CoreType::Int8
+            | CoreType::Int16
+            | CoreType::Int32
+            | CoreType::Int64
+            | CoreType::UInt8
+            | CoreType::UInt16
+            | CoreType::UInt32
+            | CoreType::UInt64
+            | CoreType::Float32
+            | CoreType::Float64
+            | CoreType::Boolean
+            | CoreType::Unit
+            | CoreType::Variable(_) => false,
+        }
+    }
+
+    /// Deterministically hash the public layout contract with FNV-1a.
+    fn adt_layout_hash(type_id: &AdtTypeId, kind: &AdtLayoutManifestKind) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        Self::hash_text(&mut hash, type_id.module_path.as_str());
+        Self::hash_text(&mut hash, type_id.type_name.as_str());
+        match *kind {
+            AdtLayoutManifestKind::Product { ref fields } => {
+                Self::hash_text(&mut hash, "product");
+                for field in fields {
+                    Self::hash_field(&mut hash, field);
+                }
+            }
+            AdtLayoutManifestKind::Sum { ref variants } => {
+                Self::hash_text(&mut hash, "sum");
+                for variant in variants {
+                    Self::hash_text(&mut hash, variant.name.as_str());
+                    Self::hash_text(&mut hash, variant.discriminant.to_string().as_str());
+                    for field in &variant.fields {
+                        Self::hash_field(&mut hash, field);
+                    }
+                }
+            }
+            AdtLayoutManifestKind::Alias { ref target } => {
+                Self::hash_text(&mut hash, "alias");
+                Self::hash_text(&mut hash, target.to_string().as_str());
+            }
+            AdtLayoutManifestKind::Opaque { layout_public } => {
+                Self::hash_text(&mut hash, "opaque");
+                Self::hash_text(&mut hash, layout_public.to_string().as_str());
+            }
+        }
+        hash
+    }
+
+    /// Hash one manifest field into an FNV-1a state.
+    fn hash_field(hash: &mut u64, field: &AdtFieldManifest) {
+        Self::hash_text(hash, field.name.as_str());
+        Self::hash_text(hash, field.core_type.to_string().as_str());
+        Self::hash_text(hash, field.is_public.to_string().as_str());
+        Self::hash_text(hash, field.requires_drop.to_string().as_str());
+    }
+
+    /// Hash text bytes into an FNV-1a state with a separator.
+    fn hash_text(hash: &mut u64, text: &str) {
+        for byte in text.as_bytes().iter().copied().chain([0xff]) {
+            *hash ^= u64::from(byte);
+            *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
     }
 
     /// Synchronize current checker ADT field registry into current module interface.

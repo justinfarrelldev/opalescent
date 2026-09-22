@@ -1,0 +1,53 @@
+##
+  Description: Current editor input mode.
+##
+public type EditorMode:
+    Normal
+    Insert
+    Command
+
+##
+  Description: Command parsed from command mode text.
+##
+public type EditorCommand:
+    None
+    Write
+    Quit
+    WriteQuit
+    ForceQuit
+    Invalid:
+        text: string
+
+##
+  Description: User-visible editor status.
+##
+public type EditorStatus:
+    Opened:
+        path: string
+    Written:
+        path: string
+    UnsavedChanges
+    InvalidKey:
+        key: string
+    CommandError:
+        text: string
+
+##
+  Description: Text cursor position.
+##
+public type CursorPosition:
+    line: int64
+    column: int64
+
+##
+  Description: Complete editor state shared by editor modules.
+##
+public type EditorState:
+    lines: string[]
+    cursor: CursorPosition
+    viewport_line: int64
+    dirty: boolean
+    mode: EditorMode
+    command: EditorCommand
+    status: EditorStatus
+    running: boolean

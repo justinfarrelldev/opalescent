@@ -1,0 +1,13 @@
+import create_editor_state from ./state
+import parse_editor_command, apply_editor_command from ./commands
+import render_editor_status from ./render_status
+
+##
+  Description: Run one deterministic invalid command through transitive editor ADT layouts.
+##
+public let run_invalid_command = f(): string =>
+    let lines: string[] = ['alpha', 'beta']
+    let state = create_editor_state('sample.txt', lines)
+    let command = parse_editor_command('nope')
+    let next = apply_editor_command(state, command)
+    return render_editor_status(next.status)

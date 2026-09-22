@@ -2,6 +2,8 @@
     clippy::panic,
     reason = "compiler regression tests use explicit panic messages to preserve failing diagnostic context"
 )]
+extern crate alloc;
+
 use super::{
     CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command, compile_program,
     compile_runtime_c_to_obj_with_policy, compile_to_module, compile_to_module_for_target,
@@ -16,6 +18,7 @@ use crate::errors::renderer::render_report;
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
+use alloc::collections::BTreeMap;
 use inkwell::context::Context;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -215,6 +218,8 @@ fn compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi() {
     let module_symbol_signatures = collect_module_symbol_signatures(&checker, "test.op");
     let adt_field_indices = collect_program_adt_field_indices(&program);
     let adt_field_layouts = collect_program_adt_field_layouts(&program);
+    let empty_adt_aliases: BTreeMap<String, String> = BTreeMap::new();
+    let empty_variant_discriminants: BTreeMap<String, i64> = BTreeMap::new();
     let module = compile_checked_program_to_module(
         &context,
         Path::new("test.op"),
@@ -224,6 +229,8 @@ fn compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi() {
         &module_symbol_signatures,
         &adt_field_indices,
         &adt_field_layouts,
+        &empty_adt_aliases,
+        &empty_variant_discriminants,
         &target,
     )
     .expect("compiler helper should build module for windows target");

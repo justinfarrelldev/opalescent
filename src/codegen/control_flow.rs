@@ -123,7 +123,7 @@ pub fn codegen_if_statement<'context>(
     let condition_value =
         codegen_expression(codegen_context, env, condition, Some(&CoreType::Boolean))?;
     let condition_int = coerce_condition_to_i1(codegen_context, env, condition_value)?;
-    let refinement_request = variant_refinement_request(condition);
+    let refinement_request = variant_refinement_request(env, condition);
     let function = current_function(codegen_context)?;
     let then_block = codegen_context
         .context
@@ -711,7 +711,12 @@ pub fn codegen_return_statement<'context>(
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
-    let expected_return_types = current_return_core_types(current_function(codegen_context)?);
+    let expected_return_types = if let Some(return_types) = env.current_function_return_types.last()
+    {
+        return_types.clone()
+    } else {
+        current_return_core_types(current_function(codegen_context)?)
+    };
     if values.len() == 1 {
         let value = codegen_expression(
             codegen_context,

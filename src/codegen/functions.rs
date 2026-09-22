@@ -238,7 +238,10 @@ pub fn codegen_function_declaration<'context>(
         }
     }
 
-    codegen_statement(codegen_context, env, body)?;
+    env.current_function_return_types.push(returns.clone());
+    let body_result = codegen_statement(codegen_context, env, body);
+    env.current_function_return_types.pop();
+    body_result?;
     if let Some(block) = codegen_context.builder.get_insert_block() {
         if block.get_terminator().is_none() {
             emit_default_return(codegen_context, env, &returns)?;

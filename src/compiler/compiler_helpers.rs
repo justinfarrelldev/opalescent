@@ -16,6 +16,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::parser::errors::ParseError;
 use crate::token::{Position, Span};
+use crate::type_system::AdtLayoutManifestKind;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
@@ -257,34 +258,74 @@ pub fn collect_imported_adt_field_layouts(
     adt_field_layouts
 }
 
-/// Merge authoritative imported ADT layouts from one discovered module interface.
+/// Merge canonical ADT layouts from one discovered module interface manifest.
 pub fn merge_interface_adt_field_layouts(
+    interface: &crate::type_system::ModuleInterface,
+    adt_field_layouts: &mut BTreeMap<String, Vec<(String, CoreType)>>,
+) {
+    if interface.adt_layout_manifests.is_empty() {
+        merge_legacy_interface_adt_field_layouts(interface, adt_field_layouts);
+        return;
+    }
+    for manifest in interface.adt_layout_manifests.values() {
+        let type_key = manifest.type_id.layout_key();
+        match &manifest.kind {
+            AdtLayoutManifestKind::Product { fields } => {
+                adt_field_layouts.entry(type_key).or_insert_with(|| {
+                    fields
+                        .iter()
+                        .map(|field| (field.name.clone(), field.core_type.clone()))
+                        .collect()
+                });
+            }
+            AdtLayoutManifestKind::Sum { variants } => {
+                for variant in variants {
+                    let variant_key = format!("{type_key}.{}", variant.name);
+                    adt_field_layouts.entry(variant_key).or_insert_with(|| {
+                        variant
+                            .fields
+                            .iter()
+                            .map(|field| (field.name.clone(), field.core_type.clone()))
+                            .collect()
+                    });
+                }
+            }
+            AdtLayoutManifestKind::Alias { .. } | AdtLayoutManifestKind::Opaque { .. } => {}
+        }
+    }
+}
+
+/// Merge legacy type-declaration layouts for built-in interfaces not yet manifest-backed.
+fn merge_legacy_interface_adt_field_layouts(
     interface: &crate::type_system::ModuleInterface,
     adt_field_layouts: &mut BTreeMap<String, Vec<(String, CoreType)>>,
 ) {
     for (type_name, declaration) in &interface.type_declarations {
         match &declaration.type_def {
             TypeDef::Product { fields, .. } => {
-                let mut field_layout = Vec::new();
-                for field in fields {
-                    let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
-                        continue;
-                    };
-                    field_layout.push((field.name.clone(), core_type));
-                }
+                let field_layout = fields
+                    .iter()
+                    .filter_map(|field| {
+                        ast_type_to_core_type(&field.type_annotation)
+                            .ok()
+                            .map(|core_type| (field.name.clone(), core_type))
+                    })
+                    .collect::<Vec<_>>();
                 adt_field_layouts
                     .entry(type_name.clone())
                     .or_insert(field_layout);
             }
             TypeDef::Sum { variants, .. } => {
                 for variant in variants {
-                    let mut field_layout = Vec::new();
-                    for field in &variant.fields {
-                        let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
-                            continue;
-                        };
-                        field_layout.push((field.name.clone(), core_type));
-                    }
+                    let field_layout = variant
+                        .fields
+                        .iter()
+                        .filter_map(|field| {
+                            ast_type_to_core_type(&field.type_annotation)
+                                .ok()
+                                .map(|core_type| (field.name.clone(), core_type))
+                        })
+                        .collect::<Vec<_>>();
                     adt_field_layouts
                         .entry(format!("{type_name}.{}", variant.name))
                         .or_insert(field_layout);
@@ -293,6 +334,135 @@ pub fn merge_interface_adt_field_layouts(
             TypeDef::Alias { .. } | TypeDef::Opaque { .. } => {}
         }
     }
+}
+
+/// Merge canonical sum variant discriminants from one discovered module interface manifest.
+pub fn merge_interface_adt_variant_discriminants(
+    interface: &crate::type_system::ModuleInterface,
+    discriminants: &mut BTreeMap<String, i64>,
+) {
+    for manifest in interface.adt_layout_manifests.values() {
+        let AdtLayoutManifestKind::Sum { variants } = &manifest.kind else {
+            continue;
+        };
+        let type_key = manifest.type_id.layout_key();
+        for variant in variants {
+            discriminants
+                .entry(format!("{type_key}.{}", variant.name))
+                .or_insert(variant.discriminant);
+        }
+    }
+}
+
+/// Collect globally unambiguous short ADT aliases for transitive signature use.
+pub fn collect_unique_adt_layout_aliases<'interface, I>(interfaces: I) -> BTreeMap<String, String>
+where
+    I: IntoIterator<Item = &'interface crate::type_system::ModuleInterface>,
+{
+    let mut aliases = BTreeMap::new();
+    let mut ambiguous = alloc::collections::BTreeSet::new();
+    for interface in interfaces {
+        for manifest in interface.adt_layout_manifests.values() {
+            let type_key = manifest.type_id.layout_key();
+            register_unique_alias(
+                &mut aliases,
+                &mut ambiguous,
+                &manifest.type_id.type_name,
+                &type_key,
+            );
+            if let AdtLayoutManifestKind::Sum { variants } = &manifest.kind {
+                for variant in variants {
+                    register_unique_alias(
+                        &mut aliases,
+                        &mut ambiguous,
+                        format!("{}.{}", manifest.type_id.type_name, variant.name).as_str(),
+                        format!("{type_key}.{}", variant.name).as_str(),
+                    );
+                }
+            }
+        }
+    }
+    for name in ambiguous {
+        aliases.remove(name.as_str());
+    }
+    aliases
+}
+
+/// Collect import-local ADT aliases from explicit type imports in one program.
+pub fn collect_imported_adt_layout_aliases(
+    checker: &TypeChecker,
+    program: &Program,
+) -> BTreeMap<String, String> {
+    let mut aliases = BTreeMap::new();
+    for declaration in &program.declarations {
+        let Decl::Import { items, source, .. } = declaration else {
+            continue;
+        };
+        let Some(interface) = checker.module_interface(source.as_str()) else {
+            continue;
+        };
+        for item in items {
+            match item {
+                ImportItem::Type { name, alias, .. } => {
+                    register_imported_type_alias(&mut aliases, &interface, name, alias.as_deref());
+                }
+                ImportItem::Glob { .. } => {
+                    for manifest in interface.adt_layout_manifests.values() {
+                        register_imported_type_alias(
+                            &mut aliases,
+                            &interface,
+                            manifest.type_id.type_name.as_str(),
+                            None,
+                        );
+                    }
+                }
+                ImportItem::Named { .. } => {}
+            }
+        }
+    }
+    aliases
+}
+
+/// Register a direct import-local type alias and its variant aliases.
+fn register_imported_type_alias(
+    aliases: &mut BTreeMap<String, String>,
+    interface: &crate::type_system::ModuleInterface,
+    imported_name: &str,
+    alias: Option<&str>,
+) {
+    let Some(manifest) = interface.adt_layout_manifest(imported_name) else {
+        return;
+    };
+    let local_name = alias.unwrap_or(imported_name);
+    let type_key = manifest.type_id.layout_key();
+    aliases.insert(local_name.to_owned(), type_key.clone());
+    if let AdtLayoutManifestKind::Sum { variants } = &manifest.kind {
+        for variant in variants {
+            aliases.insert(
+                format!("{local_name}.{}", variant.name),
+                format!("{type_key}.{}", variant.name),
+            );
+        }
+    }
+}
+
+/// Register a short alias only while it remains globally unambiguous.
+fn register_unique_alias(
+    aliases: &mut BTreeMap<String, String>,
+    ambiguous: &mut alloc::collections::BTreeSet<String>,
+    local_name: &str,
+    canonical_name: &str,
+) {
+    if ambiguous.contains(local_name) {
+        return;
+    }
+    if let Some(existing) = aliases.get(local_name) {
+        if existing != canonical_name {
+            ambiguous.insert(local_name.to_owned());
+        }
+        return;
+    }
+    aliases.insert(local_name.to_owned(), canonical_name.to_owned());
 }
 
 /// Merge standard-library ADT layouts needed by generated project modules.
@@ -395,6 +565,8 @@ pub fn compile_checked_program_to_module<'context>(
     module_symbol_signatures: &BTreeMap<String, CoreType>,
     adt_field_indices: &BTreeMap<String, BTreeMap<String, u32>>,
     adt_field_layouts: &BTreeMap<String, Vec<(String, CoreType)>>,
+    adt_layout_aliases: &BTreeMap<String, String>,
+    adt_variant_discriminants: &BTreeMap<String, i64>,
     target: &crate::build_system::targets::TargetTriple,
 ) -> Result<Module<'context>, crate::codegen::error::CodegenError> {
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
@@ -405,6 +577,8 @@ pub fn compile_checked_program_to_module<'context>(
     env.current_source_text = source.replace('\t', "    ");
     env.adt_field_indices = adt_field_indices.clone();
     env.adt_field_layouts = adt_field_layouts.clone();
+    env.adt_layout_aliases = adt_layout_aliases.clone();
+    env.adt_variant_discriminants = adt_variant_discriminants.clone();
 
     for declaration in &program.declarations {
         match *declaration {

@@ -1,0 +1,17 @@
+import type EditorStatus from ./editor.types
+
+##
+  Description: Render an editor status value as text using payload refinements.
+##
+public let render_editor_status = f(status: EditorStatus): string =>
+    if status is EditorStatus.Opened into opened:
+        return 'opened {opened.path}'
+    if status is EditorStatus.Written into written:
+        return 'written {written.path}'
+    if status is EditorStatus.UnsavedChanges:
+        return 'unsaved changes'
+    if status is EditorStatus.InvalidKey into invalid:
+        return 'invalid key {invalid.key}'
+    if status is EditorStatus.CommandError into command_error:
+        return 'command error {command_error.text}'
+    return 'unknown status'

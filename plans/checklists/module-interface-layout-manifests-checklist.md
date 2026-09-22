@@ -1,0 +1,24 @@
+# Module-interface Layout Manifests Checklist
+
+- [x] Read AGENTS.md project instructions.
+- [x] Read README.md, STDLIB.md, OPALESCENT_CRASH_COURSE.md, and all files under language-spec/.
+- [x] Read the module-interface-layout-manifests proposal and example sources.
+- [x] Create implementation plan.
+- [x] Add red unit test for structured ADT layout manifests.
+- [x] Add red e2e fixture for proposal-style transitive product/sum/payload usage.
+- [x] Add red e2e fixture for same-short-name explicit alias usage.
+- [x] Run targeted tests and confirm red failures.
+- [x] Add canonical ADT type IDs and manifest structs to module interfaces.
+- [x] Populate public manifests while checking type declarations.
+- [x] Include deterministic layout hashes and ownership/drop hints.
+- [x] Add collision-aware short-name handling and explicit alias registration.
+- [x] Thread canonical layouts, aliases, field indices, and variant discriminants into codegen.
+- [x] Lower imported product construction/field access through manifest metadata.
+- [x] Lower imported enum construction and variant checks through manifest discriminants.
+- [x] Lower imported payload variant construction, `into` binding, and payload field access through manifests.
+- [x] Add sum payload RC child-drop callback support for owned payload fields.
+- [x] Run targeted tests and confirm green.
+- [x] Refactor duplicate helper code.
+- [x] Run broader relevant validation.
+- [x] Perform final code review against proposal requirements and Must NOT Have list.
+- [ ] Commit work atomically without modifying/skipping hooks.

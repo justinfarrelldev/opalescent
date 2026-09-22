@@ -244,11 +244,15 @@ impl TypeChecker {
                 )?;
             }
             let expected_field_applied = inference_substitution.apply(&expected_field_instantiated);
+            let variant_assignable = self
+                .nominal_variant_assignable_to_family(&expected_field_applied, &field_value_type);
             let reconciled_value = if self
                 .types_compatible(&expected_field_applied, &field_value_type)
                 || matches!(expected_field_applied, CoreType::Variable(_))
             {
                 field_value_type
+            } else if variant_assignable {
+                expected_field_applied.clone()
             } else if let Some(adjusted) =
                 coerce_literal_to_expected(&expected_field_applied, &field.value, &field_value_type)
             {
@@ -290,6 +294,39 @@ impl TypeChecker {
         }
 
         Ok(inference_substitution)
+    }
+
+    /// Return whether a narrowed `Family.Variant` value can flow into `Family`.
+    fn nominal_variant_assignable_to_family(
+        &self,
+        expected_type: &CoreType,
+        value_type: &CoreType,
+    ) -> bool {
+        let &CoreType::Generic {
+            name: ref expected_name,
+            type_args: ref expected_args,
+        } = expected_type
+        else {
+            return false;
+        };
+        let &CoreType::Generic {
+            name: ref value_name,
+            type_args: ref value_args,
+        } = value_type
+        else {
+            return false;
+        };
+        if !expected_args.is_empty() || !value_args.is_empty() {
+            return false;
+        }
+        let Some((family_name, _variant_name)) = value_name.split_once('.') else {
+            return false;
+        };
+        family_name == expected_name
+            && self
+                .adt_variants
+                .get(expected_name)
+                .is_some_and(|variants| variants.iter().any(|variant| variant == value_name))
     }
 
     /// Finalize inferred generic constructor arguments and emit constraints.

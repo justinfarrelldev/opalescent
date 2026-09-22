@@ -24,18 +24,29 @@ pub(super) struct AppliedVariantRefinement<'context> {
     payload_binding: Option<(String, Option<VariableBinding<'context>>)>,
 }
 
-fn variant_type_expression_name(expr: &Expr) -> Option<String> {
+fn variant_type_expression_name(env: &CodegenEnv<'_>, expr: &Expr) -> Option<String> {
     let Expr::Member { object, member, .. } = expr else {
         return None;
     };
     let Expr::Identifier { name, .. } = object.as_ref() else {
         return None;
     };
-    crate::type_system::terminal_proposal_variant_id(name.as_str(), member.as_str())?;
-    Some(format!("{name}.{member}"))
+    let variant_owner = format!("{name}.{member}");
+    if env
+        .adt_variant_discriminant(variant_owner.as_str())
+        .is_none()
+        && crate::type_system::terminal_proposal_variant_id(name.as_str(), member.as_str())
+            .is_none()
+    {
+        return None;
+    }
+    Some(variant_owner)
 }
 
-pub(super) fn variant_refinement_request(condition: &Expr) -> Option<VariantRefinementRequest> {
+pub(super) fn variant_refinement_request(
+    env: &CodegenEnv<'_>,
+    condition: &Expr,
+) -> Option<VariantRefinementRequest> {
     match condition {
         Expr::Refinement {
             value,
@@ -43,7 +54,7 @@ pub(super) fn variant_refinement_request(condition: &Expr) -> Option<VariantRefi
             payload_binding,
             ..
         } => {
-            let variant_type_name = variant_type_expression_name(variant.as_ref())?;
+            let variant_type_name = variant_type_expression_name(env, variant.as_ref())?;
             let narrowed_identifier = if let Expr::Identifier { name, .. } = value.as_ref() {
                 Some(name.clone())
             } else {
@@ -62,7 +73,7 @@ pub(super) fn variant_refinement_request(condition: &Expr) -> Option<VariantRefi
             right,
             ..
         } => {
-            let variant_type_name = variant_type_expression_name(right.as_ref())?;
+            let variant_type_name = variant_type_expression_name(env, right.as_ref())?;
             let Expr::Identifier { name, .. } = left.as_ref() else {
                 return None;
             };

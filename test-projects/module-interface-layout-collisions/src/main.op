@@ -1,0 +1,13 @@
+import type State as LeftState from ./left.types
+import type State as RightState from ./right.types
+
+##
+  Description: Entry point for explicit aliases over colliding module type names.
+##
+entry main = f(args: string[]): void =>
+    let left: LeftState = new LeftState:
+        left_value: 7
+    let right: RightState = new RightState:
+        right_text: 'blue'
+    print('left={left.left_value} right={right.right_text}')
+    return void

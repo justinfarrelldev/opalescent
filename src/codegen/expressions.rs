@@ -100,6 +100,10 @@ pub struct CodegenEnv<'context> {
     pub current_source_text: String,
     pub adt_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>>,
+    /// Module-local display names mapped to canonical manifest layout keys.
+    pub adt_layout_aliases: BTreeMap<String, String>,
+    /// Variant discriminants keyed by canonical manifest variant layout key.
+    pub adt_variant_discriminants: BTreeMap<String, i64>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
@@ -111,6 +115,7 @@ pub struct CodegenEnv<'context> {
     pub scope_stack: Vec<Vec<String>>,
     pub using_cleanup_obligations: Vec<UsingCleanupObligation<'context>>,
     pub loop_stack: Vec<LoopContext<'context>>,
+    pub current_function_return_types: Vec<Vec<CoreType>>,
     pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
@@ -129,12 +134,15 @@ impl<'context> CodegenEnv<'context> {
             current_source_text: String::new(),
             adt_field_indices: BTreeMap::new(),
             adt_field_layouts: BTreeMap::new(),
+            adt_layout_aliases: BTreeMap::new(),
+            adt_variant_discriminants: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             scope_stack: Vec::new(),
             using_cleanup_obligations: Vec::new(),
             loop_stack: Vec::new(),
+            current_function_return_types: Vec::new(),
             active_guard_error_slots: Vec::new(),
             debug_mode,
             temp_counter: 0,
@@ -145,6 +153,42 @@ impl<'context> CodegenEnv<'context> {
         let index = self.temp_counter;
         self.temp_counter = self.temp_counter.saturating_add(1);
         format!("{base}.{index}")
+    }
+
+    /// Resolve a local ADT owner or variant name to its canonical layout key.
+    #[must_use]
+    pub fn adt_layout_key<'name>(&'name self, owner: &'name str) -> &'name str {
+        self.adt_layout_aliases
+            .get(owner)
+            .map_or(owner, String::as_str)
+    }
+
+    /// Look up ordered field layout metadata for a local or canonical ADT owner.
+    #[must_use]
+    pub fn adt_field_layout(&self, owner: &str) -> Option<&Vec<(String, CoreType)>> {
+        let key = self.adt_layout_key(owner);
+        self.adt_field_layouts
+            .get(key)
+            .or_else(|| self.adt_field_layouts.get(owner))
+    }
+
+    /// Look up field indices for a local or canonical ADT owner.
+    #[must_use]
+    pub fn adt_field_indices_for(&self, owner: &str) -> Option<&BTreeMap<String, u32>> {
+        let key = self.adt_layout_key(owner);
+        self.adt_field_indices
+            .get(key)
+            .or_else(|| self.adt_field_indices.get(owner))
+    }
+
+    /// Look up a sum variant discriminant for a local or canonical variant owner.
+    #[must_use]
+    pub fn adt_variant_discriminant(&self, owner: &str) -> Option<i64> {
+        let key = self.adt_layout_key(owner);
+        self.adt_variant_discriminants
+            .get(key)
+            .copied()
+            .or_else(|| self.adt_variant_discriminants.get(owner).copied())
     }
 }
 

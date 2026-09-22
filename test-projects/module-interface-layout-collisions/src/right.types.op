@@ -1,0 +1,5 @@
+##
+  Description: Right state type that intentionally shares a display name.
+##
+public type State:
+    right_text: string

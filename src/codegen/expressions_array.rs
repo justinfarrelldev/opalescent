@@ -760,14 +760,14 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
                 Some(CoreType::Int64)
             }
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
-            Some(CoreType::Generic { name, .. }) => env
-                .adt_field_layouts
-                .get(name.as_str())
-                .and_then(|field_layout| {
-                    field_layout.iter().find_map(|(field_name, field_type)| {
-                        (field_name == member).then(|| field_type.clone())
+            Some(CoreType::Generic { name, .. }) => {
+                env.adt_field_layout(name.as_str())
+                    .and_then(|field_layout| {
+                        field_layout.iter().find_map(|(field_name, field_type)| {
+                            (field_name == member).then(|| field_type.clone())
+                        })
                     })
-                }),
+            }
             _ => None,
         },
         _ => None,

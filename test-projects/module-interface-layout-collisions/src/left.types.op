@@ -1,0 +1,5 @@
+##
+  Description: Left state type that intentionally shares a display name.
+##
+public type State:
+    left_value: int32

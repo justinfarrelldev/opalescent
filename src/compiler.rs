@@ -32,11 +32,13 @@ use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::{collections::BTreeMap, vec::Vec};
 use compiler_helpers::{
-    collect_imported_adt_field_layouts, collect_imported_symbol_signatures,
-    collect_module_symbol_signatures, collect_program_adt_field_indices,
-    collect_program_adt_field_layouts, compile_checked_program_to_module, is_main_module_path,
+    collect_imported_adt_field_layouts, collect_imported_adt_layout_aliases,
+    collect_imported_symbol_signatures, collect_module_symbol_signatures,
+    collect_program_adt_field_indices, collect_program_adt_field_layouts,
+    collect_unique_adt_layout_aliases, compile_checked_program_to_module, is_main_module_path,
     lambda_body_to_function_body, merge_adt_field_indices_from_layouts,
-    merge_interface_adt_field_layouts, merge_standard_adt_field_layouts, parse_source_to_program,
+    merge_interface_adt_field_layouts, merge_interface_adt_variant_discriminants,
+    merge_standard_adt_field_layouts, parse_source_to_program,
     validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
@@ -320,6 +322,7 @@ pub fn compile_to_module_for_target<'context>(
     let mut adt_field_indices = collect_program_adt_field_indices(&program);
     let mut adt_field_layouts = collect_program_adt_field_layouts(&program);
     let imported_adt_field_layouts = collect_imported_adt_field_layouts(&checker, &program);
+    let adt_layout_aliases = collect_imported_adt_layout_aliases(&checker, &program);
     merge_adt_field_indices_from_layouts(&mut adt_field_indices, &imported_adt_field_layouts);
     adt_field_layouts.extend(imported_adt_field_layouts);
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
@@ -333,6 +336,7 @@ pub fn compile_to_module_for_target<'context>(
     env.current_source_text.clone_from(&normalized_source);
     env.adt_field_indices = adt_field_indices;
     env.adt_field_layouts = adt_field_layouts;
+    env.adt_layout_aliases = adt_layout_aliases;
 
     for declaration in &program.declarations {
         match *declaration {
@@ -767,7 +771,6 @@ pub fn compile_project_with_run_policy(
                 normalized_source,
             },
         })?;
-
     let mut parsed_programs: BTreeMap<PathBuf, Program> = BTreeMap::new();
     let mut module_sources: BTreeMap<PathBuf, String> = BTreeMap::new();
     for module_path in &discovered_module_paths {
@@ -788,11 +791,11 @@ pub fn compile_project_with_run_policy(
         parsed_programs.insert(module_path.clone(), program);
         module_sources.insert(module_path.clone(), module_source);
     }
-
     let mut discovered_interfaces = BTreeMap::new();
     let mut imported_signatures_by_module: BTreeMap<PathBuf, BTreeMap<String, CoreType>> =
         BTreeMap::new();
-
+    let mut imported_adt_aliases_by_module: BTreeMap<PathBuf, BTreeMap<String, String>> =
+        BTreeMap::new();
     if let Some(first_module_path) = discovered_module_paths.first() {
         let Some(first_program) = parsed_programs.get(first_module_path) else {
             return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
@@ -803,7 +806,6 @@ pub fn compile_project_with_run_policy(
                 span: TypeError::unknown_span(),
             }));
         };
-
         let mut first_checker = TypeChecker::new();
         first_checker.set_current_module_path(first_module_path.display().to_string());
         let first_type_check_result = first_checker.type_check_program(first_program);
@@ -819,7 +821,6 @@ pub fn compile_project_with_run_policy(
                     })
                     .collect()
             };
-
             if !filtered_errors.is_empty() {
                 let mut report = CompilationErrorReport::new();
                 report.extend_type_errors(filtered_errors);
@@ -833,7 +834,6 @@ pub fn compile_project_with_run_policy(
                 });
             }
         }
-
         for warning in first_checker.warnings() {
             eprintln!(
                 "{}",
@@ -846,7 +846,6 @@ pub fn compile_project_with_run_policy(
                 )
             );
         }
-
         let first_module_key = first_module_path.display().to_string();
         let Some(first_module_interface) = first_checker.module_interface(&first_module_key) else {
             return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
@@ -858,12 +857,14 @@ pub fn compile_project_with_run_policy(
             }));
         };
         discovered_interfaces.insert(first_module_path.clone(), first_module_interface);
-
         let first_imported_signatures =
             collect_imported_symbol_signatures(&first_checker, first_program);
+        let first_imported_adt_aliases =
+            collect_imported_adt_layout_aliases(&first_checker, first_program);
         imported_signatures_by_module.insert(first_module_path.clone(), first_imported_signatures);
+        imported_adt_aliases_by_module
+            .insert(first_module_path.clone(), first_imported_adt_aliases);
     }
-
     for module_path in discovered_module_paths.iter().skip(1) {
         let Some(program) = parsed_programs.get(module_path) else {
             return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
@@ -874,13 +875,11 @@ pub fn compile_project_with_run_policy(
                 span: TypeError::unknown_span(),
             }));
         };
-
         let mut checker = TypeChecker::new();
         checker.set_current_module_path(module_path.display().to_string());
         for discovered_interface in discovered_interfaces.values() {
             checker.register_module_interface(discovered_interface.clone());
         }
-
         for declaration in &program.declarations {
             if let &Decl::Import {
                 source: ref import_source,
@@ -890,7 +889,6 @@ pub fn compile_project_with_run_policy(
                 if matches!(import_source.as_str(), "standard" | "math" | "process") {
                     continue;
                 }
-
                 let resolved_path_result = resolve_import_path(module_path, import_source.as_str());
                 let Ok(resolved_path) = resolved_path_result else {
                     continue;
@@ -902,7 +900,6 @@ pub fn compile_project_with_run_policy(
                 }
             }
         }
-
         let type_check_result = checker.type_check_program(program);
         if let Err(type_errors) = type_check_result {
             let module_is_main = is_main_module_path(project_dir, module_path);
@@ -916,7 +913,6 @@ pub fn compile_project_with_run_policy(
                     })
                     .collect()
             };
-
             if !filtered_errors.is_empty() {
                 let mut report = CompilationErrorReport::new();
                 report.extend_type_errors(filtered_errors);
@@ -955,7 +951,9 @@ pub fn compile_project_with_run_policy(
         discovered_interfaces.insert(module_path.clone(), module_interface);
 
         let imported_signatures = collect_imported_symbol_signatures(&checker, program);
+        let imported_adt_aliases = collect_imported_adt_layout_aliases(&checker, program);
         imported_signatures_by_module.insert(module_path.clone(), imported_signatures);
+        imported_adt_aliases_by_module.insert(module_path.clone(), imported_adt_aliases);
     }
 
     let mut module_symbol_signatures_by_module: BTreeMap<PathBuf, BTreeMap<String, CoreType>> =
@@ -973,17 +971,13 @@ pub fn compile_project_with_run_policy(
 
     let mut global_adt_field_indices: BTreeMap<String, BTreeMap<String, u32>> = BTreeMap::new();
     let mut global_adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>> = BTreeMap::new();
-    for (module_path, program) in &parsed_programs {
-        for (name, fields) in collect_program_adt_field_indices(program) {
-            global_adt_field_indices.insert(name, fields);
-        }
-        for (name, fields) in collect_program_adt_field_layouts(program) {
-            global_adt_field_layouts.insert(name, fields);
-        }
-        if let Some(interface) = discovered_interfaces.get(module_path) {
-            merge_interface_adt_field_layouts(interface, &mut global_adt_field_layouts);
-        }
+    let mut global_adt_variant_discriminants: BTreeMap<String, i64> = BTreeMap::new();
+    for interface in discovered_interfaces.values() {
+        merge_interface_adt_field_layouts(interface, &mut global_adt_field_layouts);
+        merge_interface_adt_variant_discriminants(interface, &mut global_adt_variant_discriminants);
     }
+    let global_adt_layout_aliases =
+        collect_unique_adt_layout_aliases(discovered_interfaces.values());
     merge_standard_adt_field_layouts(&mut global_adt_field_layouts);
     merge_adt_field_indices_from_layouts(&mut global_adt_field_indices, &global_adt_field_layouts);
 
@@ -1010,6 +1004,10 @@ pub fn compile_project_with_run_policy(
             .get(module_path)
             .cloned()
             .unwrap_or_default();
+        let mut adt_layout_aliases = global_adt_layout_aliases.clone();
+        if let Some(imported_aliases) = imported_adt_aliases_by_module.get(module_path) {
+            adt_layout_aliases.extend(imported_aliases.clone());
+        }
 
         let context = Context::create();
         let llvm_module = compile_checked_program_to_module(
@@ -1021,6 +1019,8 @@ pub fn compile_project_with_run_policy(
             &module_symbol_signatures,
             &global_adt_field_indices,
             &global_adt_field_layouts,
+            &adt_layout_aliases,
+            &global_adt_variant_discriminants,
             target,
         )
         .map_err(CompileError::Codegen)?;

@@ -167,6 +167,94 @@ impl ModuleAvailability {
     }
 }
 
+/// Module-qualified nominal ADT identity used by layout manifests.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AdtTypeId {
+    /// Canonical module identifier that owns the type declaration.
+    pub module_path: String,
+    /// Public source-level type name within the owning module.
+    pub type_name: String,
+}
+
+impl AdtTypeId {
+    /// Build a canonical ADT identity from module path and type name.
+    #[must_use]
+    pub fn new(module_path: impl Into<String>, type_name: impl Into<String>) -> Self {
+        Self {
+            module_path: module_path.into(),
+            type_name: type_name.into(),
+        }
+    }
+
+    /// Return the canonical layout key used by codegen metadata maps.
+    #[must_use]
+    pub fn layout_key(&self) -> String {
+        format!("{}::{}", self.module_path, self.type_name)
+    }
+}
+
+/// Ordered field metadata exported for public ADT layouts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdtFieldManifest {
+    /// Source field name.
+    pub name: String,
+    /// Resolved field core type.
+    pub core_type: CoreType,
+    /// Field visibility; v1 public layouts expose all declared fields.
+    pub is_public: bool,
+    /// Whether this field needs RC/drop-child handling when the owner is dropped.
+    pub requires_drop: bool,
+}
+
+/// Ordered sum-variant metadata exported for public ADT layouts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdtVariantManifest {
+    /// Source variant name.
+    pub name: String,
+    /// Stable discriminant value used in generated tag checks.
+    pub discriminant: i64,
+    /// Ordered payload fields.
+    pub fields: Vec<AdtFieldManifest>,
+    /// Whether this variant has the propertyless representation.
+    pub propertyless: bool,
+}
+
+/// Public ADT layout shape stored in module interfaces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdtLayoutManifestKind {
+    /// Product layout with ordered fields.
+    Product {
+        /// Ordered product fields.
+        fields: Vec<AdtFieldManifest>,
+    },
+    /// Sum layout with ordered variants.
+    Sum {
+        /// Ordered sum variants.
+        variants: Vec<AdtVariantManifest>,
+    },
+    /// Alias layout metadata.
+    Alias {
+        /// Alias target core type.
+        target: CoreType,
+    },
+    /// Opaque layout metadata; consumers cannot inspect representation.
+    Opaque {
+        /// Whether the opaque representation is public to consumers.
+        layout_public: bool,
+    },
+}
+
+/// Structured public ADT layout contract exported by a module interface.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdtLayoutManifest {
+    /// Canonical module-qualified ADT identity.
+    pub type_id: AdtTypeId,
+    /// Layout details for products, sums, aliases, and opaque types.
+    pub kind: AdtLayoutManifestKind,
+    /// Deterministic layout hash for ABI/hot-reload compatibility checks.
+    pub layout_hash: u64,
+}
+
 /// Parsed type-declaration metadata retained for module-interface consumers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleTypeDeclaration {
@@ -207,6 +295,8 @@ pub struct ModuleInterface {
     pub namespaces: Vec<Vec<String>>,
     /// Parsed type declaration metadata keyed by declared type name.
     pub type_declarations: BTreeMap<String, ModuleTypeDeclaration>,
+    /// Structured public ADT layout manifests keyed by canonical type identity.
+    pub adt_layout_manifests: BTreeMap<AdtTypeId, AdtLayoutManifest>,
 }
 
 impl ModuleInterface {
@@ -233,6 +323,7 @@ impl ModuleInterface {
             availability,
             namespaces: Vec::new(),
             type_declarations: BTreeMap::new(),
+            adt_layout_manifests: BTreeMap::new(),
         }
     }
 
@@ -303,6 +394,19 @@ impl ModuleInterface {
     /// Read parsed type-declaration metadata for one type name.
     pub fn type_declaration(&self, type_name: &str) -> Option<&ModuleTypeDeclaration> {
         self.type_declarations.get(type_name)
+    }
+
+    /// Register one structured ADT layout manifest.
+    pub fn register_adt_layout_manifest(&mut self, manifest: AdtLayoutManifest) {
+        self.adt_layout_manifests
+            .insert(manifest.type_id.clone(), manifest);
+    }
+
+    /// Read structured ADT layout metadata for one public type in this interface.
+    pub fn adt_layout_manifest(&self, type_name: &str) -> Option<&AdtLayoutManifest> {
+        self.adt_layout_manifests
+            .iter()
+            .find_map(|(type_id, manifest)| (type_id.type_name == type_name).then_some(manifest))
     }
 }
 

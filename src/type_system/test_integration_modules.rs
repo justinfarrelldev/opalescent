@@ -11,7 +11,7 @@ use crate::parser::Parser;
 use crate::token::{Position, Span};
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
-use crate::type_system::module_resolver::ModuleInterface;
+use crate::type_system::module_resolver::{AdtLayoutManifestKind, ModuleInterface};
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::terminal_public_api_prerequisites::TerminalPublicApiPrerequisite;
 use crate::type_system::types::CoreType;
@@ -319,6 +319,116 @@ entry main = f(): void =>
                 .map(|labels| labels.iter().map(String::as_str).collect::<Vec<_>>()),
             Some(vec!["x", "y"]),
             "imported caller should see the callee's ordered return labels"
+        );
+    }
+
+    #[test]
+    fn test_type_modules_export_structured_adt_layout_manifests() {
+        const TYPES_SOURCE: &str = "
+type PrivateScratch:
+    hidden: int32
+
+public type EditorStatus:
+    Opened:
+        path: string
+    UnsavedChanges
+    CommandError:
+        text: string
+
+public type CursorPosition:
+    line: int64
+    column: int64
+
+public type EditorState:
+    cursor: CursorPosition
+    status: EditorStatus
+    dirty: boolean
+";
+
+        let program = parse_pipeline(TYPES_SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.set_current_module_path(String::from("./editor.types"));
+        let result = checker.type_check_program(&program);
+        assert!(
+            matches!(result, Err(ref errors) if errors.iter().all(|error| matches!(error, &TypeError::MissingEntryPoint { .. }))),
+            "types-only module should only report the expected missing entry point after interface registration: {result:?}"
+        );
+
+        let interface = checker
+            .module_interface("./editor.types")
+            .expect("types module interface should be registered");
+        assert!(
+            interface.adt_layout_manifest("PrivateScratch").is_none(),
+            "private type layouts must not be exposed through public manifests"
+        );
+
+        let state_manifest = interface
+            .adt_layout_manifest("EditorState")
+            .expect("public product type should have a layout manifest");
+        assert_eq!(state_manifest.type_id.module_path, "./editor.types");
+        assert_eq!(state_manifest.type_id.type_name, "EditorState");
+        assert_ne!(
+            state_manifest.layout_hash, 0,
+            "layout hash should be populated"
+        );
+        assert!(
+            matches!(&state_manifest.kind, &AdtLayoutManifestKind::Product { .. }),
+            "EditorState should be recorded as a product manifest"
+        );
+        let &AdtLayoutManifestKind::Product { ref fields } = &state_manifest.kind else {
+            return;
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["cursor", "status", "dirty"],
+            "product manifest should preserve declaration field order"
+        );
+        assert!(
+            fields.iter().all(|field| field.is_public),
+            "v1 public product fields should be marked public"
+        );
+
+        let status_manifest = interface
+            .adt_layout_manifest("EditorStatus")
+            .expect("public sum type should have a layout manifest");
+        assert!(
+            matches!(&status_manifest.kind, &AdtLayoutManifestKind::Sum { .. }),
+            "EditorStatus should be recorded as a sum manifest"
+        );
+        let &AdtLayoutManifestKind::Sum { ref variants } = &status_manifest.kind else {
+            return;
+        };
+        assert_eq!(
+            variants
+                .iter()
+                .map(|variant| (variant.name.as_str(), variant.discriminant))
+                .collect::<Vec<_>>(),
+            vec![("Opened", 0), ("UnsavedChanges", 1), ("CommandError", 2)],
+            "sum manifest should preserve declaration order and stable discriminants"
+        );
+        let opened = variants
+            .iter()
+            .find(|variant| variant.name == "Opened")
+            .expect("Opened variant should exist");
+        assert!(
+            !opened.propertyless,
+            "payload-bearing variant should not be propertyless"
+        );
+        assert_eq!(opened.fields[0].name, "path");
+        assert!(
+            opened.fields[0].requires_drop,
+            "string payload field should carry ownership/drop metadata"
+        );
+        let unsaved = variants
+            .iter()
+            .find(|variant| variant.name == "UnsavedChanges")
+            .expect("UnsavedChanges variant should exist");
+        assert!(
+            unsaved.propertyless,
+            "empty variant should record propertyless representation"
         );
     }
 

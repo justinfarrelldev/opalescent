@@ -31,8 +31,10 @@ pub(super) fn codegen_variant_tag_compare<'context>(
     let Some((type_name, variant_name)) = variant_type_expression_parts(variant_expr) else {
         return Ok(None);
     };
-    let Some(variant_tag) =
-        crate::type_system::terminal_proposal_variant_id(type_name, variant_name)
+    let variant_owner = alloc::format!("{type_name}.{variant_name}");
+    let Some(variant_tag) = env
+        .adt_variant_discriminant(variant_owner.as_str())
+        .or_else(|| crate::type_system::terminal_proposal_variant_id(type_name, variant_name))
     else {
         return Ok(None);
     };

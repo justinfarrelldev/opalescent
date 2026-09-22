@@ -576,6 +576,14 @@ impl TypeChecker {
                 if let Some(registered_symbol) = self.symbol_table.lookup(name).cloned() {
                     self.register_current_module_symbol(registered_symbol, visibility)?;
                 }
+                self.register_current_module_type_declaration(
+                    name.clone(),
+                    annotations.clone(),
+                    *form,
+                    type_def,
+                    visibility,
+                    decl.span(),
+                );
 
                 if let TypeDef::Sum { variants, .. } = type_def {
                     let mut qualified_variants = Vec::new();

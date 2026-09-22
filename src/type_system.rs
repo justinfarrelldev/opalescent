@@ -89,7 +89,7 @@ mod memory;
 /// Import/export resolver and module dependency graph implementation.
 mod module_resolver;
 pub mod propertyless_constructors;
-pub(crate) use module_resolver::ModuleInterface;
+pub(crate) use module_resolver::{AdtLayoutManifestKind, ModuleInterface};
 mod substitution;
 mod symbol_table;
 /// Selected terminal public API prerequisite inventory and diagnostics.
