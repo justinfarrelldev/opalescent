@@ -1,4 +1,5 @@
-import path_from, read_lines_sync, read_text_sync, write_text_sync, int64_to_string, string_join from standard
+import path_from, read_lines_sync, read_text_sync, write_text_sync, int64_to_string from standard
+import string_join from standard
 
 let should_blockquote = f(index: int64): boolean =>
     if index is 2 or index is 3:
@@ -18,15 +19,17 @@ let should_blockquote = f(index: int64): boolean =>
 ##
   Description: Runs a deterministic read-transform-write markdown roundtrip and reports exact byte count.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError,
-                                            FilesystemPathErrors,
-                                            ReadFailureError,
-                                            IsADirectoryError,
-                                            InvalidUtf8Error,
-                                            WriteFailureError,
-                                            FilesystemFullError,
-                                            IndexOutOfBoundsError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    FileNotFoundError,
+    FilesystemPathErrors,
+    ReadFailureError,
+    IsADirectoryError,
+    InvalidUtf8Error,
+    WriteFailureError,
+    FilesystemFullError,
+    IndexOutOfBoundsError,
+    AllocationFailureError
+=>
     let project_root = 'test-projects/fs-markdown-roundtrip/'
     let input_path = path_from('{project_root}fixtures/input.md')
     let expected_path = path_from('{project_root}fixtures/expected_output.md')

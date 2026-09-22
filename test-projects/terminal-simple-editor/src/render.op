@@ -15,8 +15,11 @@ public let line_number_prefix = f(line_index: int64): string =>
 ##
   Description: Builds the editor status line or colon command prompt.
 ##
-public let editor_status_line = f(file_path_text: string, state: EditorState, command_text: string): string errors StringRangeOutOfBoundsError,
-                                                                                   AllocationFailureError =>
+public let editor_status_line = f(
+    file_path_text: string,
+    state: EditorState,
+    command_text: string
+): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
     let mode = state.mode
     if mode is EditorMode.Command:
         return ':{command_text}'
@@ -31,10 +34,19 @@ public let editor_status_line = f(file_path_text: string, state: EditorState, co
 ##
   Description: Renders buffer rows, status, and help text as trusted terminal rows.
 ##
-public let build_render_rows = f(lines: string[], state: EditorState, file_path_text: string, command_text: string, visible_rows: int64, max_cells: int64): TrustedTerminalOutput[] errors IndexOutOfBoundsError,
-                                                                                                                                                            TerminalTextLayoutError,
-                                                                                                                                                            StringRangeOutOfBoundsError,
-                                                                                                                                                            AllocationFailureError =>
+public let build_render_rows = f(
+    lines: string[],
+    state: EditorState,
+    file_path_text: string,
+    command_text: string,
+    visible_rows: int64,
+    max_cells: int64
+): TrustedTerminalOutput[] errors
+    IndexOutOfBoundsError,
+    TerminalTextLayoutError,
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     let mutable rows: TrustedTerminalOutput[] = []
     let mutable row_index: int64 = 0
     while row_index < visible_rows:
@@ -44,18 +56,27 @@ public let build_render_rows = f(lines: string[], state: EditorState, file_path_
             let prefix = line_number_prefix(line_index)
             let prefix_width = terminal_text_cell_width(prefix)
             let available_cells = max_cells - prefix_width
-            let clipped_line, _used_cells = propagate terminal_text_clip_to_cells(line, available_cells)
-            let output = propagate trusted_terminal_output_from_application_text('{prefix}{clipped_line}')
+            let clipped_line, _used_cells = propagate terminal_text_clip_to_cells(
+                line,
+                available_cells
+            )
+            let output = propagate trusted_terminal_output_from_application_text(
+                '{prefix}{clipped_line}'
+            )
             rows.push(output)
         else:
             let output = propagate trusted_terminal_output_from_application_text('~')
             rows.push(output)
         row_index = row_index + 1
     let raw_status = propagate editor_status_line(file_path_text, state, command_text)
-    let clipped_status, _used_status_cells = propagate terminal_text_clip_to_cells(raw_status, max_cells)
+    let clipped_status, _used_status_cells = propagate terminal_text_clip_to_cells(
+        raw_status,
+        max_cells
+    )
     let status_output = propagate trusted_terminal_output_from_application_text(clipped_status)
     rows.push(status_output)
-    let help = 'NORMAL: i insert  : command  q quit  arrows/hjkl move | INSERT: Esc normal | COMMAND: w q wq q!'
+    let help =
+        'NORMAL: i insert  : command  q quit  arrows/hjkl move | INSERT: Esc normal | COMMAND: w q wq q!'
     let clipped_help, _used_help_cells = propagate terminal_text_clip_to_cells(help, max_cells)
     let help_output = propagate trusted_terminal_output_from_application_text(clipped_help)
     rows.push(help_output)
@@ -64,11 +85,16 @@ public let build_render_rows = f(lines: string[], state: EditorState, file_path_
 ##
   Description: Converts cursor scalar position into terminal display-column position.
 ##
-public let cursor_display_column = f(lines: string[], state: EditorState): int64 errors IndexOutOfBoundsError,
-                                                     StringRangeOrderError,
-                                                     StringRangeOutOfBoundsError,
-                                                     TerminalTextLayoutError,
-                                                     AllocationFailureError =>
+public let cursor_display_column = f(
+    lines: string[],
+    state: EditorState
+): int64 errors
+    IndexOutOfBoundsError,
+    StringRangeOrderError,
+    StringRangeOutOfBoundsError,
+    TerminalTextLayoutError,
+    AllocationFailureError
+=>
     let cursor: CursorPosition = state.cursor
     let line = propagate lines.at(cursor.line)
     let prefix = line_number_prefix(cursor.line)

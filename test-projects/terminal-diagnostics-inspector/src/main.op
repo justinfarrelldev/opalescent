@@ -6,5 +6,7 @@
   Description: Selected typed-event-session fixture for generated diagnostic declarations/status coverage without runtime diagnostic-object inspection.
 ##
 entry main = f(args: string[]): void =>
-    print('DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=declaration_status session_opened=false')
+    print(
+        'DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=declaration_status session_opened=false'
+    )
     return void

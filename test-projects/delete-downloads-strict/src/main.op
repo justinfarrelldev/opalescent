@@ -1,15 +1,18 @@
-import path_from, path_to_string, create_directory_recursive_sync, list_directory_sync, join_path_components, delete_directory_recursive_sync, int64_to_string from standard
+import path_from, path_to_string, create_directory_recursive_sync, list_directory_sync from standard
+import join_path_components, delete_directory_recursive_sync, int64_to_string from standard
 
 ##
   Description: Removes every child entry from the configured Downloads folder.
 ##
-entry main = f(args: string[]): void errors DirectoryNotFoundError,
-                                            FilesystemPathErrors,
-                                            ReadFailureError,
-                                            IsNotADirectoryError,
-                                            DeleteFailureError,
-                                            CreateFailureError,
-                                            FilesystemFullError =>
+entry main = f(args: string[]): void errors
+    DirectoryNotFoundError,
+    FilesystemPathErrors,
+    ReadFailureError,
+    IsNotADirectoryError,
+    DeleteFailureError,
+    CreateFailureError,
+    FilesystemFullError
+=>
     let folder = path_from('test-projects/delete-downloads-strict/workspace')
     guard create_directory_recursive_sync(folder) into _ else err =>
         print('LIST_ERR={err}')

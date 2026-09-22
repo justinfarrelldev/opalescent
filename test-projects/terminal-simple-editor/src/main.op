@@ -1,6 +1,8 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync from standard.terminal
+import terminal_session_options_default, terminal_session_open_sync from standard.terminal
+import terminal_session_read_event_sync from standard.terminal
 import terminal_session_flush_sync, terminal_session_write_sync from standard.terminal
-import terminal_session_clear_screen_sync, terminal_session_move_cursor_sync, terminal_session_bell_sync from standard.terminal
+import terminal_session_clear_screen_sync, terminal_session_move_cursor_sync from standard.terminal
+import terminal_session_bell_sync from standard.terminal
 import cancellation_source_new, cancellation_token from standard.system
 import environment_variable_exists from process
 import path_from, read_lines_sync, string_length from standard
@@ -9,26 +11,33 @@ import ensure_nonempty_lines, clamp_cursor_to_line, update_viewport from ./buffe
 import build_render_rows, cursor_display_column from ./render
 import apply_text_input, apply_named_key from ./input
 import initial_editor_state, with_cursor_and_viewport, with_status, with_stopped_status from ./state
-import type EditorMode, EditorStatus, EditorTermination, CursorPosition, EditorState, EditorTransition from ./editor.types
-import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard.terminal
+import type EditorMode, EditorStatus, EditorTermination, CursorPosition from ./editor.types
+import type EditorState, EditorTransition from ./editor.types
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey from standard.terminal
+import type TerminalSessionOpenError, TerminalSessionReadError from standard.terminal
+import type TerminalSessionWriteError, TerminalSessionStateError from standard.terminal
+import type TerminalSessionRestoreError from standard.terminal
 
 ##
   Description: Runs a tiny modal terminal editor with normal, insert, and command modes.
 ##
-entry main = f(args: string[]): void errors FilesystemReadErrors,
-                                            FilesystemWriteErrors,
-                                            IndexOutOfBoundsError,
-                                            AllocationFailureError,
-                                            StringRangeErrors,
-                                            TerminalTextLayoutError,
-                                            TerminalSessionOpenError,
-                                            TerminalSessionReadError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            InvalidCursorPositionError,
-                                            InvalidEnvironmentVariableNameError =>
-    let file_path_text: string = guard args.at(1) into arg_path: string else 'test-projects/terminal-simple-editor/workspace/untitled.txt'
+entry main = f(args: string[]): void errors
+    FilesystemReadErrors,
+    FilesystemWriteErrors,
+    IndexOutOfBoundsError,
+    AllocationFailureError,
+    StringRangeErrors,
+    TerminalTextLayoutError,
+    TerminalSessionOpenError,
+    TerminalSessionReadError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    InvalidCursorPositionError,
+    InvalidEnvironmentVariableNameError
+=>
+    let file_path_text: string = guard args.at(1) into arg_path: string else
+        'test-projects/terminal-simple-editor/workspace/untitled.txt'
     let opened = args.length > 1
     let mutable lines: string[] = []
     if opened:
@@ -47,30 +56,58 @@ entry main = f(args: string[]): void errors FilesystemReadErrors,
     using session = propagate terminal_session_open_sync(options):
         while state.running and reads < 1000:
             let clamped_cursor: CursorPosition = propagate clamp_cursor_to_line(lines, state.cursor)
-            let next_viewport = update_viewport(clamped_cursor.line, state.viewport_top, visible_rows)
+            let next_viewport = update_viewport(
+                clamped_cursor.line,
+                state.viewport_top,
+                visible_rows
+            )
             state = with_cursor_and_viewport(state, clamped_cursor, next_viewport)
             let command_text = propagate command_text_for(state.command)
-            let rows = propagate build_render_rows(lines, state, file_path_text, command_text, visible_rows, max_cells)
+            let rows = propagate build_render_rows(
+                lines,
+                state,
+                file_path_text,
+                command_text,
+                visible_rows,
+                max_cells
+            )
             propagate terminal_session_clear_screen_sync(mutable ref session)
             let mutable render_row_index: int64 = 0
             while render_row_index < rows.length:
                 let row_output = propagate rows.at(render_row_index)
-                propagate terminal_session_move_cursor_sync(mutable ref session, (render_row_index + 1) as int32, 1 as int32)
+                propagate terminal_session_move_cursor_sync(
+                    mutable ref session,
+                    (render_row_index + 1) as int32,
+                    1 as int32
+                )
                 propagate terminal_session_write_sync(ref session, row_output)
                 render_row_index = render_row_index + 1
             let mode = state.mode
             if mode is EditorMode.Command:
-                propagate terminal_session_move_cursor_sync(mutable ref session, (visible_rows + 1) as int32, (string_length(command_text) + 2) as int32)
+                propagate terminal_session_move_cursor_sync(
+                    mutable ref session,
+                    (visible_rows + 1) as int32,
+                    (string_length(command_text) + 2) as int32
+                )
             else:
                 let display_column = propagate cursor_display_column(lines, state)
                 let cursor: CursorPosition = state.cursor
-                propagate terminal_session_move_cursor_sync(mutable ref session, (cursor.line - state.viewport_top + 1) as int32, (display_column + 1) as int32)
+                propagate terminal_session_move_cursor_sync(
+                    mutable ref session,
+                    (cursor.line - state.viewport_top + 1) as int32,
+                    (display_column + 1) as int32
+                )
             propagate terminal_session_flush_sync(ref session)
             redraws = redraws + 1
-            let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Forever, token)
+            let event = propagate terminal_session_read_event_sync(
+                mutable ref session,
+                new TerminalWait.Forever,
+                token
+            )
             reads = reads + 1
             if event is TerminalInputEvent.TextInput into text_event:
-                let updated_lines: text_lines, transition: text_transition = propagate apply_text_input(lines, state, text_event.text)
+                let updated_lines: text_lines, transition: text_transition =
+                    propagate apply_text_input(lines, state, text_event.text)
                 lines = text_lines
                 state = text_transition.state
                 if text_transition.should_bell:
@@ -78,13 +115,15 @@ entry main = f(args: string[]): void errors FilesystemReadErrors,
             if event is TerminalInputEvent.Key into key_event:
                 let logical = key_event.key
                 if logical is TerminalLogicalKey.Text into text_key:
-                    let updated_lines: key_text_lines, transition: key_text_transition = propagate apply_text_input(lines, state, text_key.logical_text)
+                    let updated_lines: key_text_lines, transition: key_text_transition =
+                        propagate apply_text_input(lines, state, text_key.logical_text)
                     lines = key_text_lines
                     state = key_text_transition.state
                     if key_text_transition.should_bell:
                         propagate terminal_session_bell_sync(mutable ref session)
                 if logical is TerminalLogicalKey.Named into named:
-                    let updated_lines: named_lines, transition: named_transition = propagate apply_named_key(file_path_text, lines, state, named.key)
+                    let updated_lines: named_lines, transition: named_transition =
+                        propagate apply_named_key(file_path_text, lines, state, named.key)
                     lines = named_lines
                     state = named_transition.state
                     if named_transition.should_bell:
@@ -92,10 +131,22 @@ entry main = f(args: string[]): void errors FilesystemReadErrors,
             if event is TerminalInputEvent.Resize:
                 state = with_status(state, new EditorStatus.Resized)
             if event is TerminalInputEvent.Cancelled:
-                state = with_stopped_status(state, new EditorStatus.Cancelled, new EditorTermination.Cancelled)
+                state = with_stopped_status(
+                    state,
+                    new EditorStatus.Cancelled,
+                    new EditorTermination.Cancelled
+                )
             if event is TerminalInputEvent.EndOfInput:
-                state = with_stopped_status(state, new EditorStatus.EndOfInput, new EditorTermination.EndOfInput)
-        propagate terminal_session_move_cursor_sync(mutable ref session, (visible_rows + 3) as int32, 1 as int32)
+                state = with_stopped_status(
+                    state,
+                    new EditorStatus.EndOfInput,
+                    new EditorTermination.EndOfInput
+                )
+        propagate terminal_session_move_cursor_sync(
+            mutable ref session,
+            (visible_rows + 3) as int32,
+            1 as int32
+        )
         propagate terminal_session_flush_sync(ref session)
     let final_status = propagate status_text_for(state.status)
     let final_termination = propagate termination_text_for(state.termination)
@@ -106,5 +157,7 @@ entry main = f(args: string[]): void errors FilesystemReadErrors,
     let final_viewport = state.viewport_top
     let print_summary = propagate environment_variable_exists('OPAL_TERMINAL_FAKE_BACKEND')
     if print_summary:
-        print('EDITOR_SUMMARY opened={opened} saved={final_saved} dirty={final_dirty} lines={final_line_count} cursor={final_cursor.line},{final_cursor.column} viewport={final_viewport} redraws={redraws} termination={final_termination} status={final_status}')
+        print(
+            'EDITOR_SUMMARY opened={opened} saved={final_saved} dirty={final_dirty} lines={final_line_count} cursor={final_cursor.line},{final_cursor.column} viewport={final_viewport} redraws={redraws} termination={final_termination} status={final_status}'
+        )
     return void

@@ -222,6 +222,7 @@ impl Parser {
         let mut return_labels = Vec::new();
         let mut saw_labels = false;
 
+        self.skip_newlines();
         loop {
             let slot_has_label = self.check_identifier()
                 && self
@@ -245,10 +246,12 @@ impl Parser {
 
             return_types.push(self.parse_type()?);
 
+            self.skip_newlines();
             if !self.check(&TokenType::Comma) {
                 break;
             }
             self.advance();
+            self.skip_newlines();
         }
 
         Ok((return_types, saw_labels.then_some(return_labels)))

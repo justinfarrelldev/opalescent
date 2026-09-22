@@ -1,22 +1,31 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_write_sync, terminal_session_flush_sync from standard
+import terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text from standard
-import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError from standard
+import type TerminalSessionStateError, TerminalSessionRestoreError from standard
 
 # Expected final summary: TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok
 
 ##
   Description: Selected typed-event-session fixture for a finite-wait timeout menu with deterministic default selection.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    AllocationFailureError
+=>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-    let menu = propagate trusted_terminal_output_from_application_text('Choose an action:\n1) Continue\n2) Use default\n3) Help\n')
+    let menu = propagate trusted_terminal_output_from_application_text(
+        'Choose an action:\n1) Continue\n2) Use default\n3) Help\n'
+    )
     propagate terminal_session_write_sync(ref session, menu)
-    let summary = propagate trusted_terminal_output_from_application_text('TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok\n')
+    let summary = propagate trusted_terminal_output_from_application_text(
+        'TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok\n'
+    )
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)
     let _close_outcome = propagate terminal_session_close_sync(mutable ref session)

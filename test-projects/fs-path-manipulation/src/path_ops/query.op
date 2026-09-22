@@ -1,4 +1,5 @@
-import path_from, path_file_name, path_file_extension, path_parent_directory, path_to_string from standard
+import path_from, path_file_name, path_file_extension, path_parent_directory from standard
+import path_to_string from standard
 
 ##
   Description: Summarizes name, extension, and parent queries for a raw path in one string.

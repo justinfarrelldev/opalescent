@@ -81,6 +81,7 @@ impl Parser {
     fn is_guard_statement_form(&self) -> bool {
         let mut index = self.current.saturating_add(1);
         let mut indent_depth = 0_usize;
+        let mut delimiter_depth = 0_usize;
 
         while let Some(current_token) = self.tokens.get(index) {
             match current_token.token_type {
@@ -98,6 +99,14 @@ impl Parser {
 
                     index = index.saturating_add(1);
                 }
+                TokenType::LeftParen | TokenType::LeftBracket | TokenType::LeftBrace => {
+                    delimiter_depth = delimiter_depth.saturating_add(1);
+                    index = index.saturating_add(1);
+                }
+                TokenType::RightParen | TokenType::RightBracket | TokenType::RightBrace => {
+                    delimiter_depth = delimiter_depth.saturating_sub(1);
+                    index = index.saturating_add(1);
+                }
                 TokenType::Indent => {
                     indent_depth = indent_depth.saturating_add(1);
                     index = index.saturating_add(1);
@@ -106,7 +115,7 @@ impl Parser {
                     indent_depth = indent_depth.saturating_sub(1);
                     index = index.saturating_add(1);
                 }
-                TokenType::Newline if indent_depth == 0 => {
+                TokenType::Newline if indent_depth == 0 && delimiter_depth == 0 => {
                     let next = self.tokens.get(index.saturating_add(1));
                     if next.is_some_and(|next_token| next_token.token_type == TokenType::Indent) {
                         index = index.saturating_add(1);
@@ -400,8 +409,10 @@ impl Parser {
                             id: self.next_node_id(),
                         });
 
+                        self.skip_newlines();
                         if self.check(&TokenType::Comma) {
                             self.advance();
+                            self.skip_newlines();
                             continue;
                         }
 
@@ -767,8 +778,10 @@ impl Parser {
                 id: self.next_node_id(),
             });
 
+            self.skip_newlines();
             if self.check(&TokenType::Comma) {
                 self.advance();
+                self.skip_newlines();
                 continue;
             }
 
@@ -866,6 +879,7 @@ impl Parser {
         if self.check(&TokenType::Assign) {
             let start_span = expr.span();
             self.advance(); // consume '='
+            self.skip_newlines_and_comments();
 
             let value = self.parse_expression()?;
             let end_span = value.span();

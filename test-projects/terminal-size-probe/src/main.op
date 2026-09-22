@@ -1,25 +1,48 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_capabilities, terminal_capabilities_feature, terminal_capabilities_trusted_paste_framing, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_capabilities, terminal_capabilities_feature from standard
+import terminal_capabilities_trusted_paste_framing, terminal_session_size_sync from standard
+import terminal_session_write_sync, terminal_session_flush_sync from standard
+import terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text from standard
-import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey from standard
+import type TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase from standard
+import type TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking from standard
+import type TerminalOrdinaryFeature, TerminalSessionOptionsError from standard
+import type TerminalSessionOpenError, TerminalSessionReadError from standard
+import type TerminalSessionWriteError, TerminalSessionStateError from standard
+import type TerminalSessionRestoreError, TerminalChordValidationError from standard
+import type TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger from standard
+import type TerminalChordTextPolicy, TerminalChordRouterPolicy from standard
+import type TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey from standard
+import type TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask from standard
+import type TerminalChordBindingId, TerminalChordMutationError from standard
+import type TerminalChordResetReason from standard
 
 ##
   Description: Selected typed-event-session fixture for capability snapshot and terminal size probing.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionReadError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionReadError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    AllocationFailureError
+=>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
     let capabilities = terminal_session_capabilities(ref session)
-    let enhanced_key_identity = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+    let enhanced_key_identity = terminal_capabilities_feature(
+        capabilities,
+        new TerminalOrdinaryFeature.EnhancedKeyIdentity
+    )
     let trusted_paste = terminal_capabilities_trusted_paste_framing(capabilities)
     let size = propagate terminal_session_size_sync(ref session)
     let dimensions = propagate trusted_terminal_output_from_application_text('SIZE_PROBE 80x24\n')
     propagate terminal_session_write_sync(ref session, dimensions)
-    let summary = propagate trusted_terminal_output_from_application_text('SIZE_PROBE_SUMMARY columns=80 rows=24 ordinary_capability=queried trusted_paste=queried\n')
+    let summary = propagate trusted_terminal_output_from_application_text(
+        'SIZE_PROBE_SUMMARY columns=80 rows=24 ordinary_capability=queried trusted_paste=queried\n'
+    )
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)
     let close_outcome = propagate terminal_session_close_sync(mutable ref session)

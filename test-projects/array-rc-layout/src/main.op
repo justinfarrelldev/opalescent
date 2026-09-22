@@ -14,12 +14,16 @@ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     print('literal values {propagate literal.at(0)} {propagate literal.at(1)}')
     print('alias sees literal {propagate alias.at(0)} {propagate alias.at(1)}')
     print('appended length {appended.length}')
-    print('appended values {propagate appended.at(0)} {propagate appended.at(1)} {propagate appended.at(2)}')
+    print(
+        'appended values {propagate appended.at(0)} {propagate appended.at(1)} {propagate appended.at(2)}'
+    )
     let mutable rebound: int32[] = [7, 8]
     let rebound_alias = rebound
     rebound.push(9)
     print('rebound length {rebound.length}')
-    print('rebound values {propagate rebound.at(0)} {propagate rebound.at(1)} {propagate rebound.at(2)}')
+    print(
+        'rebound values {propagate rebound.at(0)} {propagate rebound.at(1)} {propagate rebound.at(2)}'
+    )
     print('alias length {rebound_alias.length}')
     print('alias values {propagate rebound_alias.at(0)} {propagate rebound_alias.at(1)}')
     return void

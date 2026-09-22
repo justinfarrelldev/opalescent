@@ -49,6 +49,7 @@ impl Parser {
             }
         };
 
+        self.skip_newlines();
         let (success_binding, success_binding_type, success_binding_is_mutable, success_bindings) =
             if self.check(&TokenType::Into) {
                 self.advance();
@@ -210,6 +211,7 @@ impl Parser {
                 (None, None, false, Vec::new())
             };
 
+        self.skip_newlines();
         self.consume(&TokenType::Else, "Expected 'else' in guard statement")?;
 
         let error_binding = if self.check_identifier() {
@@ -231,6 +233,7 @@ impl Parser {
             });
         };
 
+        self.skip_newlines();
         self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
         self.skip_newlines();
         self.active_guard_error_bindings.push(error_binding.clone());

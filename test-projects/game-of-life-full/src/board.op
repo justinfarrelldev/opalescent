@@ -32,5 +32,11 @@ public let cell_at = f(board: int8[], width: int64, height: int64, x: int64, y: 
 ##
   Description: Checks whether a flat board cell is alive, with out-of-bounds cells considered dead.
 ##
-public let is_alive_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): boolean =>
+public let is_alive_at = f(
+    board: int8[],
+    width: int64,
+    height: int64,
+    x: int64,
+    y: int64
+): boolean =>
     return cell_at(board, width, height, x, y) is alive_cell()

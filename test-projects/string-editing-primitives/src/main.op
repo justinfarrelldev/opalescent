@@ -3,9 +3,11 @@ import string_insert_at, string_delete_range, string_replace_range from standard
 ##
   Description: Verifies scalar-indexed string editing primitives.
 ##
-entry main = f(): void errors StringRangeOrderError,
-                              StringRangeOutOfBoundsError,
-                              AllocationFailureError =>
+entry main = f(): void errors
+    StringRangeOrderError,
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     let inserted_ascii = propagate string_insert_at('ac', 1 as int64, 'b')
     let inserted_unicode = propagate string_insert_at('héz', 2 as int64, '🙂')
     let deleted_ascii = propagate string_delete_range('abcdef', 2 as int64, 4 as int64)

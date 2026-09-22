@@ -492,15 +492,13 @@ mod formatter_tests {
 
         assert!(
             formatted.contains(
-                "entry main = f(args: string[]): void errors FilesystemReadErrors,\n                                            FilesystemWriteErrors,\n                                            IndexOutOfBoundsError,"
+                "entry main = f(args: string[]): void errors\n    FilesystemReadErrors,\n    FilesystemWriteErrors,\n    IndexOutOfBoundsError,"
             ),
-            "long errors should wrap and align under the first error, got: {formatted}"
+            "long errors should wrap one error per indented line, got: {formatted}"
         );
         assert!(
-            formatted.contains(
-                "                                            InvalidEnvironmentVariableNameError =>"
-            ),
-            "last wrapped error should carry the function arrow, got: {formatted}"
+            formatted.contains("    InvalidEnvironmentVariableNameError\n=>"),
+            "wrapped error clauses should put the function arrow on its own base-indented line, got: {formatted}"
         );
         let second_pass = Formatter::with_defaults()
             .format_source(&formatted)
@@ -526,7 +524,7 @@ mod formatter_tests {
             "wide config should keep short error clauses on one line, got: {wide}"
         );
         assert!(
-            narrow.contains("errors FilesystemReadErrors,\n                                            FilesystemWriteErrors =>"),
+            narrow.contains("errors\n    FilesystemReadErrors,\n    FilesystemWriteErrors\n=>"),
             "narrow config should wrap error clauses, got: {narrow}"
         );
     }
@@ -545,6 +543,91 @@ mod formatter_tests {
         assert!(
             !formatted.contains('{') && !formatted.contains('}'),
             "function body formatting must not emit braces, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_wraps_long_let_lambda_signature_without_braces() {
+        let source = "public let build_render_rows = f(lines: string[], state: EditorState, file_path_text: string, command_text: string, visible_rows: int64, max_cells: int64): TrustedTerminalOutput[] errors IndexOutOfBoundsError, TerminalTextLayoutError, StringRangeOutOfBoundsError, AllocationFailureError => return rows";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("long lambda signature should format");
+
+        let expected = "public let build_render_rows = f(\n    lines: string[],\n    state: EditorState,\n    file_path_text: string,\n    command_text: string,\n    visible_rows: int64,\n    max_cells: int64\n): TrustedTerminalOutput[] errors\n    IndexOutOfBoundsError,\n    TerminalTextLayoutError,\n    StringRangeOutOfBoundsError,\n    AllocationFailureError\n=>\n    return rows\n";
+        assert_eq!(formatted, expected);
+        assert!(
+            !formatted.contains('{') && !formatted.contains('}'),
+            "signature wrapping must not emit block braces, got: {formatted}"
+        );
+        assert!(
+            formatted.lines().all(|line| line.chars().count() <= 100),
+            "formatted signature should stay within the default width, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_wraps_long_call_arguments() {
+        let source = "entry main = f(): void =>\n    let result = some_really_long_function_name(alpha, beta, gamma, delta, epsilon, zeta)\n    return void\n";
+        let fmt = Formatter::new(FormatterConfig::new(4, 60, false));
+        let formatted = fmt.format_source(source).expect("long call should format");
+
+        assert!(
+            formatted.contains(
+                "let result = some_really_long_function_name(\n        alpha,\n        beta,\n        gamma,\n        delta,\n        epsilon,\n        zeta\n    )"
+            ),
+            "long calls should be split into one argument per line, got: {formatted}"
+        );
+        assert!(
+            formatted.lines().all(|line| line.chars().count() <= 60),
+            "formatted call should stay within the configured width, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_splits_long_import_groups() {
+        let source = "import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync from standard\n";
+        let fmt = Formatter::new(FormatterConfig::new(4, 80, false));
+        let formatted = fmt
+            .format_source(source)
+            .expect("long import should format");
+
+        assert_eq!(
+            formatted,
+            "import terminal_session_options_default from standard\nimport terminal_session_open_sync from standard\nimport terminal_session_read_event_sync from standard\n"
+        );
+        assert!(
+            formatted.lines().all(|line| line.chars().count() <= 80),
+            "formatted imports should stay within the configured width, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_aligns_wrapped_labeled_return_payloads() {
+        let source = "entry main = f(): updated_lines: string[], transition: EditorTransition =>\n    return updated_lines: inserted_lines, transition: edit_transition(state, inserted_cursor, new EditorStatus.InsertedText)\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("labeled return should format");
+
+        assert!(
+            formatted.contains(
+                "return updated_lines: inserted_lines,\n           transition: edit_transition("
+            ),
+            "wrapped labeled return payloads should align labels, got: {formatted}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_wraps_guard_expression_else_arm() {
+        let source = "entry main = f(): void =>\n    let file_path_text: string = guard args.at(1) into arg_path: string else 'test-projects/terminal-simple-editor/workspace/untitled.txt'\n    return void\n";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("guard expression should format");
+
+        assert!(
+            formatted.contains(
+                "let file_path_text: string = guard args.at(1) into arg_path: string else\n        'test-projects/terminal-simple-editor/workspace/untitled.txt'"
+            ),
+            "guard expression else arm should wrap cleanly, got: {formatted}"
         );
     }
 

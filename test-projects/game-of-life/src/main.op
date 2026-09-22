@@ -1,6 +1,14 @@
-import string_join, string_builder_push, string_builder_finish, stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_draw_rows_sync, sleep_ms_sync from standard
+import string_join, string_builder_push, string_builder_finish, stdout_writer from standard
+import writer_write_sync, writer_flush_sync, stdout_terminal, terminal_draw_rows_sync from standard
+import sleep_ms_sync from standard
 
-let row = f(a: string, b: string, c: string, d: string, e: string): string errors AllocationFailureError =>
+let row = f(
+    a: string,
+    b: string,
+    c: string,
+    d: string,
+    e: string
+): string errors AllocationFailureError =>
     return propagate string_join([a, b, c, d, e], '')
 
 let frame_header = f(frame: int64): string =>
@@ -9,11 +17,13 @@ let frame_header = f(frame: int64): string =>
 ##
   Description: Renders a bounded deterministic ten-frame Game of Life transcript for integration testing.
 ##
-entry main = f(args: string[]): void errors StandardOutputHandleError,
-                                            StdoutWriterErrors,
-                                            TerminalWriteFailureError,
-                                            InvalidDurationError,
-                                            StringBuilderErrors =>
+entry main = f(args: string[]): void errors
+    StandardOutputHandleError,
+    StdoutWriterErrors,
+    TerminalWriteFailureError,
+    InvalidDurationError,
+    StringBuilderErrors
+=>
     let writer = propagate stdout_writer()
     let terminal = propagate stdout_terminal()
     let mutable frame: int64 = 0
@@ -24,10 +34,22 @@ entry main = f(args: string[]): void errors StandardOutputHandleError,
         let header_text = propagate string_builder_finish(header_builder)
         propagate writer_write_sync(writer, header_text)
         if frame % 2 is 0:
-            let even_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '.', '.', '.')]
+            let even_rows: string[] = [
+                propagate row('.', '.', '.', '.', '.'),
+                propagate row('.', '.', '#', '.', '.'),
+                propagate row('.', '.', '#', '.', '.'),
+                propagate row('.', '.', '#', '.', '.'),
+                propagate row('.', '.', '.', '.', '.')
+            ]
             propagate terminal_draw_rows_sync(terminal, even_rows)
         else:
-            let odd_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '#', '#', '#', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.')]
+            let odd_rows: string[] = [
+                propagate row('.', '.', '.', '.', '.'),
+                propagate row('.', '.', '.', '.', '.'),
+                propagate row('.', '#', '#', '#', '.'),
+                propagate row('.', '.', '.', '.', '.'),
+                propagate row('.', '.', '.', '.', '.')
+            ]
             propagate terminal_draw_rows_sync(terminal, odd_rows)
         propagate writer_write_sync(writer, '\n')
         propagate sleep_ms_sync(0)

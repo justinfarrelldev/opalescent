@@ -14,7 +14,8 @@ let count_download_entries = f(folder_raw: string): int32 errors ParseError =>
   Description: Entry point proving legal delete-download sibling preserves runtime coverage.
 ##
 entry main = f(args: string[]): void =>
-    let counted: int32 = guard count_download_entries('C:\\Users\\justi\\Downloads') into value: int32 else 0
+    let counted: int32 =
+        guard count_download_entries('C:\\Users\\justi\\Downloads') into value: int32 else 0
     if counted is 0:
         print('LEGAL_PROPAGATED=outer-guard')
         return void

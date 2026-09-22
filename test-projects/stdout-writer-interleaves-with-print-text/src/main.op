@@ -1,4 +1,5 @@
-import stdout_writer, writer_write_sync, writer_flush_sync, print_text_sync, flush_standard_output_sync from standard
+import stdout_writer, writer_write_sync, writer_flush_sync, print_text_sync from standard
+import flush_standard_output_sync from standard
 
 ##
   Description: Verifies StdoutWriter and print_text_sync interleave deterministically on shared stdout.

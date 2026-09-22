@@ -1,0 +1,8 @@
+- [x] Add red tests for multiline signatures, calls, imports, and parser support
+- [x] Teach parser to accept formatter-emitted multiline parameter/call/return lists
+- [x] Make formatter wrap long signatures without block braces
+- [x] Make formatter wrap long call/array/import groups
+- [x] Reformat valid test projects
+- [x] Validate formatter idempotency and targeted tests
+- [x] Review changes
+- [x] Commit changes

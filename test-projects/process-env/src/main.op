@@ -1,4 +1,5 @@
-import get_environment_variable, get_environment_variable_or, environment_variable_exists from process
+import get_environment_variable, get_environment_variable_or from process
+import environment_variable_exists from process
 
 ##
   Description: Exercises process environment read runtime functions with deterministic markers.
@@ -16,12 +17,21 @@ entry main = f(args: string[]): void errors ProcessEnvErrors =>
         print('missing_exists=true')
     else:
         print('missing_exists=false')
-    let missing_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_MISSING', 'fallback-value')
+    let missing_default = propagate get_environment_variable_or(
+        'OPAL_PROCESS_TEST_MISSING',
+        'fallback-value'
+    )
     print('missing_default={missing_default}')
     let empty_present = propagate get_environment_variable('OPAL_PROCESS_TEST_EMPTY')
     print('empty_present={empty_present}')
-    let empty_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_EMPTY', 'should-not-appear')
+    let empty_default = propagate get_environment_variable_or(
+        'OPAL_PROCESS_TEST_EMPTY',
+        'should-not-appear'
+    )
     print('empty_default={empty_default}')
-    let present_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_VALUE', 'should-not-appear')
+    let present_default = propagate get_environment_variable_or(
+        'OPAL_PROCESS_TEST_VALUE',
+        'should-not-appear'
+    )
     print('present_default={present_default}')
     return void

@@ -7562,3 +7562,82 @@ entry main = f(): void =>
     assert_eq!(span.offset(), closing_bracket_offset);
     assert_eq!(span.len(), 1);
 }
+
+#[test]
+fn multiline_parameter_and_return_signature_lists_parse() {
+    let source = "\
+public let build_render_rows = f(
+    lines: string[],
+    state: EditorState,
+    file_path_text: string,
+    command_text: string,
+    visible_rows: int64,
+    max_cells: int64
+): updated_lines: string[], transition: EditorTransition errors
+    IndexOutOfBoundsError,
+    AllocationFailureError
+=>
+    return updated_lines: lines, transition: transition
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "formatter-style multiline lambda signatures should parse: {result:?}"
+    );
+}
+
+#[test]
+fn multiline_call_arguments_parse() {
+    let source = "\
+entry main = f(): void =>
+    let result = some_really_long_function_name(
+        alpha,
+        beta,
+        gamma
+    )
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "formatter-style multiline call arguments should parse: {result:?}"
+    );
+}
+
+#[test]
+fn multiline_statement_guard_call_subject_parses() {
+    let source = "\
+entry main = f(): void =>
+    guard read_lines_sync(
+        path_from('/tmp/sample.txt')
+    ) into lines else err =>
+        print(err)
+        propagate err
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "formatter-style multiline statement guard call subjects should parse: {result:?}"
+    );
+}
+
+#[test]
+fn multiline_guard_expression_else_arm_parses() {
+    let source = "\
+entry main = f(): void =>
+    let file_path_text: string =
+        guard args.at(1) into arg_path: string else
+            'test-projects/terminal-simple-editor/workspace/untitled.txt'
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "formatter-style multiline guard expression else arms should parse: {result:?}"
+    );
+}

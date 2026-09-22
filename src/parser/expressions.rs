@@ -210,6 +210,7 @@ impl Parser {
             return Err(error);
         }
         self.advance();
+        self.skip_newlines();
 
         // Handler can be a block or a single expression wrapped into a statement
         let else_stmt: Stmt = if self.check(&TokenType::LeftBrace) {
@@ -519,6 +520,7 @@ impl Parser {
         let error_types = self.parse_error_types_clause()?;
 
         // Expect '=>'
+        self.skip_newlines();
         self.consume(&TokenType::Arrow, "Expected '=>' after lambda return type")?;
 
         // Parse lambda body
@@ -727,13 +729,16 @@ impl Parser {
                 self.advance();
                 let mut args = Vec::new();
 
+                self.skip_newlines();
                 if !self.check(&TokenType::RightParen) {
                     loop {
                         // Parse arguments with Assignment precedence to avoid infinite recursion
                         args.push(self.parse_precedence(Precedence::Assignment)?);
+                        self.skip_newlines();
 
                         if self.check(&TokenType::Comma) {
                             self.advance();
+                            self.skip_newlines();
                         } else {
                             break;
                         }
@@ -843,15 +848,18 @@ impl Parser {
         self.advance();
 
         let mut args = Vec::new();
+        self.skip_newlines();
         if !self.check(&TokenType::RightParen) {
             loop {
                 match self.parse_precedence(Precedence::Assignment) {
                     Ok(argument_expr) => args.push(argument_expr),
                     Err(parse_error) => return Some(Err(parse_error)),
                 }
+                self.skip_newlines();
 
                 if self.check(&TokenType::Comma) {
                     self.advance();
+                    self.skip_newlines();
                 } else {
                     break;
                 }

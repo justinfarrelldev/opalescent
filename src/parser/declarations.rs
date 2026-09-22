@@ -283,6 +283,7 @@ impl Parser {
         }
 
         // Expect '=>'
+        self.skip_newlines();
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;
 
         // Parse function body (block or single statement)
@@ -409,12 +410,15 @@ impl Parser {
     pub(super) fn parse_parameter_list(&mut self) -> ParseResult<Vec<Parameter>> {
         let mut parameters = Vec::new();
 
+        self.skip_newlines();
         if !self.check(&TokenType::RightParen) {
             loop {
                 let param = self.parse_parameter()?;
                 parameters.push(param);
+                self.skip_newlines();
                 if self.check(&TokenType::Comma) {
                     self.advance();
+                    self.skip_newlines();
                 } else {
                     break;
                 }

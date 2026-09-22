@@ -1,6 +1,21 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token, cancellation_request from standard
-import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_read_event_sync, terminal_session_write_sync from standard
+import terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new from standard
+import cancellation_token, cancellation_request from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey from standard
+import type TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase from standard
+import type TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking from standard
+import type TerminalOrdinaryFeature, TerminalSessionOptionsError from standard
+import type TerminalSessionOpenError, TerminalSessionReadError from standard
+import type TerminalSessionWriteError, TerminalSessionStateError from standard
+import type TerminalSessionRestoreError, TerminalChordValidationError from standard
+import type TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger from standard
+import type TerminalChordTextPolicy, TerminalChordRouterPolicy from standard
+import type TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey from standard
+import type TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask from standard
+import type TerminalChordBindingId, TerminalChordMutationError from standard
+import type TerminalChordResetReason from standard
 
 # Deterministic input plan: request cancellation before the first read while a test input event is ready; terminal_session_read_event_sync observes TerminalInputEvent.Cancelled.
 # Deterministic fault plan: sticky cancellation wins over newly ready input, and the loop exits without any read after cancellation wins.
@@ -9,12 +24,14 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture for sticky cancellation winning before queued terminal input consumption.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionReadError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionReadError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    AllocationFailureError
+=>
     let mutable source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
@@ -25,7 +42,11 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError,
     let mutable consumed_after_cancel: int64 = 0
     let mutable running = true
     while running and read_attempts < 3:
-        let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Forever, token)
+        let event = propagate terminal_session_read_event_sync(
+            mutable ref session,
+            new TerminalWait.Forever,
+            token
+        )
         read_attempts = read_attempts + 1
         if cancellations > 0:
             consumed_after_cancel = consumed_after_cancel + 1
@@ -34,7 +55,9 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError,
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
-    let summary = propagate trusted_terminal_output_from_application_text('CANCEL_DEMO_SUMMARY read_attempts={read_attempts} cancellations={cancellations} consumed_after_cancel={consumed_after_cancel} sticky=true cleanup=closed\n')
+    let summary = propagate trusted_terminal_output_from_application_text(
+        'CANCEL_DEMO_SUMMARY read_attempts={read_attempts} cancellations={cancellations} consumed_after_cancel={consumed_after_cancel} sticky=true cleanup=closed\n'
+    )
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)
     let close_outcome = propagate terminal_session_close_sync(mutable ref session)

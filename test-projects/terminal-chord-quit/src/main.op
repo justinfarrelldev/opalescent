@@ -1,8 +1,23 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_capabilities from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
-import terminal_chord_modifiers, terminal_chord_new, terminal_chord_sequence_single, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_released_input_length, terminal_chord_released_input_at, terminal_chord_binding_id_ordinal from standard
-import type TerminalWait, TerminalInputEvent, TerminalNamedKey, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
-import type TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalInputSequenceTimeoutMilliseconds from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_read_event_sync, terminal_session_write_sync from standard
+import terminal_session_flush_sync, terminal_session_capabilities from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new from standard
+import cancellation_token from standard
+import terminal_chord_modifiers, terminal_chord_new, terminal_chord_sequence_single from standard
+import terminal_chord_router_new, terminal_chord_router_register from standard
+import terminal_chord_router_process, terminal_chord_router_expire_sync from standard
+import terminal_chord_released_input_length, terminal_chord_released_input_at from standard
+import terminal_chord_binding_id_ordinal from standard
+import type TerminalWait, TerminalInputEvent, TerminalNamedKey from standard
+import type TerminalSessionOpenError, TerminalSessionReadError from standard
+import type TerminalSessionWriteError, TerminalSessionStateError from standard
+import type TerminalSessionRestoreError from standard
+import type TerminalChordValidationError, TerminalChordProcessError from standard
+import type TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy from standard
+import type TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordKey from standard
+import type TerminalControlCode, TerminalChordPrefixPolicy from standard
+import type TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit from standard
+import type TerminalChordBufferedEventLimit, TerminalInputSequenceTimeoutMilliseconds from standard
 
 # Deterministic input plan: TextInput(draft), Key(Control Ctrl-Q), then unconsumed Key(Named Escape) and EndOfInput.
 # Deterministic fault plan: Ctrl-Q and Escape bindings are registered through generated chord APIs; text input is released once, Ctrl-Q activates exactly once, and an idle expiration does not activate.
@@ -11,16 +26,18 @@ import type TerminalChordValidationError, TerminalChordProcessError, TerminalCho
 ##
   Description: Selected typed-event-session fixture for Ctrl-Q and Escape chord routing with deterministic generated chord API coverage.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionReadError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            TerminalChordValidationError,
-                                            TerminalChordProcessError,
-                                            IndexOutOfBoundsError,
-                                            AllocationFailureError,
-                                            ConstraintViolationError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionReadError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    TerminalChordValidationError,
+    TerminalChordProcessError,
+    IndexOutOfBoundsError,
+    AllocationFailureError,
+    ConstraintViolationError
+=>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
@@ -37,33 +54,68 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError,
             let control_modifiers = terminal_chord_modifiers(false, true, false, false)
             let control_key = new TerminalChordKey.Control:
                 code: propagate constrain TerminalControlCode from 17 as uint8
-            let control_chord = terminal_chord_new(control_key, control_modifiers, new TerminalChordTrigger.PressOrRepeat)
+            let control_chord = terminal_chord_new(
+                control_key,
+                control_modifiers,
+                new TerminalChordTrigger.PressOrRepeat
+            )
             let control_sequence = propagate terminal_chord_sequence_single(control_chord)
-            let ctrl_q_binding = propagate terminal_chord_router_register(mutable ref router, control_sequence, propagate constrain TerminalChordPriority from 100 as int32, new TerminalChordTextPolicy.SuppressLinkedText)
+            let ctrl_q_binding = propagate terminal_chord_router_register(
+                mutable ref router,
+                control_sequence,
+                propagate constrain TerminalChordPriority from 100 as int32,
+                new TerminalChordTextPolicy.SuppressLinkedText
+            )
             let escape_key = new TerminalChordKey.Named:
                 key: new TerminalNamedKey.Escape
-            let escape_chord = terminal_chord_new(escape_key, no_modifiers, new TerminalChordTrigger.Press)
+            let escape_chord = terminal_chord_new(
+                escape_key,
+                no_modifiers,
+                new TerminalChordTrigger.Press
+            )
             let escape_sequence = propagate terminal_chord_sequence_single(escape_chord)
-            let escape_binding = propagate terminal_chord_router_register(mutable ref router, escape_sequence, propagate constrain TerminalChordPriority from 90 as int32, new TerminalChordTextPolicy.PreserveLinkedText)
+            let escape_binding = propagate terminal_chord_router_register(
+                mutable ref router,
+                escape_sequence,
+                propagate constrain TerminalChordPriority from 90 as int32,
+                new TerminalChordTextPolicy.PreserveLinkedText
+            )
             let mutable activations: int64 = 0
             let mutable released_non_command: int64 = 0
             let mutable expirations: int64 = 0
-            let text_event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
-            let text_output = propagate terminal_chord_router_process(mutable ref router, text_event)
+            let text_event = propagate terminal_session_read_event_sync(
+                mutable ref session,
+                new TerminalWait.Poll,
+                token
+            )
+            let text_output = propagate terminal_chord_router_process(
+                mutable ref router,
+                text_event
+            )
             if text_output is TerminalChordRouterOutput.ReleasedInput into released:
-                released_non_command = released_non_command + terminal_chord_released_input_length(released.input)
+                released_non_command =
+                    released_non_command + terminal_chord_released_input_length(released.input)
                 let _released_event = propagate terminal_chord_released_input_at(released.input, 0)
             let expire_output = propagate terminal_chord_router_expire_sync(mutable ref router)
             if expire_output is TerminalChordRouterOutput.Idle:
                 expirations = expirations + 1
-            let ctrl_event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
-            let ctrl_output = propagate terminal_chord_router_process(mutable ref router, ctrl_event)
+            let ctrl_event = propagate terminal_session_read_event_sync(
+                mutable ref session,
+                new TerminalWait.Poll,
+                token
+            )
+            let ctrl_output = propagate terminal_chord_router_process(
+                mutable ref router,
+                ctrl_event
+            )
             if ctrl_output is TerminalChordRouterOutput.Activated into activated:
                 activations = activations + 1
                 let _activated_ordinal = terminal_chord_binding_id_ordinal(activated.binding_id)
             let ctrl_q_ordinal = terminal_chord_binding_id_ordinal(ctrl_q_binding)
             let escape_ordinal = terminal_chord_binding_id_ordinal(escape_binding)
-            let summary = propagate trusted_terminal_output_from_application_text('CHORD_QUIT_SUMMARY ctrl_q_binding={ctrl_q_ordinal} escape_binding={escape_ordinal} activations={activations} released_non_command={released_non_command} expirations={expirations} termination=ctrl-q status=ok\n')
+            let summary = propagate trusted_terminal_output_from_application_text(
+                'CHORD_QUIT_SUMMARY ctrl_q_binding={ctrl_q_ordinal} escape_binding={escape_ordinal} activations={activations} released_non_command={released_non_command} expirations={expirations} termination=ctrl-q status=ok\n'
+            )
             propagate terminal_session_write_sync(ref session, summary)
             propagate terminal_session_flush_sync(ref session)
     return void

@@ -3,7 +3,10 @@ import string_to_int32 from standard
 ##
   Description: Parses two strings into a labeled pair so fallible multiple return destructuring can be exercised end to end.
 ##
-let parse_pair = f(left_text: string, right_text: string): left: int32, right: int32 errors ParseError =>
+let parse_pair = f(
+    left_text: string,
+    right_text: string
+): left: int32, right: int32 errors ParseError =>
     let left = propagate string_to_int32(left_text)
     let right = propagate string_to_int32(right_text)
     return left: left, right: right

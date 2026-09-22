@@ -4,7 +4,13 @@ import is_alive_at from ./board
 ##
   Description: Counts the eight neighboring cells around one coordinate in the flat board.
 ##
-public let count_live_neighbors = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int64 =>
+public let count_live_neighbors = f(
+    board: int8[],
+    width: int64,
+    height: int64,
+    x: int64,
+    y: int64
+): int64 =>
     let mutable count: int64 = 0
     let mutable dy: int64 = -1
     while dy <= 1:
@@ -20,7 +26,13 @@ public let count_live_neighbors = f(board: int8[], width: int64, height: int64, 
 ##
   Description: Applies Conway's survival and birth rules to one cell of the current generation.
 ##
-public let next_cell_state = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+public let next_cell_state = f(
+    board: int8[],
+    width: int64,
+    height: int64,
+    x: int64,
+    y: int64
+): int8 =>
     let neighbors = count_live_neighbors(board, width, height, x, y)
     if is_alive_at(board, width, height, x, y):
         if neighbors is 2 or neighbors is 3:

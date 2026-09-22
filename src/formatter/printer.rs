@@ -20,14 +20,17 @@ use crate::ast::{
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
 use crate::formatter::printer_helpers::{
-    escape_single_quoted_string, format_array_literal, format_guard_header,
-    format_signature_errors_and_arrow, print_binary_op, print_declaration_annotation,
+    escape_single_quoted_string, format_array_literal, format_call_expression,
+    format_function_signature, format_import_lines, print_binary_op, print_declaration_annotation,
     print_function_modifier_prefix, print_literal, print_pattern, print_type,
     print_type_declaration_form, print_unary_op,
 };
 use crate::formatter::rules;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+
+mod statements;
+use statements::FormatterStatementPrinter;
 
 // ─── Free functions (no `self`) ──────────────────────────────────────────────
 
@@ -210,7 +213,6 @@ impl Formatter {
                     .iter()
                     .map(crate::ast::Parameter::to_signature_string)
                     .collect();
-                let params_str = params.join(", ");
                 let returns = match *return_types {
                     Some(ref types) if !types.is_empty() => {
                         let ret_strs: Vec<String> = types
@@ -228,12 +230,16 @@ impl Formatter {
                     _ => String::new(),
                 };
                 let signature_prefix = format!(
-                    "{indent}{vis}{modifier_prefix}{entry}{name} = f({params_str}){returns}",
+                    "{indent}{vis}{modifier_prefix}{entry}{name} = ",
                     indent = self.indent(depth)
                 );
-                let signature = format_signature_errors_and_arrow(
+                let signature = format_function_signature(
                     &signature_prefix,
+                    &params,
+                    &returns,
                     error_types,
+                    depth,
+                    &self.config.indent_unit(),
                     self.config.max_line_width,
                 );
                 let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
@@ -382,10 +388,12 @@ impl Formatter {
                     })
                     .collect();
                 let type_prefix = if all_type_imports { "type " } else { "" };
-                format!(
-                    "{}import {type_prefix}{} from {source}",
-                    self.indent(depth),
-                    items_str.join(", ")
+                format_import_lines(
+                    &self.indent(depth),
+                    type_prefix,
+                    &items_str,
+                    source,
+                    self.config.max_line_width,
                 )
             }
             Decl::Namespace { ref path, .. } => {
@@ -408,13 +416,18 @@ impl Formatter {
                     .type_annotation
                     .as_ref()
                     .map_or_else(String::new, |ta| format!(": {}", print_type(ta)));
-                let init_str = self.print_expr(initializer, depth);
-                let decl_str = format!(
-                    "{}{}let {mutable}{}{type_ann} = {init_str}",
+                let prefix = format!(
+                    "{}{}let {mutable}{}{type_ann} = ",
                     self.indent(depth),
                     vis,
                     binding.name
                 );
+                let decl_str = self
+                    .print_lambda_with_prefix(&prefix, initializer, depth)
+                    .map_or_else(
+                        || self.format_prefixed_expression(&prefix, initializer, depth, true),
+                        |lambda| lambda,
+                    );
                 if let Some(ref doc) = *doc_comment {
                     let doc_lines: Vec<String> = doc
                         .raw
@@ -510,269 +523,78 @@ impl Formatter {
         lines.join("\n")
     }
 
-    /// Print the body statements of a block at the given indent depth.
-    ///
-    /// This helper is used by control flow statements (if/while/for/loop) to
-    /// print block contents WITHOUT surrounding braces. The caller is responsible
-    /// for emitting the header line (e.g., `if cond:` or `loop =>`).
-    ///
-    /// # Language Spec Compliance
-    /// Control flow uses colon-block syntax per the Opalescent language spec.
-    fn print_block_body_indented(&self, block: &Stmt, depth: usize) -> String {
-        if let Stmt::Block { ref statements, .. } = *block {
-            if statements.is_empty() {
-                // Per language spec: empty block uses comment placeholder
-                return format!("{}# empty", self.indent(depth));
-            }
-            statements
-                .iter()
-                .map(|s| self.print_stmt(s, depth))
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            // Non-block body: print as single statement
-            self.print_stmt(block, depth)
-        }
-    }
+    /// Pretty-print a lambda expression using a caller-provided prefix before `f`.
+    fn print_lambda_with_prefix(
+        &self,
+        prefix_before_f: &str,
+        expr: &Expr,
+        depth: usize,
+    ) -> Option<String> {
+        let Expr::Lambda {
+            ref params,
+            ref return_types,
+            ref body,
+            ref error_types,
+            ref metadata,
+            ..
+        } = *expr
+        else {
+            return None;
+        };
 
-    /// Pretty-print a statement at the given indent `depth`.
-    ///
-    /// # Language Spec Compliance
-    ///
-    /// This method outputs control flow statements using Opalescent's colon-block
-    /// syntax per the language specification:
-    /// - `if condition:` followed by indented body (no braces)
-    /// - `while condition:` followed by indented body (no braces)
-    /// - `for var in iter:` followed by indented body (no braces)
-    /// - `loop =>` followed by indented body (no braces)
-    ///
-    /// See `language-spec/*.op` for canonical examples.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "exhaustive match over all Stmt variants"
-    )]
-    fn print_stmt(&self, stmt: &Stmt, depth: usize) -> String {
-        let indent = self.indent(depth);
-        match *stmt {
-            Stmt::Block { ref statements, .. } => {
-                if statements.is_empty() {
-                    return format!("{indent}# empty");
-                }
-                statements
+        let params_str: Vec<String> = params
+            .iter()
+            .map(crate::ast::Parameter::to_signature_string)
+            .collect();
+        let ret_strs: Vec<String> = return_types
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| {
+                metadata.return_labels.get(index).map_or_else(
+                    || print_type(ty),
+                    |label| format!("{label}: {}", print_type(ty)),
+                )
+            })
+            .collect();
+        let returns = format!(": {}", ret_strs.join(", "));
+        let signature = format_function_signature(
+            prefix_before_f,
+            &params_str,
+            &returns,
+            error_types,
+            depth,
+            &self.config.indent_unit(),
+            self.config.max_line_width,
+        );
+        Some(match *body {
+            LambdaBody::Expression(ref e) => format!("{signature} {}", self.print_expr(e, depth)),
+            LambdaBody::Block(ref statements) => {
+                let body_str = statements
                     .iter()
-                    .map(|statement| self.print_stmt(statement, depth))
+                    .map(|statement| self.print_stmt(statement, depth.saturating_add(1)))
                     .collect::<Vec<_>>()
-                    .join("\n")
+                    .join("\n");
+                format!("{signature}\n{body_str}")
             }
-            Stmt::Let {
-                ref binding,
-                ref initializer,
-                ..
-            } => {
-                let mutable = if binding.is_mutable { "mutable " } else { "" };
-                let type_ann = binding
-                    .type_annotation
-                    .as_ref()
-                    .map_or_else(String::new, |ta| format!(": {}", print_type(ta)));
-                let init = initializer
-                    .as_ref()
-                    .map_or_else(String::new, |i| format!(" = {}", self.print_expr(i, depth)));
-                format!("{indent}let {mutable}{}{type_ann}{init}", binding.name)
-            }
-            Stmt::LetDestructure {
-                ref bindings,
-                ref initializer,
-                ..
-            } => {
-                let names: Vec<String> = bindings
-                    .iter()
-                    .map(|binding| {
-                        binding.returned_label.as_ref().map_or_else(
-                            || binding.name.clone(),
-                            |returned_label| format!("{returned_label}: {}", binding.name),
-                        )
-                    })
-                    .collect();
-                format!(
-                    "{indent}let {} = {}",
-                    names.join(", "),
-                    self.print_expr(initializer, depth)
-                )
-            }
-            Stmt::Assignment {
-                ref target,
-                ref value,
-                ..
-            } => {
-                format!(
-                    "{indent}{} = {}",
-                    self.print_expr(target, depth),
-                    self.print_expr(value, depth)
-                )
-            }
-            Stmt::Return { ref values, .. } => {
-                if values.is_empty() {
-                    format!("{indent}return")
-                } else if values.len() == 1 && values[0].label.is_empty() {
-                    format!(
-                        "{indent}return {}",
-                        self.print_expr(&values[0].value, depth)
-                    )
-                } else {
-                    let parts: Vec<String> = values
-                        .iter()
-                        .map(|lv| {
-                            if lv.label.is_empty() {
-                                self.print_expr(&lv.value, depth)
-                            } else {
-                                format!("{}: {}", lv.label, self.print_expr(&lv.value, depth))
-                            }
-                        })
-                        .collect();
-                    format!("{indent}return {}", parts.join(", "))
-                }
-            }
-            Stmt::Expression { ref expr, .. } => {
-                format!("{indent}{}", self.print_expr(expr, depth))
-            }
-            Stmt::If {
-                ref condition,
-                ref then_branch,
-                ref else_branch,
-                ..
-            } => {
-                // Per language spec: colon-block syntax
-                let cond_str = self.print_expr(condition, depth);
-                let body_str = self.print_block_body_indented(then_branch, depth.saturating_add(1));
-                let else_str = else_branch.as_ref().map_or_else(String::new, |eb| {
-                    let else_body = self.print_block_body_indented(eb, depth.saturating_add(1));
-                    format!("\n{indent}else:\n{else_body}")
-                });
-                format!("{indent}if {cond_str}:\n{body_str}{else_str}")
-            }
-            Stmt::For {
-                ref variable,
-                ref iterable,
-                ref body,
-                ..
-            } => {
-                // Per language spec: colon-block syntax
-                let iter_str = self.print_expr(iterable, depth);
-                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
-                format!("{indent}for {variable} in {iter_str}:\n{body_str}")
-            }
-            Stmt::While {
-                ref condition,
-                ref body,
-                ..
-            } => {
-                // Per language spec: colon-block syntax
-                let cond_str = self.print_expr(condition, depth);
-                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
-                format!("{indent}while {cond_str}:\n{body_str}")
-            }
-            Stmt::Guard {
-                ref expression,
-                ref success_binding,
-                ref success_binding_type,
-                ref success_binding_is_mutable,
-                ref success_bindings,
-                ref error_binding,
-                ref else_body,
-                ..
-            } => {
-                let expression_str = self.print_expr(expression, depth);
-                let guard_header = format_guard_header(
-                    &indent,
-                    &expression_str,
-                    success_binding.as_ref(),
-                    success_binding_type.as_ref(),
-                    *success_binding_is_mutable,
-                    success_bindings,
-                    error_binding,
-                );
-                if let Stmt::Block { ref statements, .. } = **else_body {
-                    let mut lines = vec![guard_header];
-                    lines.extend(
-                        statements
-                            .iter()
-                            .map(|statement| self.print_stmt(statement, depth.saturating_add(1))),
-                    );
-                    lines.join("\n")
-                } else {
-                    let else_body_str = self.print_stmt(else_body, depth.saturating_add(1));
-                    format!("{guard_header}\n{else_body_str}")
-                }
-            }
-            Stmt::PropagateGuardError {
-                ref error_binding, ..
-            } => {
-                format!("{indent}propagate {error_binding}")
-            }
-            Stmt::Loop { ref body, .. } => {
-                // Per language spec: colon-block syntax
-                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
-                format!("{indent}loop =>\n{body_str}")
-            }
-            Stmt::Using {
-                ref binding,
-                ref acquisition,
-                ref body,
-                ..
-            } => {
-                let acquisition_str = self.print_expr(acquisition, depth);
-                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
-                format!(
-                    "{indent}using {} = {acquisition_str}:\n{body_str}",
-                    binding.name
-                )
-            }
-            Stmt::Break { ref values, .. } => {
-                if values.is_empty() {
-                    format!("{indent}break")
-                } else {
-                    let parts: Vec<String> = values
-                        .iter()
-                        .map(|lv| {
-                            if lv.label.is_empty() {
-                                self.print_expr(&lv.value, depth)
-                            } else {
-                                format!("{}: {}", lv.label, self.print_expr(&lv.value, depth))
-                            }
-                        })
-                        .collect();
-                    format!("{indent}break {}", parts.join(", "))
-                }
-            }
-            Stmt::Continue { ref values, .. } => {
-                if values.is_empty() {
-                    format!("{indent}continue")
-                } else {
-                    let parts: Vec<String> = values
-                        .iter()
-                        .map(|lv| {
-                            if lv.label.is_empty() {
-                                self.print_expr(&lv.value, depth)
-                            } else {
-                                format!("{}: {}", lv.label, self.print_expr(&lv.value, depth))
-                            }
-                        })
-                        .collect();
-                    format!("{indent}continue {}", parts.join(", "))
-                }
-            }
-            Stmt::Comment { ref text, .. } => {
-                format!("{indent}{text}")
-            }
-        }
+        })
     }
 
     /// Pretty-print an expression at the given indent `depth`.
+    fn print_expr(&self, expr: &Expr, depth: usize) -> String {
+        self.print_expr_with_prefix_width(expr, depth, 0)
+    }
+
+    /// Pretty-print an expression with the width already occupied on its first line.
     #[expect(
         clippy::too_many_lines,
         reason = "exhaustive match over all Expr variants"
     )]
-    fn print_expr(&self, expr: &Expr, depth: usize) -> String {
+    fn print_expr_with_prefix_width(
+        &self,
+        expr: &Expr,
+        depth: usize,
+        prefix_width: usize,
+    ) -> String {
         match *expr {
             Expr::Literal { ref value, .. } => print_literal(value),
             Expr::Identifier { ref name, .. } => name.clone(),
@@ -808,13 +630,23 @@ impl Formatter {
                 ..
             } => {
                 let callee_str = self.print_expr(callee, depth);
-                let args_str: Vec<String> =
-                    args.iter().map(|a| self.print_expr(a, depth)).collect();
+                let args_str: Vec<String> = args
+                    .iter()
+                    .map(|a| self.print_expr_with_prefix_width(a, depth.saturating_add(1), 0))
+                    .collect();
                 let generics = generic_args.as_ref().map_or_else(String::new, |ga| {
                     let g: Vec<String> = ga.iter().map(print_type).collect();
                     format!("::<{}>", g.join(", "))
                 });
-                format!("{callee_str}{generics}({})", args_str.join(", "))
+                format_call_expression(
+                    &callee_str,
+                    &generics,
+                    &args_str,
+                    depth,
+                    &self.config.indent_unit(),
+                    self.config.max_line_width,
+                    prefix_width,
+                )
             }
             Expr::Constructor {
                 ref callee,
@@ -833,7 +665,16 @@ impl Formatter {
                 let field_indent = self.config.indent_unit().repeat(depth.saturating_add(1));
                 let mut out = format!("new {callee_str}:");
                 for field in fields {
-                    let value_str = self.print_expr(&field.value, depth.saturating_add(1));
+                    let value_prefix_width = field_indent
+                        .chars()
+                        .count()
+                        .saturating_add(field.name.chars().count())
+                        .saturating_add(": ".chars().count());
+                    let value_str = self.print_expr_with_prefix_width(
+                        &field.value,
+                        depth.saturating_add(1),
+                        value_prefix_width,
+                    );
                     out.push('\n');
                     out.push_str(&field_indent);
                     out.push_str(&field.name);
@@ -928,7 +769,13 @@ impl Formatter {
                     .iter()
                     .map(|element| self.print_expr(element, depth.saturating_add(1)))
                     .collect();
-                format_array_literal(&elems, depth, &self.config.indent_unit())
+                format_array_literal(
+                    &elems,
+                    depth,
+                    &self.config.indent_unit(),
+                    self.config.max_line_width,
+                    prefix_width,
+                )
             }
             Expr::If {
                 ref condition,
@@ -952,49 +799,9 @@ impl Formatter {
                 let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
                 format!("loop =>\n{body_str}")
             }
-            Expr::Lambda {
-                ref params,
-                ref return_types,
-                ref body,
-                ref error_types,
-                ref metadata,
-                ..
-            } => {
-                let params_str: Vec<String> = params
-                    .iter()
-                    .map(crate::ast::Parameter::to_signature_string)
-                    .collect();
-                let ret_strs: Vec<String> = return_types
-                    .iter()
-                    .enumerate()
-                    .map(|(index, ty)| {
-                        metadata.return_labels.get(index).map_or_else(
-                            || print_type(ty),
-                            |label| format!("{label}: {}", print_type(ty)),
-                        )
-                    })
-                    .collect();
-                let ret = ret_strs.join(", ");
-                let signature_prefix = format!("f({}): {ret}", params_str.join(", "));
-                let signature = format_signature_errors_and_arrow(
-                    &signature_prefix,
-                    error_types,
-                    self.config.max_line_width,
-                );
-                match *body {
-                    LambdaBody::Expression(ref e) => {
-                        format!("{signature} {}", self.print_expr(e, depth))
-                    }
-                    LambdaBody::Block(ref statements) => {
-                        let body_str = statements
-                            .iter()
-                            .map(|statement| self.print_stmt(statement, depth.saturating_add(1)))
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        format!("{signature}\n{body_str}")
-                    }
-                }
-            }
+            Expr::Lambda { .. } => self
+                .print_lambda_with_prefix("", expr, depth)
+                .expect("lambda expression arm should format lambda"),
             Expr::Guard {
                 ref expr,
                 ref binding_name,
@@ -1003,24 +810,58 @@ impl Formatter {
                 ref else_branch,
                 ..
             } => {
-                let inner = self.print_expr(expr, depth);
+                let guard_prefix_width = prefix_width.saturating_add("guard ".chars().count());
+                let inner = self.print_expr_with_prefix_width(expr, depth, guard_prefix_width);
                 let mutable = if *is_mutable { "mutable " } else { "" };
                 let ty = binding_type
                     .as_ref()
                     .map_or_else(String::new, |t| format!(": {}", print_type(t)));
-                let else_str = self.print_stmt(else_branch, depth);
-                format!("guard {inner} into {mutable}{binding_name}{ty} else {else_str}")
+                let header = format!("guard {inner} into {mutable}{binding_name}{ty} else");
+                let inline_else = if let Stmt::Expression {
+                    expr: ref else_expr,
+                    ..
+                } = **else_branch
+                {
+                    self.print_expr_with_prefix_width(
+                        else_expr,
+                        depth,
+                        prefix_width
+                            .saturating_add(header.chars().count())
+                            .saturating_add(1),
+                    )
+                } else {
+                    self.print_stmt(else_branch, depth)
+                };
+                let inline = format!("{header} {inline_else}");
+                if !inline.contains('\n')
+                    && prefix_width.saturating_add(inline.chars().count())
+                        <= self.config.max_line_width
+                {
+                    inline
+                } else {
+                    format!(
+                        "{header}\n{}",
+                        self.print_stmt(else_branch, depth.saturating_add(1))
+                    )
+                }
             }
             Expr::Propagate {
                 ref call,
                 ref cause,
                 ..
             } => {
-                let inner = self.print_expr(call, depth);
+                let propagate_width = prefix_width.saturating_add("propagate ".chars().count());
+                let inner = self.print_expr_with_prefix_width(call, depth, propagate_width);
                 cause.as_ref().map_or_else(
                     || format!("propagate {inner}"),
                     |cause_expr| {
-                        let cause_str = self.print_expr(cause_expr, depth);
+                        let cause_prefix = propagate_width
+                            .saturating_add(
+                                inner.lines().last().map_or(0, |line| line.chars().count()),
+                            )
+                            .saturating_add(" cause ".chars().count());
+                        let cause_str =
+                            self.print_expr_with_prefix_width(cause_expr, depth, cause_prefix);
                         format!("propagate {inner} cause {cause_str}")
                     },
                 )

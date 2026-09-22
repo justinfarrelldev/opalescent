@@ -1,6 +1,21 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
-import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_read_event_sync, terminal_session_write_sync from standard
+import terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new from standard
+import cancellation_token from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey from standard
+import type TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase from standard
+import type TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking from standard
+import type TerminalOrdinaryFeature, TerminalSessionOptionsError from standard
+import type TerminalSessionOpenError, TerminalSessionReadError from standard
+import type TerminalSessionWriteError, TerminalSessionStateError from standard
+import type TerminalSessionRestoreError, TerminalChordValidationError from standard
+import type TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger from standard
+import type TerminalChordTextPolicy, TerminalChordRouterPolicy from standard
+import type TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey from standard
+import type TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask from standard
+import type TerminalChordBindingId, TerminalChordMutationError from standard
+import type TerminalChordResetReason from standard
 
 # Deterministic input plan: TextInput('typed'), Paste('trusted paste', Complete, trusted evidence), UnknownBytes(PasteInvalidUtf8), UnknownBytes(UnrecognizedSequence), InputReset(PasteFallback), EndOfInput.
 # Deterministic fault plan: malformed trusted paste fallback emits only UnknownBytes before exactly one PasteFallback reset; unknown bytes and malformed bytes are quarantined and never routed as commands.
@@ -9,12 +24,14 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedK
 ##
   Description: Selected typed-event-session fixture distinguishing trusted paste chunks from quarantined malformed and unknown bytes.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionReadError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionReadError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    AllocationFailureError
+=>
     let source = propagate cancellation_source_new()
     let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
@@ -29,7 +46,11 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError,
     let mutable running = true
     let mutable reads: int64 = 0
     while running and reads < 8:
-        let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
+        let event = propagate terminal_session_read_event_sync(
+            mutable ref session,
+            new TerminalWait.Poll,
+            token
+        )
         reads = reads + 1
         if event is TerminalInputEvent.TextInput:
             direct_text = direct_text + 1
@@ -47,7 +68,9 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError,
             command_activations = command_activations + 1
         if event is TerminalInputEvent.EndOfInput:
             running = false
-    let summary = propagate trusted_terminal_output_from_application_text('PASTE_QUARANTINE_SUMMARY direct_text={direct_text} trusted_paste={trusted_paste} quarantined_chunks={quarantined_chunks} malformed_chunks={malformed_chunks} unknown_chunks={unknown_chunks} paste_fallback_resets={paste_fallback_resets} command_activations={command_activations} status=ok\n')
+    let summary = propagate trusted_terminal_output_from_application_text(
+        'PASTE_QUARANTINE_SUMMARY direct_text={direct_text} trusted_paste={trusted_paste} quarantined_chunks={quarantined_chunks} malformed_chunks={malformed_chunks} unknown_chunks={unknown_chunks} paste_fallback_resets={paste_fallback_resets} command_activations={command_activations} status=ok\n'
+    )
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)
     let close_outcome = propagate terminal_session_close_sync(mutable ref session)

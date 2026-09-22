@@ -1,5 +1,6 @@
 import current_working_directory_sync from process
-import join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync from standard
+import join_path_components, move_path_sync, path_to_string, path_from from standard
+import path_exists_sync from standard
 
 # This is only here to track a bug, see main_backup.md next to this file
 
@@ -9,14 +10,18 @@ import join_path_components, move_path_sync, path_to_string, path_from, path_exi
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors FilesystemPathErrors,
-                                            CurrentWorkingDirectoryUnavailableError,
-                                            FileNotFoundError,
-                                            MoveFailureError,
-                                            FileAlreadyExistsError =>
+entry main = f(args: string[]): void errors
+    FilesystemPathErrors,
+    CurrentWorkingDirectoryUnavailableError,
+    FileNotFoundError,
+    MoveFailureError,
+    FileAlreadyExistsError
+=>
     let dest = path_from('~/.local/share/op-trash/')
     if args.length < 2:
-        print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+        print(
+            'Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"'
+        )
     guard current_working_directory_sync() into cwd else e =>
         print('An error occurred: {e}')
         propagate e
@@ -32,7 +37,9 @@ entry main = f(args: string[]): void errors FilesystemPathErrors,
         print('Moving {path_to_string(path)} to {path_to_string(dest)}')
         # this line is the culprit
         if not propagate path_exists_sync(dest):
-            print('Directory {path_to_string(dest)} does not exist yet, creating {path_to_string(dest)}')
+            print(
+                'Directory {path_to_string(dest)} does not exist yet, creating {path_to_string(dest)}'
+            )
         guard move_path_sync(path, dest) else e =>
             print('An error occurred: {e}')
             propagate e

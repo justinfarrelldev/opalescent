@@ -4,7 +4,10 @@ import copy_text from ./text_helpers
 ##
   Description: Returns a display label for the active editor mode.
 ##
-public let mode_name = f(mode: EditorMode): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+public let mode_name = f(mode: EditorMode): string errors
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     if mode is EditorMode.Insert:
         return propagate copy_text('INSERT')
     if mode is EditorMode.Command:
@@ -14,7 +17,10 @@ public let mode_name = f(mode: EditorMode): string errors StringRangeOutOfBounds
 ##
   Description: Returns the colon-command text for the compact command state.
 ##
-public let command_text_for = f(command: EditorCommand): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+public let command_text_for = f(command: EditorCommand): string errors
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     if command is EditorCommand.Write:
         return propagate copy_text('w')
     if command is EditorCommand.Quit:
@@ -30,7 +36,10 @@ public let command_text_for = f(command: EditorCommand): string errors StringRan
 ##
   Description: Returns a display label for the current editor status.
 ##
-public let status_text_for = f(status: EditorStatus): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+public let status_text_for = f(status: EditorStatus): string errors
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     if status is EditorStatus.NewEmpty:
         return propagate copy_text('new empty buffer')
     if status is EditorStatus.Opened into opened:
@@ -80,8 +89,10 @@ public let status_text_for = f(status: EditorStatus): string errors StringRangeO
 ##
   Description: Returns a display label for why the editor stopped.
 ##
-public let termination_text_for = f(termination: EditorTermination): string errors StringRangeOutOfBoundsError,
-                                                 AllocationFailureError =>
+public let termination_text_for = f(termination: EditorTermination): string errors
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     if termination is EditorTermination.NormalQ:
         return propagate copy_text('normal-q')
     if termination is EditorTermination.CommandQ:
@@ -99,7 +110,10 @@ public let termination_text_for = f(termination: EditorTermination): string erro
 ##
   Description: Returns a display label for whether the buffer has unsaved edits.
 ##
-public let dirty_text_for = f(dirty: boolean): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+public let dirty_text_for = f(dirty: boolean): string errors
+    StringRangeOutOfBoundsError,
+    AllocationFailureError
+=>
     if dirty:
         return propagate copy_text('dirty')
     return propagate copy_text('clean')

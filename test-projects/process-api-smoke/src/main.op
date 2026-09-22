@@ -1,15 +1,20 @@
-import current_working_directory_sync, current_executable_path_sync, current_executable_directory_sync, set_current_working_directory_sync, get_environment_variable, get_environment_variable_or, environment_variable_exists, exit_process from process
+import current_working_directory_sync, current_executable_path_sync from process
+import current_executable_directory_sync, set_current_working_directory_sync from process
+import get_environment_variable, get_environment_variable_or from process
+import environment_variable_exists, exit_process from process
 import path_exists_sync, is_directory_sync, path_to_string from standard
 
 ##
   Description: Smoke fixture that imports all process APIs and exercises non-terminating surfaces.
 ##
-entry main = f(args: string[]): void errors FilesystemPathErrors,
-                                            CurrentWorkingDirectoryUnavailableError,
-                                            CurrentExecutablePathUnavailableError,
-                                            FileNotFoundError,
-                                            IsNotADirectoryError,
-                                            ProcessEnvErrors =>
+entry main = f(args: string[]): void errors
+    FilesystemPathErrors,
+    CurrentWorkingDirectoryUnavailableError,
+    CurrentExecutablePathUnavailableError,
+    FileNotFoundError,
+    IsNotADirectoryError,
+    ProcessEnvErrors
+=>
     let cwd = propagate current_working_directory_sync()
     let exe_path = propagate current_executable_path_sync()
     let exe_dir = propagate current_executable_directory_sync()

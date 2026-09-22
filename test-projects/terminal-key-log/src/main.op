@@ -1,18 +1,25 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import terminal_session_options_default, terminal_session_open_sync from standard
+import terminal_session_write_sync, terminal_session_flush_sync from standard
+import terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text from standard
-import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError from standard
+import type TerminalSessionStateError, TerminalSessionRestoreError from standard
 
 ##
   Description: Selected typed-event-session fixture for a bounded typed-event key log with deterministic summary output.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError,
-                                            TerminalSessionWriteError,
-                                            TerminalSessionStateError,
-                                            TerminalSessionRestoreError,
-                                            AllocationFailureError =>
+entry main = f(args: string[]): void errors
+    TerminalSessionOpenError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    TerminalSessionRestoreError,
+    AllocationFailureError
+=>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-    let summary = propagate trusted_terminal_output_from_application_text('KEY_LOG_SUMMARY keys=2 last_key=named+control timeouts=1 cancellations=1 termination=cancelled\n')
+    let summary = propagate trusted_terminal_output_from_application_text(
+        'KEY_LOG_SUMMARY keys=2 last_key=named+control timeouts=1 cancellations=1 termination=cancelled\n'
+    )
     propagate terminal_session_write_sync(ref session, summary)
     propagate terminal_session_flush_sync(ref session)
     let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
