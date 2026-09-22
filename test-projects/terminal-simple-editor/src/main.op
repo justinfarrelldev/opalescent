@@ -1,7 +1,8 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync from 'standard.terminal'
-import terminal_session_flush_sync from 'standard.terminal'
-import terminal_session_clear_screen_sync, terminal_session_draw_rows_sync, terminal_session_move_cursor_sync, terminal_session_bell_sync from 'standard.terminal'
+import terminal_session_flush_sync, terminal_session_write_sync from 'standard.terminal'
+import terminal_session_clear_screen_sync, terminal_session_move_cursor_sync, terminal_session_bell_sync from 'standard.terminal'
 import cancellation_source_new, cancellation_token from 'standard.system'
+import environment_variable_exists from process
 import path_from, read_lines_sync, string_length from standard
 import command_text_for, status_text_for, termination_text_for from ./labels
 import ensure_nonempty_lines, clamp_cursor_to_line, update_viewport from ./buffer
@@ -14,7 +15,7 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalSessio
 ##
   Description: Runs a tiny modal terminal editor with normal, insert, and command modes.
 ##
-entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWriteError, IndexOutOfBoundsError, AllocationFailureError, StringRangeError, TerminalTextLayoutError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError =>
+entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWriteError, IndexOutOfBoundsError, AllocationFailureError, StringRangeError, TerminalTextLayoutError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError, InvalidEnvironmentVariableNameError =>
     let file_path_text: string = guard args.at(1) into arg_path: string else 'test-projects/terminal-simple-editor/workspace/untitled.txt'
     let opened = args.length > 1
     let mutable lines: string[] = []
@@ -43,7 +44,12 @@ entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWrite
             let command_text = propagate command_text_for(state.command)
             let rows = propagate build_render_rows(lines, state, file_path_text, command_text, visible_rows, max_cells)
             propagate terminal_session_clear_screen_sync(mutable ref session)
-            propagate terminal_session_draw_rows_sync(mutable ref session, rows)
+            let mutable render_row_index: int64 = 0
+            while render_row_index < rows.length:
+                let row_output = propagate rows.at(render_row_index)
+                propagate terminal_session_move_cursor_sync(mutable ref session, (render_row_index + 1) as int32, 1 as int32)
+                propagate terminal_session_write_sync(ref session, row_output)
+                render_row_index = render_row_index + 1
             let mode = state.mode
             if mode is EditorMode.Command:
                 propagate terminal_session_move_cursor_sync(mutable ref session, (visible_rows + 1) as int32, (string_length(command_text) + 2) as int32)
@@ -87,6 +93,9 @@ entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWrite
             if event is TerminalInputEvent.EndOfInput:
                 state = with_stopped_status(state, new EditorStatus.EndOfInput, new EditorTermination.EndOfInput)
 
+        propagate terminal_session_move_cursor_sync(mutable ref session, (visible_rows + 3) as int32, 1 as int32)
+        propagate terminal_session_flush_sync(ref session)
+
     let final_status = propagate status_text_for(state.status)
     let final_termination = propagate termination_text_for(state.termination)
     let final_cursor: CursorPosition = state.cursor
@@ -94,5 +103,7 @@ entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWrite
     let final_dirty = state.dirty
     let final_line_count = lines.length
     let final_viewport = state.viewport_top
-    print('EDITOR_SUMMARY opened={opened} saved={final_saved} dirty={final_dirty} lines={final_line_count} cursor={final_cursor.line},{final_cursor.column} viewport={final_viewport} redraws={redraws} termination={final_termination} status={final_status}')
+    let print_summary = propagate environment_variable_exists('OPAL_TERMINAL_FAKE_BACKEND')
+    if print_summary:
+        print('EDITOR_SUMMARY opened={opened} saved={final_saved} dirty={final_dirty} lines={final_line_count} cursor={final_cursor.line},{final_cursor.column} viewport={final_viewport} redraws={redraws} termination={final_termination} status={final_status}')
     return void

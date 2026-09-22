@@ -2,10 +2,13 @@
 
 use super::fs_helpers::unique_probe_target_dir;
 use super::*;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd};
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -55,6 +58,172 @@ fn run_terminal_real_utf8_probe(label: &str, input_bytes: &[u8]) -> Result<Strin
     result
 }
 
+#[cfg(unix)]
+fn duplicate_stdio_from_fd(fd: std::os::fd::RawFd) -> Result<Stdio, String> {
+    // SAFETY: `fd` is an open pty slave descriptor owned by this test process.
+    // `dup` returns a new descriptor or -1 without taking ownership of `fd`.
+    let duplicated = unsafe { libc::dup(fd) };
+    if duplicated < 0_i32 {
+        return Err(format!(
+            "dup failed for pty slave fd: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    // SAFETY: `duplicated` is a fresh descriptor from `dup`, so transferring it
+    // into `Stdio` gives exactly one Rust owner for that duplicated descriptor.
+    Ok(unsafe { Stdio::from_raw_fd(duplicated) })
+}
+
+#[cfg(unix)]
+fn set_fd_nonblocking(fd: std::os::fd::RawFd) -> Result<(), String> {
+    // SAFETY: `fd` is an open pty master descriptor. `F_GETFL` only reads the
+    // descriptor flags and does not require additional aliasing guarantees.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0_i32 {
+        return Err(format!(
+            "fcntl F_GETFL failed for pty master: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    // SAFETY: `fd` remains open and owned by this test. `F_SETFL` updates only
+    // descriptor status flags; preserving `flags` keeps existing settings.
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0_i32 {
+        return Err(format!(
+            "fcntl F_SETFL O_NONBLOCK failed for pty master: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn drain_pty_output(master: &mut std::fs::File, output: &mut Vec<u8>) -> Result<(), String> {
+    let mut buffer = [0_u8; 512];
+    loop {
+        match master.read(&mut buffer) {
+            Ok(0) => return Ok(()),
+            Ok(count) => output.extend_from_slice(&buffer[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
+            Err(error) if error.raw_os_error() == Some(libc::EIO) => return Ok(()),
+            Err(error) => return Err(format!("failed to read pty output: {error}")),
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn generated_terminal_real_tty_delayed_arrow_sequence_stays_one_key_event() {
+    let temp_dir = unique_probe_target_dir("terminal-real-tty-delayed-arrow");
+    prepare_dir(&temp_dir).expect("terminal delayed arrow target directory should be created");
+
+    let result: Result<(), String> = (|| {
+        let source = "import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_close_sync, cancellation_source_new, cancellation_token from standard\nimport type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionStateError, TerminalSessionRestoreError from standard\n\n##\n  Description: Generated terminal fixture verifies delayed real-tty arrow escape sequences remain atomic.\n##\nentry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>\n    let source = propagate cancellation_source_new()\n    let token = cancellation_token(ref source)\n    let options = terminal_session_options_default()\n    let mutable session = propagate terminal_session_open_sync(options)\n    let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Forever, token)\n    let mutable summary_code: int64 = 0\n    if event is TerminalInputEvent.Key into key_event:\n        let logical = key_event.key\n        if logical is TerminalLogicalKey.Named into named:\n            if named.key is TerminalNamedKey.ArrowDown:\n                summary_code = 1\n            if named.key is TerminalNamedKey.Escape:\n                summary_code = 2\n        if logical is TerminalLogicalKey.Text:\n            summary_code = 3\n    let _closed = propagate terminal_session_close_sync(mutable ref session)\n    if summary_code is 1:\n        print('ARROW_DOWN')\n        return void\n    if summary_code is 2:\n        print('ESCAPE')\n        return void\n    if summary_code is 3:\n        print('TEXT')\n        return void\n    print('OTHER')\n    return void\n";
+        let binary_path = compile_program_for_tests(
+            Path::new("test-projects/terminal-real-tty-delayed-arrow/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("terminal delayed arrow fixture should compile: {error}"))?;
+
+        let mut master_fd: libc::c_int = -1_i32;
+        let mut slave_fd: libc::c_int = -1_i32;
+        // SAFETY: all output pointers are valid for writes for the duration of
+        // the call, and null termios/winsize pointers request default settings.
+        let open_result = unsafe {
+            libc::openpty(
+                &mut master_fd,
+                &mut slave_fd,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                std::ptr::null(),
+            )
+        };
+        if open_result != 0_i32 {
+            return Err(format!(
+                "openpty failed for delayed arrow test: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+        // SAFETY: `master_fd` is returned by `openpty` and has not yet been
+        // transferred to any Rust owner; `File` now owns and closes it.
+        let mut master = unsafe { std::fs::File::from_raw_fd(master_fd) };
+        // SAFETY: `slave_fd` is returned by `openpty` and has not yet been
+        // transferred to any Rust owner; `File` now owns and closes it.
+        let slave = unsafe { std::fs::File::from_raw_fd(slave_fd) };
+        set_fd_nonblocking(master.as_raw_fd())?;
+        let slave_raw = slave.as_raw_fd();
+        let mut child = Command::new(&binary_path)
+            .env_remove("OPAL_TERMINAL_FAKE_BACKEND")
+            .stdin(duplicate_stdio_from_fd(slave_raw)?)
+            .stdout(duplicate_stdio_from_fd(slave_raw)?)
+            .stderr(duplicate_stdio_from_fd(slave_raw)?)
+            .spawn()
+            .map_err(|error| format!("terminal delayed arrow binary should spawn: {error}"))?;
+        drop(slave);
+
+        std::thread::sleep(Duration::from_millis(50));
+        master
+            .write_all(b"\x1b")
+            .map_err(|error| format!("delayed arrow ESC byte should write to pty: {error}"))?;
+        std::thread::sleep(Duration::from_millis(20));
+        master
+            .write_all(b"[B")
+            .map_err(|error| format!("delayed arrow suffix should write to pty: {error}"))?;
+        master
+            .flush()
+            .map_err(|error| format!("delayed arrow pty input should flush: {error}"))?;
+
+        let started = Instant::now();
+        let mut output = Vec::new();
+        let status = loop {
+            drain_pty_output(&mut master, &mut output)?;
+            if let Some(status) = child
+                .try_wait()
+                .map_err(|error| format!("failed to poll delayed arrow child: {error}"))?
+            {
+                std::thread::sleep(Duration::from_millis(25));
+                drain_pty_output(&mut master, &mut output)?;
+                break status;
+            }
+            if started.elapsed() > GENERATED_BINARY_TEST_TIMEOUT {
+                if let Err(error) = child.kill() {
+                    return Err(format!(
+                        "terminal delayed arrow binary timed out and kill failed: {error}; output so far: {:?}",
+                        String::from_utf8_lossy(&output)
+                    ));
+                }
+                return Err(format!(
+                    "terminal delayed arrow binary timed out, output so far: {:?}",
+                    String::from_utf8_lossy(&output)
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        if !status.success() {
+            return Err(format!(
+                "terminal delayed arrow binary should exit cleanly, status {:?}, output {:?}",
+                status.code(),
+                String::from_utf8_lossy(&output)
+            ));
+        }
+        let output_text = String::from_utf8_lossy(&output);
+        if !output_text.contains("ARROW_DOWN") || output_text.contains("ESCAPE") {
+            return Err(format!(
+                "delayed ESC [ B should be one ArrowDown key event, got pty output {output_text:?}"
+            ));
+        }
+        Ok(())
+    })();
+
+    cleanup_dir(&temp_dir).expect("terminal delayed arrow target directory should be removed");
+    assert!(
+        result.is_ok(),
+        "terminal delayed arrow sequence should remain atomic: {}",
+        result.err().unwrap_or_default()
+    );
+}
+
 #[test]
 fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
     let temp_dir = unique_probe_target_dir("terminal-session-rendering");
@@ -101,10 +270,10 @@ fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
         }
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains(
-            "\u{1b}[2J\u{1b}[3J\u{1b}[H\u{1b}[2;3Halpha\nbeta\n\u{7}TERMINAL_RENDER_DONE\n",
+            "\u{1b}[2J\u{1b}[3J\u{1b}[H\u{1b}[2;3Halpha\r\nbeta\r\n\u{7}TERMINAL_RENDER_DONE\n",
         ) {
             return Err(format!(
-                "terminal-session-rendering stdout should include clear, cursor move, rows, bell, and summary, got {stdout:?}"
+                "terminal-session-rendering stdout should include clear, cursor move, CRLF-delimited rows, bell, and summary, got {stdout:?}"
             ));
         }
         Ok(())

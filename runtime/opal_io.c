@@ -1327,7 +1327,7 @@ static void opal_terminal_restore_session(OpalTerminalSession *session) {
 #endif
 }
 
-static int opal_terminal_wait_has_input(int poll_only) {
+static int opal_terminal_wait_for_input_ms(int timeout_ms) {
 #if !OPAL_WINDOWS
   fd_set read_fds;
   struct timeval timeout;
@@ -1335,19 +1335,63 @@ static int opal_terminal_wait_has_input(int poll_only) {
   if (!isatty(STDIN_FILENO)) {
     return 1;
   }
-  if (!poll_only) {
+  if (timeout_ms < 0) {
     return 1;
   }
   FD_ZERO(&read_fds);
   FD_SET(STDIN_FILENO, &read_fds);
-  timeout.tv_sec = 0;
-  timeout.tv_usec = 0;
+  timeout.tv_sec = timeout_ms / 1000;
+  timeout.tv_usec = (timeout_ms % 1000) * 1000;
   ready = select(STDIN_FILENO + 1, &read_fds, NULL, NULL, &timeout);
   return ready > 0;
 #else
-  (void)poll_only;
+  (void)timeout_ms;
   return 1;
 #endif
+}
+
+static void opal_terminal_sleep_ms(int timeout_ms) {
+#if !OPAL_WINDOWS
+  struct timeval timeout;
+  if (timeout_ms <= 0) {
+    return;
+  }
+  timeout.tv_sec = timeout_ms / 1000;
+  timeout.tv_usec = (timeout_ms % 1000) * 1000;
+  (void)select(0, NULL, NULL, NULL, &timeout);
+#else
+  (void)timeout_ms;
+#endif
+}
+
+static int opal_terminal_read_pending_stdin_byte(void) {
+#if !OPAL_WINDOWS
+  int flags = fcntl(STDIN_FILENO, F_GETFL);
+  int ch;
+  if (flags < 0) {
+    return EOF;
+  }
+  if (fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) < 0) {
+    return EOF;
+  }
+  clearerr(stdin);
+  errno = 0;
+  ch = fgetc(stdin);
+  if (ch == EOF && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    clearerr(stdin);
+  }
+  (void)fcntl(STDIN_FILENO, F_SETFL, flags);
+  return ch;
+#else
+  return fgetc(stdin);
+#endif
+}
+
+static int opal_terminal_wait_has_input(int poll_only) {
+  if (!poll_only) {
+    return 1;
+  }
+  return opal_terminal_wait_for_input_ms(0);
 }
 
 static int opal_terminal_spec_has_modifier(const char *spec, const char *modifier) {
@@ -1501,19 +1545,61 @@ static void *opal_terminal_real_event_from_byte(OpalTerminalSession *session, in
   }
   if (ch == 0x1b) {
     int next1 = EOF;
-    int next2 = EOF;
 #if !OPAL_WINDOWS
-    if (opal_terminal_wait_has_input(1)) {
-      next1 = fgetc(stdin);
-      if (next1 == '[' && opal_terminal_wait_has_input(1)) {
-        next2 = fgetc(stdin);
-        if (next2 == 'A') return opal_terminal_key_event(session, "ArrowUp");
-        if (next2 == 'B') return opal_terminal_key_event(session, "ArrowDown");
-        if (next2 == 'C') return opal_terminal_key_event(session, "ArrowRight");
-        if (next2 == 'D') return opal_terminal_key_event(session, "ArrowLeft");
-        if (next2 == 'H') return opal_terminal_key_event(session, "Home");
-        if (next2 == 'F') return opal_terminal_key_event(session, "End");
+    int sequence[16];
+    int sequence_length = 0;
+    int final_byte = EOF;
+    int index = 0;
+    /* Arrow keys arrive as multi-byte escape sequences. In raw mode, the ESC
+       byte can be delivered before the rest of the sequence has reached the
+       input queue. stdio may also pre-buffer continuation bytes, so after a
+       short grace period read through stdin in nonblocking mode before
+       treating ESC as a standalone key. */
+    opal_terminal_sleep_ms(100);
+    next1 = opal_terminal_read_pending_stdin_byte();
+    if (next1 == 'O') {
+      opal_terminal_sleep_ms(5);
+      final_byte = opal_terminal_read_pending_stdin_byte();
+      if (final_byte == 'A') return opal_terminal_key_event(session, "ArrowUp");
+      if (final_byte == 'B') return opal_terminal_key_event(session, "ArrowDown");
+      if (final_byte == 'C') return opal_terminal_key_event(session, "ArrowRight");
+      if (final_byte == 'D') return opal_terminal_key_event(session, "ArrowLeft");
+      if (final_byte == 'H') return opal_terminal_key_event(session, "Home");
+      if (final_byte == 'F') return opal_terminal_key_event(session, "End");
+      if (final_byte != EOF) {
+        (void)ungetc(final_byte, stdin);
       }
+      return opal_terminal_key_event(session, "Escape");
+    }
+    if (next1 == '[') {
+      for (index = 0; index < 16; index++) {
+        int part;
+        opal_terminal_sleep_ms(5);
+        part = opal_terminal_read_pending_stdin_byte();
+        if (part == EOF) {
+          break;
+        }
+        sequence[sequence_length++] = part;
+        if (part >= 0x40 && part <= 0x7e) {
+          final_byte = part;
+          break;
+        }
+      }
+      if (final_byte == 'A') return opal_terminal_key_event(session, "ArrowUp");
+      if (final_byte == 'B') return opal_terminal_key_event(session, "ArrowDown");
+      if (final_byte == 'C') return opal_terminal_key_event(session, "ArrowRight");
+      if (final_byte == 'D') return opal_terminal_key_event(session, "ArrowLeft");
+      if (final_byte == 'H') return opal_terminal_key_event(session, "Home");
+      if (final_byte == 'F') return opal_terminal_key_event(session, "End");
+      if (final_byte == '~' && sequence_length > 0) {
+        if (sequence[0] == '1' || sequence[0] == '7') return opal_terminal_key_event(session, "Home");
+        if (sequence[0] == '4' || sequence[0] == '8') return opal_terminal_key_event(session, "End");
+        if (sequence[0] == '3') return opal_terminal_key_event(session, "Delete");
+      }
+      return opal_terminal_key_event(session, "Escape");
+    }
+    if (next1 != EOF) {
+      (void)ungetc(next1, stdin);
     }
 #endif
     return opal_terminal_key_event(session, "Escape");
@@ -1699,7 +1785,15 @@ FsVoidResult terminal_session_draw_rows_sync(void *opaque_session,
     if (write_result.error != NULL) {
       return write_result;
     }
+    /* POSIX terminal sessions put the tty in raw mode, which disables
+       ONLCR/OPOST. Emit an explicit carriage return there so row drawing starts
+       each row in column 1 instead of stair-stepping across the screen. On
+       Windows, stdout remains in text mode and translates \n to CRLF. */
+#if OPAL_WINDOWS
     write_result = terminal_write_stream(stdout, "\n");
+#else
+    write_result = terminal_write_stream(stdout, "\r\n");
+#endif
     if (write_result.error != NULL) {
       return write_result;
     }

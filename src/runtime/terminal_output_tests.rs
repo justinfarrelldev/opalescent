@@ -56,8 +56,8 @@ fn terminal_session_rendering_helpers_record_trusted_sequences() {
         &[
             "\u{1b}[2J\u{1b}[3J\u{1b}[H".to_owned(),
             "\u{1b}[2;3H".to_owned(),
-            "alpha\n".to_owned(),
-            "beta\n".to_owned(),
+            "alpha\r\n".to_owned(),
+            "beta\r\n".to_owned(),
             "\u{7}".to_owned(),
         ]
     );

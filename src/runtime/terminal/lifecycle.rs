@@ -332,7 +332,9 @@ impl TerminalSession {
     ) -> Result<(), TerminalWriteOperationError> {
         self.ensure_output_state(TerminalOperation::TerminalDrawRows)?;
         for row in rows {
-            self.output_log.push(format!("{}\n", row.as_str()));
+            // Session backends use raw terminal mode, so row drawing must make
+            // the carriage return explicit instead of relying on ONLCR/OPOST.
+            self.output_log.push(format!("{}\r\n", row.as_str()));
         }
         Ok(())
     }

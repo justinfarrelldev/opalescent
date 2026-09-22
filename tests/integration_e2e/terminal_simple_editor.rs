@@ -29,11 +29,8 @@ fn run_editor_fixture(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("{context} binary should spawn: {error}"))?;
-    let output = tests::fs_helpers::wait_for_child_output_with_timeout(
-        child,
-        EDITOR_TEST_TIMEOUT,
-        context,
-    )?;
+    let output =
+        tests::fs_helpers::wait_for_child_output_with_timeout(child, EDITOR_TEST_TIMEOUT, context)?;
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
@@ -43,6 +40,43 @@ fn run_editor_fixture(
         ));
     }
     Ok(stdout)
+}
+
+fn assert_real_editor_run_omits_test_summary(
+    binary_path: &Path,
+    input_path: &Path,
+) -> Result<(), String> {
+    let input_dir = input_path
+        .parent()
+        .ok_or_else(|| String::from("real-run input should have parent"))?;
+    let input_name = input_path
+        .file_name()
+        .ok_or_else(|| String::from("real-run input should have file name"))?;
+    let child = Command::new(binary_path)
+        .current_dir(input_dir)
+        .arg(input_name)
+        .env_remove("OPAL_TERMINAL_FAKE_BACKEND")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| {
+            format!("terminal-simple-editor real-style binary should spawn: {error}")
+        })?;
+    let output = tests::fs_helpers::wait_for_child_output_with_timeout(
+        child,
+        EDITOR_TEST_TIMEOUT,
+        "terminal-simple-editor real-style no-summary binary",
+    )?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() || stdout.contains("EDITOR_SUMMARY") {
+        return Err(format!(
+            "real-style editor run should exit without fake-backend summary, status {:?}, stdout:\n{stdout}\nstderr:\n{}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr),
+        ));
+    }
+    Ok(())
 }
 
 #[test]
@@ -94,6 +128,13 @@ fn terminal_simple_editor_uses_shared_adt_manifests_and_runs() {
             "key:ArrowDown|key:End|text:i|text:!|key:Escape|text::|text:wq|key:Enter|eof",
             "terminal-simple-editor ADT save/quit binary",
         )?;
+        for expected_fragment in ["\u{1b}[1;1H1 | alpha", "\u{1b}[2;1H2 | beta"] {
+            if !stdout.contains(expected_fragment) {
+                return Err(format!(
+                    "editor should render rows at absolute terminal columns; missing {expected_fragment:?} in stdout:\n{stdout:?}"
+                ));
+            }
+        }
         if !stdout.contains("EDITOR_SUMMARY")
             || !stdout.contains("saved=1")
             || !stdout.contains("termination=command-wq")
@@ -122,6 +163,8 @@ fn terminal_simple_editor_uses_shared_adt_manifests_and_runs() {
                 "invalid-command run should render the payload status, got:\n{invalid_stdout}"
             ));
         }
+
+        assert_real_editor_run_omits_test_summary(&binary_path, &input_path)?;
         Ok(())
     })();
 
