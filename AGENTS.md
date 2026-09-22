@@ -17,3 +17,7 @@ Use atomic commits. You are not allowed to modify or skip the pre-commit hook.
 ## Reviews
 
 After all planned work has been implemented, you must do a thorough code review of the work you have done to ensure it fully implements what was specified in a maintainable, safe manner. This is not a toy project - spare no expense on maintainability and readability over the long-term. This includes with code written in Opalescent.
+
+## On Match Statements
+
+Match statements will not be coming to Opalescent for the time being. Please keep this in mind when drafting proposals.
