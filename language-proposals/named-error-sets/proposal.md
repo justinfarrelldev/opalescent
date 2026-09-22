@@ -217,6 +217,26 @@ The compiler stores every function's error contract in two equivalent forms:
 At runtime, an error value is still exactly one leaf error family and variant.
 There is no `RenderErrors` object to allocate, inspect, compare, or print.
 
+### Handling obligations are leaf-exhaustive
+
+Using a named set never counts as handling the set's members. At every call site,
+`guard`, `propagate`, callback boundary, and future `match` expression, the set is
+expanded first and every expanded leaf error must be handled exactly as if the
+leaf names had been written directly.
+
+If a function declares `errors RenderErrors`, callers must handle or propagate all
+leaves in `RenderErrors`. A caller cannot handle only `WriteFailureError` and
+`FlushFailureError` while ignoring `TerminalWriteFailureError` just because the
+contract was spelled with one alias. The only ways out are the existing language
+mechanisms: recover locally, propagate to an enclosing function whose expanded
+`errors` clause covers the leaf, return/terminate in a recognized handler, or use
+an explicit future discard mechanism if the language adopts one.
+
+A lint warning that a set is broader than a function's implementation does not
+change the function's contract. Until the source is changed from the broad set to
+a narrower set or explicit leaves, downstream callers must assume and handle the
+full expanded set.
+
 ### Function compatibility
 
 Two function signatures have compatible error contracts when their expanded leaf
