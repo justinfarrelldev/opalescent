@@ -85,6 +85,19 @@ fn test_extractor_includes_only_public_symbols() {
 }
 
 #[test]
+fn test_extractor_includes_public_error_sets() {
+    let source = "##\n  Description: Standard input and parse failures.\n##\npublic error set InputErrors = StandardInputReadError, ParseError";
+    let program = parse_program(source).expect("program should parse successfully");
+    let symbols = extract_public_api_docs(&program);
+
+    assert!(symbols.iter().any(|symbol| {
+        symbol.name == "InputErrors"
+            && symbol.kind == ApiSymbolKind::ErrorSet
+            && symbol.signature == "error set InputErrors = StandardInputReadError, ParseError"
+    }));
+}
+
+#[test]
 fn test_cross_reference_linking_rewrites_known_symbols() {
     let names = vec![String::from("User"), String::from("UserId")];
     let index = build_cross_reference_index(names.as_slice());
@@ -253,6 +266,9 @@ fn test_source_contains_documentation_struct_on_declarations() {
             ref doc_comment, ..
         }
         | &Decl::Let {
+            ref doc_comment, ..
+        }
+        | &Decl::ErrorSet {
             ref doc_comment, ..
         } => doc_comment.is_some(),
         &Decl::Import { .. } | &Decl::Namespace { .. } | &Decl::Comment { .. } => false,

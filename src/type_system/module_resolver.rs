@@ -255,6 +255,23 @@ pub struct AdtLayoutManifest {
     pub layout_hash: u64,
 }
 
+/// Parsed named error-set metadata retained for module-interface consumers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleErrorSetDeclaration {
+    /// Error-set name exported or declared by this interface.
+    pub name: String,
+    /// Exact repository-relative declaration source path.
+    pub source_path: String,
+    /// Source-level direct member names.
+    pub members: Vec<String>,
+    /// Canonical expanded leaf names.
+    pub expanded_members: Vec<String>,
+    /// Source declaration visibility.
+    pub visibility: AstVisibility,
+    /// Source span inside the authoritative declaration file.
+    pub span: Span,
+}
+
 /// Parsed type-declaration metadata retained for module-interface consumers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleTypeDeclaration {
@@ -295,6 +312,8 @@ pub struct ModuleInterface {
     pub namespaces: Vec<Vec<String>>,
     /// Parsed type declaration metadata keyed by declared type name.
     pub type_declarations: BTreeMap<String, ModuleTypeDeclaration>,
+    /// Parsed named error-set metadata keyed by declared set name.
+    pub error_set_declarations: BTreeMap<String, ModuleErrorSetDeclaration>,
     /// Structured public ADT layout manifests keyed by canonical type identity.
     pub adt_layout_manifests: BTreeMap<AdtTypeId, AdtLayoutManifest>,
 }
@@ -323,6 +342,7 @@ impl ModuleInterface {
             availability,
             namespaces: Vec::new(),
             type_declarations: BTreeMap::new(),
+            error_set_declarations: BTreeMap::new(),
             adt_layout_manifests: BTreeMap::new(),
         }
     }
@@ -394,6 +414,20 @@ impl ModuleInterface {
     /// Read parsed type-declaration metadata for one type name.
     pub fn type_declaration(&self, type_name: &str) -> Option<&ModuleTypeDeclaration> {
         self.type_declarations.get(type_name)
+    }
+
+    /// Register parsed named error-set metadata for interface consumers.
+    pub fn register_error_set_declaration(&mut self, declaration: ModuleErrorSetDeclaration) {
+        self.error_set_declarations
+            .insert(declaration.name.clone(), declaration);
+    }
+
+    /// Read parsed named error-set metadata for one set name.
+    pub fn error_set_declaration(
+        &self,
+        error_set_name: &str,
+    ) -> Option<&ModuleErrorSetDeclaration> {
+        self.error_set_declarations.get(error_set_name)
     }
 
     /// Register one structured ADT layout manifest.

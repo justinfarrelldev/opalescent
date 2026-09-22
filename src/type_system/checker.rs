@@ -12,11 +12,10 @@ use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
-    ast::FunctionModifier,
+    ast::{ErrorSetMember, FunctionModifier, Visibility as AstVisibility},
     token::Span,
     type_system::{
         affine_aggregates::AffineAggregateSpec, arithmetic::ArithmeticMode,
-        error_families::stdlib_error_families,
         terminal_public_api_prerequisites::TerminalPublicApiPrerequisites,
     },
 };
@@ -24,6 +23,7 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     format,
     string::String,
+    vec,
     vec::Vec,
 };
 use context::TypeCheckContext;
@@ -42,6 +42,8 @@ mod declarations;
 /** Default construction and test-only import configuration. */
 mod defaults;
 mod error_compatibility;
+/** Named error-set declaration, expansion, and lint support. */
+mod error_sets;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
@@ -52,6 +54,8 @@ mod fs_builtins;
 mod generics;
 mod helpers;
 mod hot_reload;
+/** Lambda signature inference helpers. */
+mod lambda_signatures;
 /** Module import/export declaration checking support. */
 mod module_checking;
 /** Pattern-matching typing and exhaustiveness checks. */
@@ -139,6 +143,19 @@ pub(super) struct FallibleCallShape {
     pub(super) error_types: Vec<CoreType>,
 }
 
+/// Raw named error-set declaration retained for compile-time expansion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ErrorSetDeclarationInfo {
+    /// Name of the error set.
+    pub(super) name: String,
+    /// Source-level member names with spans.
+    pub(super) members: Vec<ErrorSetMember>,
+    /// Source visibility used for module export checks.
+    pub(super) visibility: AstVisibility,
+    /// Declaration span.
+    pub(super) span: Span,
+}
+
 /// Core type checker responsible for Opalescent type validation and inference.
 pub struct TypeChecker {
     /// Current type environment
@@ -183,6 +200,10 @@ pub struct TypeChecker {
     constructor_visibilities: BTreeMap<String, String>,
     /// Registered affine aggregate specs keyed by aggregate type name.
     affine_aggregate_specs: BTreeMap<String, AffineAggregateSpec>,
+    /// Named error-set declarations visible in the current checking context.
+    error_sets: BTreeMap<String, ErrorSetDeclarationInfo>,
+    /// Stack of body-derived escaping error leaves for active function/lambda checks.
+    escaping_error_stack: Vec<BTreeSet<String>>,
     /// Active function modifier stack for nested function checks.
     function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
@@ -211,6 +232,8 @@ impl TypeChecker {
             terminal_public_api_prerequisites: TerminalPublicApiPrerequisites::default(),
             constructor_visibilities: BTreeMap::new(),
             affine_aggregate_specs: BTreeMap::new(),
+            error_sets: BTreeMap::new(),
+            escaping_error_stack: Vec::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -247,6 +270,8 @@ impl TypeChecker {
             terminal_public_api_prerequisites: TerminalPublicApiPrerequisites::default(),
             constructor_visibilities: BTreeMap::new(),
             affine_aggregate_specs: BTreeMap::new(),
+            error_sets: BTreeMap::new(),
+            escaping_error_stack: Vec::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -767,57 +792,6 @@ impl TypeChecker {
     /// Returns `TypeError::ConstraintSolvingFailed` if type variable ID overflows
     pub fn fresh_type_var_auto(&mut self, span: Span) -> Result<CoreType, TypeError> {
         self.fresh_type_var(format!("t{}", self.next_var_id), span)
-    }
-    /// Resolve error names into nominal [`CoreType`]s or emit [`UndeclaredErrorType`](TypeError::UndeclaredErrorType).
-    fn resolve_error_types(
-        &self,
-        error_names: &[String],
-        span: Span,
-    ) -> Result<Vec<CoreType>, TypeError> {
-        let mut resolved = Vec::with_capacity(error_names.len());
-        for name in error_names {
-            if let Ok(core_type) = self.environment.lookup_type(name, span) {
-                resolved.push(core_type.clone());
-            } else {
-                if let Some(symbol) = self.symbol_table.lookup(name) {
-                    if symbol.symbol_type == SymbolType::Type {
-                        resolved.push(symbol.core_type.clone());
-                        continue;
-                    }
-                }
-                return Err(TypeError::UndeclaredErrorType {
-                    name: name.clone(),
-                    span: TypeError::span_from_span(span),
-                });
-            }
-        }
-        Ok(resolved)
-    }
-    /// Emit the most specific eligible replacement warning for a declared error list.
-    pub(super) fn warn_for_replaceable_error_list(&mut self, error_types: &[CoreType], span: Span) {
-        let declared_names = error_types
-            .iter()
-            .map(ToString::to_string)
-            .collect::<BTreeSet<_>>();
-        let replacement = stdlib_error_families()
-            .iter()
-            .filter(|family| {
-                family.warning_eligible
-                    && !declared_names.contains(family.name)
-                    && family
-                        .members
-                        .iter()
-                        .all(|member| declared_names.contains(*member))
-            })
-            .min_by_key(|family| (family.specificity_rank, family.members.len(), family.name));
-        if let Some(family) = replacement {
-            self.push_warning(Warning::ReplaceableErrorList {
-                family_name: family.name.to_owned(),
-                replaceable_errors: family.members.join(", "),
-                span: TypeError::span_from_span(span),
-                suppression_annotation: None,
-            });
-        }
     }
     /// Return whether a declared error type covers an emitted error type.
     pub(super) fn declared_error_type_covers(emitted: &CoreType, declared: &CoreType) -> bool {

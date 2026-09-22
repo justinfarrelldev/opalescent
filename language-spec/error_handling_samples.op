@@ -10,6 +10,8 @@ type ParseError:
 type IoError:
     Disconnected
 
+public error set LoadNumberErrors = IoError, ParseError
+
 ##
     Description: Logging helper invoked when parsing fails.
 ##
@@ -40,7 +42,7 @@ let read_line_from_disk = f(path: string): string errors IoError =>
 ##
     Description: Loads and parses a number, propagating IO errors to the caller.
 ##
-let load_number = f(path: string): int32 errors IoError, ParseError =>
+let load_number = f(path: string): int32 errors LoadNumberErrors =>
     let content = propagate read_line_from_disk(path)
     guard parse_number(content) into value else parse_error =>
         log_parse_failure(content)

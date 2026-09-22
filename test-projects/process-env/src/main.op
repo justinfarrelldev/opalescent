@@ -3,7 +3,7 @@ import get_environment_variable, get_environment_variable_or, environment_variab
 ##
   Description: Exercises process environment read runtime functions with deterministic markers.
 ##
-entry main = f(args: string[]): void errors ProcessEnvError =>
+entry main = f(args: string[]): void errors ProcessEnvErrors =>
     let present_value = propagate get_environment_variable('OPAL_PROCESS_TEST_VALUE')
     print('present_value={present_value}')
 

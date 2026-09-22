@@ -25,7 +25,7 @@ public let target_name_for = f(path: FilesystemPath): string =>
 ##
     Description: Returns a destination path whose name does not collide with an existing trash or restore target.
 ##
-public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors FilesystemPathError =>
+public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors FilesystemPathErrors =>
     let mutable candidate_name = name
     let mutable candidate = join_path_components(destination_root, [candidate_name])
     let mutable suffix: int64 = 1
@@ -40,7 +40,7 @@ public let unique_destination_for = f(destination_root: FilesystemPath, name: st
 ##
     Description: Returns true when a requested restore name is an actual top-level trash entry.
 ##
-public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors DirectoryNotFoundError, FilesystemPathError, ReadFailureError, IsNotADirectoryError =>
+public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors DirectoryNotFoundError, FilesystemPathErrors, ReadFailureError, IsNotADirectoryError =>
     let entries = propagate list_directory_sync(dest)
     for trash_entry in entries:
         if path_to_string(trash_entry) is requested_name:
@@ -67,7 +67,7 @@ public let targets_root_directory = f(source: FilesystemPath): boolean =>
 ##
     Description: Moves a file or directory from one root to another, preserving whole folders.
 ##
-public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors FilesystemPathError, FileAlreadyExistsError, FileNotFoundError, MoveFailureError =>
+public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors FilesystemPathErrors, FileAlreadyExistsError, FileNotFoundError, MoveFailureError =>
     let source = join_path_components(source_root, [arg])
     let exists = propagate path_exists_sync(source)
 
@@ -92,7 +92,7 @@ public let move_to_destination = f(arg: string, source_root: FilesystemPath, des
 ##
     Description: Creates the trash directory when it is not already present.
 ##
-public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors FilesystemPathError, CreateFailureError, FilesystemFullError =>
+public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors FilesystemPathErrors, CreateFailureError, FilesystemFullError =>
     guard path_exists_sync(dest) into path_exists else e =>
         print('An error occurred while checking if {path_to_string(dest)} exists')
         propagate e
@@ -107,7 +107,7 @@ public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void error
 ##
     Description: Returns trash entries as displayable path strings.
 ##
-public let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, FilesystemPathError, ReadFailureError, IsNotADirectoryError =>
+public let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, FilesystemPathErrors, ReadFailureError, IsNotADirectoryError =>
     guard list_directory_sync(dest) into dirs else e =>
         print('An error occurred while reading {path_to_string(dest)}: {e}')
         propagate e

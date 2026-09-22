@@ -24,6 +24,18 @@ impl Warning {
                 ref suppression_annotation,
                 ..
             }
+            | Self::ErrorSetRedundantMember {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::ErrorSetOverlap {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::ErrorSetUnusedMembers {
+                ref suppression_annotation,
+                ..
+            }
             | Self::NonExhaustiveMatch {
                 ref suppression_annotation,
                 ..

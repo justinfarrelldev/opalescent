@@ -642,7 +642,10 @@ pub fn compile_checked_program_to_module<'context>(
                     )?;
                 }
             }
-            Decl::Type { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
+            Decl::Type { .. }
+            | Decl::ErrorSet { .. }
+            | Decl::Namespace { .. }
+            | Decl::Comment { .. } => {}
         }
     }
 

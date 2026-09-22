@@ -483,6 +483,24 @@ mod formatter_tests {
         );
     }
 
+    /// Formatting a public error-set declaration emits canonical multiline members.
+    #[test]
+    fn test_formatter_error_set_declaration() {
+        let source = "public error set InputErrors = StandardInputReadError, ParseError";
+        let fmt = Formatter::with_defaults();
+        let result = fmt
+            .format_source(source)
+            .expect("error set declaration should format");
+        assert!(
+            result.contains("public error set InputErrors ="),
+            "formatted output should keep the error-set header: {result}"
+        );
+        assert!(
+            result.contains("    StandardInputReadError,") && result.contains("    ParseError,"),
+            "formatted output should print members on indented lines: {result}"
+        );
+    }
+
     /// Formatting preserves integer literals.
     #[test]
     fn test_formatter_integer_literal() {

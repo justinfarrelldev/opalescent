@@ -1781,12 +1781,12 @@ fn test_propagate_nested_expressions() {
 fn test_propagate_rejects_structurally_identical_error_names() {
     let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6500),
-        make_unit_type_decl("ParseProblem", 6501),
+        make_unit_type_decl("OtherError", 6501),
         make_function_decl_with_errors(
             "parse_problematic",
             vec![make_parameter("value", int_type("string"))],
             Some(int_type("int32")),
-            vec!["ParseProblem"],
+            vec!["OtherError"],
             return_stmt(literal_expr(LiteralValue::Integer(42), 6502), 6503),
             6504,
         ),
@@ -9469,6 +9469,189 @@ entry demo = f(parts: string[]): string errors AllocationFailureError => {
 }
 
 #[test]
+fn test_named_error_set_declaration_expands_for_propagate() {
+    const SOURCE: &str = "
+public error set InputErrors = StandardInputReadError, ParseError
+
+##
+  Description: Entry point exercises local named error set expansion.
+##
+entry demo = f(): void errors InputErrors => {
+    let raw = propagate take_input()
+    let parsed = propagate string_to_int32(raw)
+    print(parsed)
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "declared named error set should expand for propagation: {result:?}"
+    );
+}
+
+#[test]
+fn test_nested_named_error_set_declaration_expands_transitively() {
+    const SOURCE: &str = "
+public error set InputErrors = StandardInputReadError, ParseError
+public error set AppErrors = InputErrors, HexDecodeError
+
+##
+  Description: Entry point exercises nested named error set expansion.
+##
+entry demo = f(hex: string): void errors AppErrors => {
+    let raw = propagate take_input()
+    let parsed = propagate string_to_int32(raw)
+    let bytes = propagate bytes_from_hex(hex)
+    print('{raw}:{parsed}:{bytes.length}')
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "nested named error set should expand transitively: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_binding_from_named_error_set_propagates_expanded_leaves() {
+    const SOURCE: &str = "
+public error set InputErrors = StandardInputReadError, ParseError
+
+let fallible = f(): void errors InputErrors => {
+    let raw = propagate take_input()
+    let parsed = propagate string_to_int32(raw)
+    print(parsed)
+    return void
+}
+
+##
+  Description: Entry point exercises guard propagation of set-expanded leaves.
+##
+entry demo = f(): void errors StandardInputReadError, ParseError => {
+    guard fallible() else err =>
+        print(err)
+        propagate err
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard error binding should carry expanded named-set leaves: {result:?}"
+    );
+}
+
+#[test]
+fn test_function_type_errors_clause_accepts_named_error_set() {
+    const SOURCE: &str = "
+public error set InputErrors = StandardInputReadError, ParseError
+
+let fallible = f(): void errors StandardInputReadError, ParseError => {
+    let raw = propagate take_input()
+    let parsed = propagate string_to_int32(raw)
+    print(parsed)
+    return void
+}
+
+let call_input = f(callback: f(): void errors InputErrors): void errors InputErrors => {
+    propagate callback()
+    return void
+}
+
+##
+  Description: Entry point exercises higher-order function compatibility with error sets.
+##
+entry demo = f(): void errors InputErrors => {
+    propagate call_input(fallible)
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "function type errors clauses should expand named sets: {result:?}"
+    );
+}
+
+#[test]
+fn test_standard_errors_named_set_import_expands_for_propagate() {
+    const SOURCE: &str = "
+import print_text_sync, flush_standard_output_sync from standard
+import type StdoutWriterErrors from standard.errors
+
+##
+  Description: Entry point exercises standard.errors named set imports.
+##
+entry demo = f(): void errors StdoutWriterErrors => {
+    propagate print_text_sync('hello')
+    propagate flush_standard_output_sync()
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "imported standard.errors named set should expand for propagation: {result:?}"
+    );
+}
+
+#[test]
+fn test_invalid_named_error_set_member_is_rejected() {
+    const SOURCE: &str = "
+public error set BrokenErrors = MissingError
+
+##
+  Description: Entry point keeps invalid error set member fixture checkable.
+##
+entry demo = f(): void errors BrokenErrors => {
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(result.is_err(), "unknown error-set member must be rejected");
+}
+
+#[test]
+fn test_cyclic_named_error_sets_are_rejected() {
+    const SOURCE: &str = "
+public error set AErrors = BErrors
+public error set BErrors = AErrors
+
+##
+  Description: Entry point keeps cyclic error set fixture checkable.
+##
+entry demo = f(): void errors AErrors => {
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(result.is_err(), "cyclic named error sets must be rejected");
+}
+
+#[test]
 fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
     const FAMILY_TAXONOMY: &[(&str, &[&str])] = &[
         ("ParseError", &["ParseError"]),
@@ -9694,17 +9877,35 @@ fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
     ];
 
     let registered_families = stdlib_error_families();
-    assert_eq!(registered_families.len(), FAMILY_TAXONOMY.len());
-    for ((expected_name, expected_members), registered) in
-        FAMILY_TAXONOMY.iter().zip(registered_families)
-    {
-        assert_eq!(registered.name, *expected_name);
-        assert_eq!(registered.members, *expected_members);
+    for (expected_name, expected_members) in FAMILY_TAXONOMY {
+        let registered = registered_families
+            .iter()
+            .find(|family| family.name == *expected_name);
+        assert!(
+            registered.is_some(),
+            "missing legacy compatibility family {expected_name}"
+        );
+        if let Some(registered) = registered {
+            assert_eq!(registered.members, *expected_members);
+        }
+    }
+    for canonical_family in [
+        "BytesErrors",
+        "StdoutWriterErrors",
+        "RenderErrors",
+        "TimeErrors",
+    ] {
+        assert!(
+            registered_families
+                .iter()
+                .any(|family| family.name == canonical_family),
+            "missing canonical named error set {canonical_family}"
+        );
     }
 
-    let catalogued_leaves = FAMILY_TAXONOMY
+    let catalogued_leaves = registered_families
         .iter()
-        .flat_map(|(_, members)| members.iter().copied())
+        .flat_map(|family| family.members.iter().copied())
         .collect::<Vec<_>>();
     let missing_catalogue_coverage = CURRENT_STDLIB_EMITTED_LEAVES
         .iter()
@@ -9770,7 +9971,7 @@ entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
     );
     assert_eq!(
         warning.help().map(|help| help.to_string()).as_deref(),
-        Some("Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.")
+        Some("Replace `errors HexDecodeError, SliceRangeError` with `errors BytesErrors`.")
     );
     assert!(
         warning
@@ -9786,7 +9987,7 @@ entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
                 family_name,
                 replaceable_errors,
                 ..
-            } if family_name == "BytesError"
+            } if family_name == "BytesErrors"
                 && replaceable_errors == "HexDecodeError, SliceRangeError"
         ),
         "warning should name only the taxonomy-ordered BytesError leaves: {warning:?}"
@@ -9794,7 +9995,7 @@ entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
 }
 
 #[test]
-fn test_stdlib_error_family_warning_selection_for_lambda_overlap_and_extra_errors() {
+fn test_stdlib_error_family_warning_selection_for_exact_leaf_lists() {
     let cases = [
         (
             "lambda_time",
@@ -9806,28 +10007,39 @@ entry demo = f(): void => {
     return void
 }
 ",
-            "TimeError",
+            "TimeErrors",
             "InvalidDurationError, InvalidFrameRateError",
         ),
         (
-            "sink_closed_overlap",
+            "render_errors",
             "
-entry demo = f(): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError => {
+entry demo = f(): void errors WriteFailureError, FlushFailureError, TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError => {
     return void
 }
 ",
-            "OutputError",
-            "WriteFailureError, FlushFailureError, SinkClosedError",
+            "RenderErrors",
+            "WriteFailureError, FlushFailureError, TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
         ),
         (
-            "bytes_with_extra_and_duplicate",
+            "bytes_exact_with_duplicate",
             "
-entry demo = f(): void errors HexDecodeError, SliceRangeError, HexDecodeError, InvalidDurationError => {
+entry demo = f(): void errors HexDecodeError, SliceRangeError, HexDecodeError => {
     return void
 }
 ",
-            "BytesError",
+            "BytesErrors",
             "HexDecodeError, SliceRangeError",
+        ),
+        (
+            "local_exact_set",
+            "
+public error set InputErrors = StandardInputReadError, ParseError
+entry demo = f(): void errors StandardInputReadError, ParseError => {
+    return void
+}
+",
+            "InputErrors",
+            "StandardInputReadError, ParseError",
         ),
     ];
 
@@ -9862,6 +10074,84 @@ entry demo = f(): void errors HexDecodeError, SliceRangeError, HexDecodeError, I
 }
 
 #[test]
+fn test_error_set_redundant_leaf_and_overlap_warnings() {
+    let cases = [
+        (
+            "redundant_leaf",
+            "entry demo = f(): void errors BytesErrors, HexDecodeError => { return void }",
+            "HexDecodeError",
+            "BytesErrors",
+        ),
+        (
+            "overlapping_sets",
+            "entry demo = f(): void errors StdoutWriteErrors, StdoutWriterErrors => { return void }",
+            "StdoutWriteErrors",
+            "StdoutWriterErrors",
+        ),
+    ];
+
+    for (name, source, expected_left, expected_right) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(result.is_ok(), "{name} must remain non-fatal: {result:?}");
+        assert!(
+            checker.warnings().iter().any(|warning| match warning {
+                Warning::ErrorSetRedundantMember {
+                    redundant_member,
+                    covering_set,
+                    ..
+                } => redundant_member == expected_left && covering_set == expected_right,
+                Warning::ErrorSetOverlap {
+                    narrower_set,
+                    broader_set,
+                    ..
+                } => narrower_set == expected_left && broader_set == expected_right,
+                _ => false,
+            }),
+            "{name} should produce expected set warning: {:?}",
+            checker.warnings()
+        );
+    }
+}
+
+#[test]
+fn test_error_set_unused_member_warning_suggests_narrower_set() {
+    const SOURCE: &str = "
+import print_text_sync, flush_standard_output_sync from standard
+
+##
+  Description: Entry point uses only writer errors under a broad render set.
+##
+entry demo = f(): void errors RenderErrors => {
+    propagate print_text_sync('hello')
+    propagate flush_standard_output_sync()
+    return void
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "broad set should remain non-fatal: {result:?}"
+    );
+    assert!(
+        checker.warnings().iter().any(|warning| matches!(
+            warning,
+            Warning::ErrorSetUnusedMembers {
+                set_name,
+                suggested_errors,
+                ..
+            } if set_name == "RenderErrors" && suggested_errors == "StdoutWriterErrors"
+        )),
+        "RenderErrors should warn and suggest StdoutWriterErrors: {:?}",
+        checker.warnings()
+    );
+}
+
+#[test]
 fn test_stdlib_error_family_warning_negative_cases() {
     let cases = [
         (
@@ -9870,7 +10160,7 @@ fn test_stdlib_error_family_warning_negative_cases() {
         ),
         (
             "already_declared_bytes_family",
-            "entry demo = f(): void errors BytesError, HexDecodeError, SliceRangeError => { return void }",
+            "entry demo = f(): void errors BytesErrors => { return void }",
         ),
         (
             "singleton_parse_error",

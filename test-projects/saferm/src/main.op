@@ -20,7 +20,7 @@ let should_confirm = f(prompt: string): boolean errors StandardInputReadError =>
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNotFoundError, FilesystemPathError, ReadFailureError, IsNotADirectoryError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNotFoundError, FilesystemPathErrors, ReadFailureError, IsNotADirectoryError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
     let dest = propagate trash_directory()
 
     if args.length < 2:

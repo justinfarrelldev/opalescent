@@ -15,7 +15,7 @@ import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalSessio
 ##
   Description: Runs a tiny modal terminal editor with normal, insert, and command modes.
 ##
-entry main = f(args: string[]): void errors FilesystemReadError, FilesystemWriteError, IndexOutOfBoundsError, AllocationFailureError, StringRangeError, TerminalTextLayoutError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError, InvalidEnvironmentVariableNameError =>
+entry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemWriteErrors, IndexOutOfBoundsError, AllocationFailureError, StringRangeErrors, TerminalTextLayoutError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError, InvalidEnvironmentVariableNameError =>
     let file_path_text: string = guard args.at(1) into arg_path: string else 'test-projects/terminal-simple-editor/workspace/untitled.txt'
     let opened = args.length > 1
     let mutable lines: string[] = []

@@ -113,10 +113,11 @@ fn proposal_interface_from_source(
                 declaration,
                 Decl::Namespace { .. }
                     | Decl::Type { .. }
+                    | Decl::ErrorSet { .. }
                     | Decl::Import { .. }
                     | Decl::Comment { .. }
             ),
-            "{source_path} must contain only type, import, namespace, and comment declarations"
+            "{source_path} must contain only type, error set, import, namespace, and comment declarations"
         );
 
         match declaration {
@@ -142,7 +143,8 @@ fn proposal_interface_from_source(
                     span: *span,
                 });
             }
-            Decl::Import { .. }
+            Decl::ErrorSet { .. }
+            | Decl::Import { .. }
             | Decl::Comment { .. }
             | Decl::Function { .. }
             | Decl::Let { .. } => {}

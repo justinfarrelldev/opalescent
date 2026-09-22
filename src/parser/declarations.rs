@@ -60,6 +60,18 @@ impl Parser {
             return self.parse_type_declaration(visibility, doc_comment, annotations);
         }
 
+        if self.starts_error_set_declaration() {
+            if is_entry || !modifiers.is_empty() || !annotations.is_empty() {
+                let token = self.current_token();
+                return Err(ParseError::UnexpectedToken {
+                    expected: "error set declaration after optional visibility".to_owned(),
+                    found: format!("{}", token.token_type),
+                    span: ParseError::span_from_token(token),
+                });
+            }
+            return self.parse_error_set_declaration(visibility, doc_comment);
+        }
+
         if !annotations.is_empty() {
             let token = self.current_token();
             return Err(ParseError::UnexpectedToken {

@@ -1,0 +1,11 @@
+import take_input, string_to_int32 from standard
+import type InputErrors from ./app_errors.types
+
+##
+  Description: Exercises named error-set declarations in a minimal project.
+##
+entry main = f(args: string[]): void errors InputErrors =>
+    let raw = propagate take_input()
+    let parsed = propagate string_to_int32(raw)
+    print('parsed={parsed}')
+    return void

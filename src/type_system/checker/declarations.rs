@@ -126,7 +126,8 @@ impl TypeChecker {
 
     /// Convert an AST type into a core type while resolving generic identifiers
     /// against the provided function-level generic bindings.
-    fn ast_type_to_core_type_with_generics(
+    pub(super) fn ast_type_to_core_type_with_generics(
+        &self,
         ast_type: &Type,
         generic_bindings: &[(alloc::string::String, CoreType)],
     ) -> Result<CoreType, TypeError> {
@@ -150,7 +151,7 @@ impl TypeChecker {
             Type::Array {
                 ref element_type, ..
             } => Ok(CoreType::Array(alloc::boxed::Box::new(
-                Self::ast_type_to_core_type_with_generics(element_type, generic_bindings)?,
+                self.ast_type_to_core_type_with_generics(element_type, generic_bindings)?,
             ))),
             Type::Generic {
                 ref name,
@@ -159,10 +160,9 @@ impl TypeChecker {
             } => {
                 let mut resolved_args = Vec::new();
                 for type_arg in type_args {
-                    resolved_args.push(Self::ast_type_to_core_type_with_generics(
-                        type_arg,
-                        generic_bindings,
-                    )?);
+                    resolved_args.push(
+                        self.ast_type_to_core_type_with_generics(type_arg, generic_bindings)?,
+                    );
                 }
                 Ok(CoreType::Generic {
                     name: name.clone(),
@@ -177,22 +177,20 @@ impl TypeChecker {
             } => {
                 let mut resolved_params = Vec::new();
                 for parameter in parameters {
-                    resolved_params.push(Self::ast_type_to_core_type_with_generics(
-                        parameter,
-                        generic_bindings,
-                    )?);
+                    resolved_params.push(
+                        self.ast_type_to_core_type_with_generics(parameter, generic_bindings)?,
+                    );
                 }
                 let mut resolved_returns = Vec::new();
                 for return_type in return_types {
-                    resolved_returns.push(Self::ast_type_to_core_type_with_generics(
-                        return_type,
-                        generic_bindings,
-                    )?);
+                    resolved_returns.push(
+                        self.ast_type_to_core_type_with_generics(return_type, generic_bindings)?,
+                    );
                 }
                 let mut resolved_errors = Vec::new();
                 if let Some(ref error_types) = *errors {
                     for error_type in error_types {
-                        resolved_errors.push(Self::ast_type_to_core_type_with_generics(
+                        resolved_errors.extend(self.resolve_error_annotation_type_with_generics(
                             error_type,
                             generic_bindings,
                         )?);
@@ -319,7 +317,7 @@ impl TypeChecker {
                 }
 
                 for param in parameters {
-                    parameter_types.push(Self::ast_type_to_core_type_with_generics(
+                    parameter_types.push(self.ast_type_to_core_type_with_generics(
                         &param.param_type,
                         generic_bindings.as_slice(),
                     )?);
@@ -331,7 +329,7 @@ impl TypeChecker {
                         ast_return_types
                             .iter()
                             .map(|ast_return_type| {
-                                Self::ast_type_to_core_type_with_generics(
+                                self.ast_type_to_core_type_with_generics(
                                     ast_return_type,
                                     generic_bindings.as_slice(),
                                 )
@@ -424,7 +422,7 @@ impl TypeChecker {
                 let inferred_type = if let Some(annotation) = binding.type_annotation.as_ref() {
                     Some(ast_type_to_core_type(annotation).map_err(TypeError::from)?)
                 } else {
-                    Self::lambda_signature_type(initializer)?
+                    self.lambda_signature_type(initializer)?
                 };
 
                 if let Expr::Lambda {
@@ -532,7 +530,7 @@ impl TypeChecker {
 
                         let mut constraint_types = Vec::new();
                         for constraint in &declaration.constraints {
-                            let resolved_constraint = Self::ast_type_to_core_type_with_generics(
+                            let resolved_constraint = self.ast_type_to_core_type_with_generics(
                                 constraint,
                                 &generic_bindings,
                             )?;
@@ -592,7 +590,7 @@ impl TypeChecker {
                         qualified_variants.push(qualified_name.clone());
                         let mut variant_fields: BTreeMap<String, CoreType> = BTreeMap::new();
                         for field in &variant.fields {
-                            let core_field_type = Self::ast_type_to_core_type_with_generics(
+                            let core_field_type = self.ast_type_to_core_type_with_generics(
                                 &field.type_annotation,
                                 generic_bindings.as_slice(),
                             )?;
@@ -632,7 +630,7 @@ impl TypeChecker {
                 } else if let TypeDef::Product { fields, .. } = type_def {
                     let mut product_fields: BTreeMap<String, CoreType> = BTreeMap::new();
                     for field in fields {
-                        let core_field_type = Self::ast_type_to_core_type_with_generics(
+                        let core_field_type = self.ast_type_to_core_type_with_generics(
                             &field.type_annotation,
                             generic_bindings.as_slice(),
                         )?;
@@ -651,6 +649,47 @@ impl TypeChecker {
                     }
                     self.register_adt_fields(name.clone(), product_fields);
                 }
+                Ok(())
+            }
+            Decl::ErrorSet {
+                name,
+                members,
+                visibility,
+                span,
+                ..
+            } => {
+                let expanded_members = self
+                    .resolve_error_types(&[name.clone()], *span)?
+                    .into_iter()
+                    .map(|error_type| error_type.to_string())
+                    .collect::<Vec<_>>();
+                let core_type = CoreType::Generic {
+                    name: name.clone(),
+                    type_args: Vec::new(),
+                };
+                self.environment_mut()
+                    .register_type(name.clone(), core_type.clone());
+                self.symbol_table.register(SymbolInfo {
+                    name: name.clone(),
+                    symbol_type: SymbolType::Type,
+                    core_type,
+                    visibility: Self::convert_visibility(visibility, false),
+                    source_location: *span,
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
+                    is_pure: false,
+                });
+                if let Some(registered_symbol) = self.symbol_table.lookup(name).cloned() {
+                    self.register_current_module_symbol(registered_symbol, visibility)?;
+                }
+                self.register_current_module_error_set_declaration(
+                    name.clone(),
+                    members.as_slice(),
+                    expanded_members,
+                    visibility,
+                    *span,
+                );
                 Ok(())
             }
             Decl::Import { .. } | &Decl::Namespace { .. } | &Decl::Comment { .. } => Ok(()),
@@ -693,6 +732,7 @@ impl TypeChecker {
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
             Decl::Type { .. }
+            | Decl::ErrorSet { .. }
             | Decl::Import { .. }
             | Decl::Namespace { .. }
             | Decl::Comment { .. } => Ok(()),
@@ -731,7 +771,7 @@ impl TypeChecker {
 
         let mut parameter_types = Vec::with_capacity(params.parameters.len());
         for param in params.parameters {
-            parameter_types.push(Self::ast_type_to_core_type_with_generics(
+            parameter_types.push(self.ast_type_to_core_type_with_generics(
                 &param.param_type,
                 generic_bindings.as_slice(),
             )?);
@@ -743,7 +783,7 @@ impl TypeChecker {
                 ast_return_types
                     .iter()
                     .map(|ast_return_type| {
-                        Self::ast_type_to_core_type_with_generics(
+                        self.ast_type_to_core_type_with_generics(
                             ast_return_type,
                             generic_bindings.as_slice(),
                         )
@@ -754,7 +794,6 @@ impl TypeChecker {
             .unwrap_or_else(|| vec![CoreType::Unit]);
 
         let core_errors = self.resolve_error_types(params.error_types, params.span)?;
-        self.warn_for_replaceable_error_list(core_errors.as_slice(), params.span);
 
         let mut effective_modifiers = params.modifiers.to_vec();
         if params.is_entry
@@ -765,9 +804,11 @@ impl TypeChecker {
             effective_modifiers.push(FunctionModifier::Untested);
         }
 
-        self.symbol_table.enter_function(core_errors, params.span);
+        self.symbol_table
+            .enter_function(core_errors.clone(), params.span);
         self.enter_function_modifier_context(effective_modifiers);
         self.begin_return_context(params.return_labels);
+        self.begin_escaping_error_collection();
 
         let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in params.parameters.iter().zip(parameter_types.iter()) {
@@ -788,51 +829,21 @@ impl TypeChecker {
             checker.type_check_stmt_with_return(params.body, Some(return_core_types.as_slice()))
         });
 
+        let escaping_errors = self.end_escaping_error_collection();
         self.end_return_context();
         self.exit_function_modifier_context();
         self.symbol_table.exit_function();
 
+        if result.is_ok() {
+            self.warn_for_error_clause(
+                params.error_types,
+                core_errors.as_slice(),
+                Some(&escaping_errors),
+                params.span,
+            );
+        }
+
         result
-    }
-
-    /// Infer function core type from a lambda initializer when present.
-    fn lambda_signature_type(initializer: &Expr) -> Result<Option<CoreType>, TypeError> {
-        let Expr::Lambda {
-            ref params,
-            ref return_types,
-            ref error_types,
-            ..
-        } = *initializer
-        else {
-            return Ok(None);
-        };
-
-        let parameter_types = params
-            .iter()
-            .map(|param| Self::ast_type_to_core_type_with_generics(&param.param_type, &[]))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let return_core_types = return_types
-            .iter()
-            .map(|return_type| Self::ast_type_to_core_type_with_generics(return_type, &[]))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let error_core_types = error_types
-            .iter()
-            .map(|error_type_name| {
-                Ok(CoreType::Generic {
-                    name: error_type_name.clone(),
-                    type_args: Vec::new(),
-                })
-            })
-            .collect::<Result<Vec<_>, TypeError>>()?;
-
-        Ok(Some(CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: parameter_types,
-            return_types: return_core_types,
-            error_types: error_core_types,
-        }))
     }
 
     /// Type check a module-level let declaration and ensure the registered symbol honors visibility.
@@ -895,6 +906,27 @@ impl TypeChecker {
 
         let mut errors: Vec<TypeError> = Vec::new();
         let mut skipped_decls: Vec<usize> = Vec::new();
+
+        for decl in &program.declarations {
+            if let &Decl::ErrorSet {
+                ref name,
+                ref members,
+                ref visibility,
+                span,
+                ..
+            } = decl
+            {
+                if let Some(error) = self.register_error_set_declaration_raw(
+                    name.clone(),
+                    members.clone(),
+                    visibility.clone(),
+                    span,
+                ) {
+                    skipped_decls.push(decl.node_id().0);
+                    errors.push(error);
+                }
+            }
+        }
 
         for decl in &program.declarations {
             if let Some(error) = Self::validate_function_doc_comment(decl) {

@@ -6,7 +6,7 @@ let is_counted_entry = f(seed_line: string): boolean =>
 ##
   Description: Reads a seed plan, creates a workspace tree, lists alpha, removes it, and reports matching counts.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, FilesystemPathError, IsADirectoryError, IsNotADirectoryError, ReadFailureError, InvalidUtf8Error, WriteFailureError, DeleteFailureError, DirectoryNotEmptyError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, FilesystemPathErrors, IsADirectoryError, IsNotADirectoryError, ReadFailureError, InvalidUtf8Error, WriteFailureError, DeleteFailureError, DirectoryNotEmptyError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, IndexOutOfBoundsError =>
     let project_root = 'test-projects/fs-directory-operations/'
     let seed_path = path_from('{project_root}fixtures/seed.txt')
 

@@ -104,7 +104,9 @@ fn declaration_location_for_symbol(
     uri: &str,
 ) -> Option<Location> {
     match *declaration {
-        Decl::Function { ref name, .. } | Decl::Type { ref name, .. } => {
+        Decl::Function { ref name, .. }
+        | Decl::Type { ref name, .. }
+        | Decl::ErrorSet { ref name, .. } => {
             if name == symbol_name {
                 let range = span_to_range(source, declaration.span());
                 return Some(Location {

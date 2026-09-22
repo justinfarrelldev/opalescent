@@ -114,6 +114,7 @@ const fn symbol_kind_label(kind: ApiSymbolKind) -> &'static str {
     match kind {
         ApiSymbolKind::Function => "function",
         ApiSymbolKind::Type => "type",
+        ApiSymbolKind::ErrorSet => "error set",
         ApiSymbolKind::Let => "let",
     }
 }

@@ -4,7 +4,7 @@ import path_from, path_exists_sync, is_directory_sync, create_directory_sync, de
 ##
   Description: Mutates cwd to a fixture-relative workspace directory and restores it before exit.
 ##
-entry main = f(args: string[]): void errors FilesystemPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, DirectoryNotFoundError, IsNotADirectoryError, CreateFailureError, FileAlreadyExistsError, FilesystemFullError, DeleteFailureError, DirectoryNotEmptyError =>
+entry main = f(args: string[]): void errors FilesystemPathErrors, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, DirectoryNotFoundError, IsNotADirectoryError, CreateFailureError, FileAlreadyExistsError, FilesystemFullError, DeleteFailureError, DirectoryNotEmptyError =>
     let mutable original_cwd = propagate current_working_directory_sync()
 
     let fixture_workspace = path_from('test-projects/process-cwd/workspace')

@@ -24,7 +24,7 @@ Key ideas:
 - `let` creates an immutable binding. `let mutable` creates a binding you can assign to.
 - Blocks are indentation-sensitive. Match the style the formatter emits; do not rely on a fixed manual rule such as "always four spaces".
 - Strings use single quotes and support interpolation with `{expression}`.
-- Fallible functions declare `errors ...` and callers use `propagate` or `guard`.
+- Fallible functions declare `errors ...` (often with named error sets) and callers use `propagate` or `guard`.
 - Standard-library functions are imported from `standard`.
 
 A minimal working project is `test-projects/hello-world/`.
@@ -484,12 +484,15 @@ Opalescent does not hide errors as exceptions. A function that can fail says so 
 
 ```opal
 import read_text_sync from standard
+import type FilesystemTextReadErrors from standard.errors
 
-let load_text = f(path: FilesystemPath): string errors FileNotFoundError, ReadFailureError =>
+let load_text = f(path: FilesystemPath): string errors FilesystemTextReadErrors =>
     return propagate read_text_sync(path)
 ```
 
 That `errors ...` clause is part of the function type. Callers must decide what to do with possible failure.
+
+Named error sets such as `FilesystemTextReadErrors` are compile-time aliases imported with `import type`. They shorten signatures, but `guard` and `propagate` still check the expanded leaf errors.
 
 ## 19. `propagate`
 
@@ -588,8 +591,9 @@ This simplified version of the markdown roundtrip fixture reads lines, joins the
 
 ```opal
 import path_from, read_lines_sync, read_text_sync, write_text_sync, string_join from standard
+import type AllocationErrors, FilesystemOverwriteErrors, FilesystemTextReadErrors from standard.errors
 
-entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError, AllocationFailureError =>
+entry main = f(args: string[]): void errors FilesystemTextReadErrors, FilesystemOverwriteErrors, AllocationErrors =>
     let input_path = path_from('input.md')
     let output_path = path_from('output.md')
 

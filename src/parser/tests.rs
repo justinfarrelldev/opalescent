@@ -13,9 +13,9 @@
 
 use super::*;
 use crate::ast::{
-    BinaryOp, BorrowKind, Decl, DeclarationAnnotation, Expr, FunctionModifier, ImportItem,
-    LabeledValue, LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type, TypeDeclarationForm,
-    TypeDef, UnaryOp, Visibility,
+    BinaryOp, BorrowKind, Decl, DeclarationAnnotation, ErrorSetMember, Expr, FunctionModifier,
+    ImportItem, LabeledValue, LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type,
+    TypeDeclarationForm, TypeDef, UnaryOp, Visibility,
 };
 use crate::lexer::{Lexer, RESERVED_KEYWORDS};
 use crate::parser::errors::ParseError;
@@ -4346,6 +4346,72 @@ fn test_function_type_parsing_error_cases() {
     // Test function with malformed parameters - should fail
     let bad_params = parse_type_from_string("f(int32 string): void");
     assert!(bad_params.is_err(), "Should fail on malformed parameters");
+}
+
+// Error-set declaration parsing tests
+#[test]
+fn test_public_error_set_declaration_parses_members() {
+    let source =
+        "public error set RenderErrors = WriteFailureError, FlushFailureError, SinkClosedError";
+    let program = parse_program_from_string(source)
+        .expect("public error set declaration should parse successfully");
+
+    assert_eq!(program.declarations.len(), 1);
+    let Decl::ErrorSet {
+        name,
+        members,
+        visibility,
+        ..
+    } = &program.declarations[0]
+    else {
+        panic!("Expected Decl::ErrorSet");
+    };
+
+    assert_eq!(name, "RenderErrors");
+    assert_eq!(*visibility, Visibility::Public);
+    let member_names: Vec<&str> = members
+        .iter()
+        .map(|ErrorSetMember { name, .. }| name.as_str())
+        .collect();
+    assert_eq!(
+        member_names,
+        vec!["WriteFailureError", "FlushFailureError", "SinkClosedError"]
+    );
+}
+
+#[test]
+fn test_multiline_error_set_declaration_allows_trailing_comma() {
+    let source = "public error set FilesystemReadErrors =\n    FileNotFoundError,\n    PermissionDeniedError,\n    ReadFailureError,\n";
+    let program = parse_program_from_string(source)
+        .expect("multiline error set declaration should parse successfully");
+
+    let Decl::ErrorSet { members, .. } = &program.declarations[0] else {
+        panic!("Expected Decl::ErrorSet");
+    };
+    let member_names: Vec<&str> = members
+        .iter()
+        .map(|ErrorSetMember { name, .. }| name.as_str())
+        .collect();
+    assert_eq!(
+        member_names,
+        vec![
+            "FileNotFoundError",
+            "PermissionDeniedError",
+            "ReadFailureError"
+        ]
+    );
+}
+
+#[test]
+fn test_error_set_declaration_rejects_empty_member_list() {
+    let errors = parse_program_from_string("public error set EmptyErrors =")
+        .expect_err("empty error set declaration should fail to parse");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, ParseError::UnexpectedToken { .. })),
+        "empty error set should produce an unexpected-token parser diagnostic: {errors:?}"
+    );
 }
 
 // Type declaration parsing tests

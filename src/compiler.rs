@@ -422,7 +422,10 @@ pub fn compile_to_module_for_target<'context>(
                     })?;
                 }
             }
-            Decl::Type { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
+            Decl::Type { .. }
+            | Decl::ErrorSet { .. }
+            | Decl::Namespace { .. }
+            | Decl::Comment { .. } => {}
         }
     }
 
@@ -1043,6 +1046,5 @@ pub fn compile_project(
 ) -> Result<PathBuf, CompileError> {
     compile_project_with_run_policy(project_dir, output_dir, target, CompileRunPolicy::default())
 }
-
 #[cfg(test)]
 mod tests;

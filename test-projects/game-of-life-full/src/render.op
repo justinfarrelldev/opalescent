@@ -14,7 +14,7 @@ public let prepare_display = f(): void errors StandardOutputHandleError, Standar
 ##
   Description: Clears supported terminals, streams one complete frame, and flushes after the final row.
 ##
-public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors StandardOutputHandleError, StandardOutputCapabilityError, OutputError, TerminalWriteFailureError =>
+public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors StandardOutputHandleError, StandardOutputCapabilityError, StdoutWriterErrors, TerminalWriteFailureError =>
     let terminal = propagate stdout_terminal()
     let writer = propagate stdout_writer()
     let supports_ansi = propagate terminal_supports_ansi(terminal)

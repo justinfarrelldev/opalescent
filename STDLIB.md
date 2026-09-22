@@ -19,12 +19,29 @@ The authoritative implementation is split across:
 Names ending in `_sync` are blocking operations. If a signature has `errors ...`, call it with `propagate` or `guard`.
 
 ```opal
-import path_from, read_text_sync, write_text_sync, string_join from standard
+import path_from, read_text_sync from standard
+import type FilesystemTextReadErrors from standard.errors
 
-entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error =>
+entry main = f(args: string[]): void errors FilesystemTextReadErrors =>
     let path = path_from('README.md')
     let text = propagate read_text_sync(path)
     print(text)
+    return void
+```
+
+## Named error sets
+
+`standard.errors` exports compile-time named error sets for common standard-library failure groups. Import them with `import type ... from standard.errors` and use them in `errors` clauses. They are aliases only: `propagate` and `guard` still check the expanded leaf errors.
+
+Examples include `ParseErrors`, `BytesErrors`, `StringSliceErrors`, `StdoutWriterErrors`, `RenderErrors`, `TimeErrors`, `FilesystemReadErrors`, `FilesystemWriteErrors`, `ProcessPathErrors`, and `ConsoleIoErrors`. Singular legacy aliases such as `BytesError`, `OutputError`, and `FilesystemReadError` remain accepted for compatibility, but new code should prefer plural `*Errors` names.
+
+```opal
+import print_text_sync, flush_standard_output_sync from standard
+import type StdoutWriterErrors from standard.errors
+
+let write_status = f(text: string): void errors StdoutWriterErrors =>
+    propagate print_text_sync(text)
+    propagate flush_standard_output_sync()
     return void
 ```
 
@@ -777,40 +794,42 @@ These names appear in the compiler/runtime registry but are not normal user-faci
 | `opal_array_bounds_error` | Reports generated-code array bounds failures. |
 | `opal_runtime_error` | Reports generated-code runtime failures. |
 
-## Standard-library error families
+## Standard-library named error sets
 
-Function signatures above deliberately list the precise leaf errors their implementation can emit. The family declarations below are compatibility declarations: a family may be used in an `errors` clause to cover exactly its listed leaves, without changing the function's emitted leaf set.
+Function signatures above deliberately list the precise leaf errors their implementation can emit. Named error sets in `standard.errors` are compatibility-preserving aliases: a set may be used in an `errors` clause to cover exactly its listed leaves, without changing the function's emitted leaf set.
 
-Every individual leaf remains valid. For example, `errors HexDecodeError` is still accepted even though `BytesError` covers `HexDecodeError` and `SliceRangeError`. `ParseError` and `IndexAccessError` are singleton declaration families, so they provide coverage but no shorter-list suggestion.
+Every individual leaf remains valid. For example, `errors HexDecodeError` is still accepted even though `BytesErrors` covers `HexDecodeError` and `SliceRangeError`. Singleton sets such as `ParseErrors` and `IndexAccessErrors` are available for consistency, but the linter does not force them over direct leaf spelling.
 
-| Family | Exact leaf members | Suggestion warning |
+| Canonical set | Exact leaf members | Suggestion warning |
 |---|---|---:|
-| `ParseError` | `ParseError` | No |
-| `BytesError` | `HexDecodeError`, `SliceRangeError` | Yes |
-| `StringSearchError` | `StringEmptySearchTextError`, `StringPatternNotFoundError` | Yes |
-| `StringRangeError` | `StringNegativeCountError`, `StringRangeOutOfBoundsError`, `StringRangeOrderError` | Yes |
-| `StringBuilderError` | `BuilderFinishedError`, `AllocationFailureError` | Yes |
-| `OutputError` | `WriteFailureError`, `FlushFailureError`, `SinkClosedError` | Yes |
-| `TerminalError` | `TerminalWriteFailureError`, `InvalidCursorPositionError`, `SinkClosedError` | Yes |
-| `TimeError` | `InvalidDurationError`, `InvalidFrameRateError` | Yes |
-| `ProcessPathError` | `PermissionDeniedError`, `InvalidPathError`, `CurrentWorkingDirectoryUnavailableError`, `CurrentExecutablePathUnavailableError`, `FileNotFoundError`, `IsNotADirectoryError` | Yes |
-| `ProcessEnvError` | `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error` | Yes |
-| `FilesystemPathError` | `InvalidPathError`, `PermissionDeniedError` | Yes |
-| `FilesystemReadError` | `FileNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsADirectoryError`, `InvalidPathError`, `InvalidUtf8Error`, `OffsetOutOfRangeError` | Yes |
-| `FilesystemWriteError` | `FileNotFoundError`, `PermissionDeniedError`, `WriteFailureError`, `IsADirectoryError`, `InvalidPathError`, `FilesystemFullError`, `OffsetOutOfRangeError` | Yes |
-| `FilesystemCreateError` | `FileAlreadyExistsError`, `PermissionDeniedError`, `CreateFailureError`, `InvalidPathError`, `FilesystemFullError` | Yes |
-| `FilesystemDeleteError` | `FileNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `IsADirectoryError`, `InvalidPathError` | Yes |
-| `FilesystemDirectoryDeleteError` | `DirectoryNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `DirectoryNotEmptyError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
-| `FilesystemCopyMoveError` | `FileNotFoundError`, `PermissionDeniedError`, `CopyFailureError`, `MoveFailureError`, `IsADirectoryError`, `FileAlreadyExistsError`, `InvalidPathError`, `FilesystemFullError` | Yes |
-| `FilesystemMetadataError` | `FileNotFoundError`, `PermissionDeniedError`, `MetadataUnavailableError`, `InvalidPathError` | Yes |
-| `FilesystemListError` | `DirectoryNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
-| `FilesystemError` | The union of the filesystem leaves above, plus registered-but-unproduced `LineOutOfRangeError` and `SetPermissionsError` | No |
-| `IndexAccessError` | `IndexOutOfBoundsError` | No |
+| `ParseErrors` | `ParseError` | No |
+| `BytesErrors` | `HexDecodeError`, `SliceRangeError` | Yes |
+| `StringSearchErrors` | `StringEmptySearchTextError`, `StringPatternNotFoundError` | Yes |
+| `StringRangeErrors` | `StringNegativeCountError`, `StringRangeOutOfBoundsError`, `StringRangeOrderError` | Yes |
+| `StringBuilderErrors` | `BuilderFinishedError`, `AllocationFailureError` | Yes |
+| `StdoutWriterErrors` | `WriteFailureError`, `FlushFailureError`, `SinkClosedError` | Yes |
+| `TerminalControlErrors` | `TerminalWriteFailureError`, `InvalidCursorPositionError`, `SinkClosedError` | Yes |
+| `TimeErrors` | `InvalidDurationError`, `InvalidFrameRateError` | Yes |
+| `ProcessPathErrors` | `PermissionDeniedError`, `InvalidPathError`, `CurrentWorkingDirectoryUnavailableError`, `CurrentExecutablePathUnavailableError`, `FileNotFoundError`, `IsNotADirectoryError` | Yes |
+| `ProcessEnvErrors` | `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error` | Yes |
+| `FilesystemPathErrors` | `InvalidPathError`, `PermissionDeniedError` | Yes |
+| `FilesystemReadErrors` | `FileNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsADirectoryError`, `InvalidPathError`, `InvalidUtf8Error`, `OffsetOutOfRangeError` | Yes |
+| `FilesystemWriteErrors` | `FileNotFoundError`, `PermissionDeniedError`, `WriteFailureError`, `IsADirectoryError`, `InvalidPathError`, `FilesystemFullError`, `OffsetOutOfRangeError` | Yes |
+| `FilesystemCreateErrors` | `FileAlreadyExistsError`, `PermissionDeniedError`, `CreateFailureError`, `InvalidPathError`, `FilesystemFullError` | Yes |
+| `FilesystemDeleteErrors` | `FileNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `IsADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemDirectoryDeleteErrors` | `DirectoryNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `DirectoryNotEmptyError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemCopyMoveErrors` | `FileNotFoundError`, `PermissionDeniedError`, `CopyFailureError`, `MoveFailureError`, `IsADirectoryError`, `FileAlreadyExistsError`, `InvalidPathError`, `FilesystemFullError` | Yes |
+| `FilesystemMetadataErrors` | `FileNotFoundError`, `PermissionDeniedError`, `MetadataUnavailableError`, `InvalidPathError` | Yes |
+| `FilesystemListErrors` | `DirectoryNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemErrors` | The union of the filesystem leaves above, plus registered-but-unproduced `LineOutOfRangeError` and `SetPermissionsError` | No |
+| `IndexAccessErrors` | `IndexOutOfBoundsError` | No |
 
-A complete explicit leaf list may produce a non-fatal warning that suggests the applicable family. This is guidance only: it never rewrites source, never rejects a declaration, and never turns a valid manual leaf declaration into an error.
+A complete explicit leaf list may produce a non-fatal warning that suggests the applicable set. This is guidance only: it never rewrites source, never rejects a declaration, and never turns a valid manual leaf declaration into an error. Compatibility aliases using older singular names remain importable but are not preferred in new code.
 
 ```opal
-let decode = f(text: string): Bytes errors BytesError =>
+import type BytesErrors from standard.errors
+
+let decode = f(text: string): Bytes errors BytesErrors =>
     return propagate bytes_from_hex(text)
 
 let decode_with_leaf = f(text: string): Bytes errors HexDecodeError =>

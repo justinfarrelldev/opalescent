@@ -27,6 +27,12 @@ pub fn get_hover(source: &str, position: Position) -> Option<HoverResult> {
     if let Some(parsed_program) = program {
         let mut checker = TypeChecker::new();
         if checker.type_check_program(&parsed_program).is_ok() {
+            if let Some(members) = checker.expanded_error_set_members(&hovered_word) {
+                return Some(HoverResult {
+                    contents: format!("`{}`: error set = {}", hovered_word, members.join(", ")),
+                    range: None,
+                });
+            }
             if let Some(symbol) = checker.symbol_table().lookup(&hovered_word) {
                 return Some(HoverResult {
                     contents: format!("`{}`: {}", symbol.name, symbol.core_type),

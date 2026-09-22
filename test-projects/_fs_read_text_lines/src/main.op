@@ -3,7 +3,7 @@ import path_from, read_lines_sync, read_first_line_sync, read_text_sync, int64_t
 ##
   Description: Read-family showcase that reports line count, first line, and content match signal.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, FilesystemPathError, ReadFailureError, IsADirectoryError, InvalidUtf8Error, OffsetOutOfRangeError =>
+entry main = f(args: string[]): void errors FileNotFoundError, FilesystemPathErrors, ReadFailureError, IsADirectoryError, InvalidUtf8Error, OffsetOutOfRangeError =>
     guard read_lines_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into lines else err =>
         print(err)
         propagate err

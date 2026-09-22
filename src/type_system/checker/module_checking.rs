@@ -2,10 +2,11 @@ extern crate alloc;
 
 use super::super::module_resolver::{
     AdtFieldManifest, AdtLayoutManifest, AdtLayoutManifestKind, AdtTypeId, AdtVariantManifest,
-    ModuleAvailability, ModuleInterface, ModuleTypeDeclaration,
+    ModuleAvailability, ModuleErrorSetDeclaration, ModuleInterface, ModuleTypeDeclaration,
 };
 use crate::ast::{
-    DeclarationAnnotation, ImportItem, TypeDeclarationForm, TypeDef, Visibility as AstVisibility,
+    DeclarationAnnotation, ErrorSetMember, ImportItem, TypeDeclarationForm, TypeDef,
+    Visibility as AstVisibility,
 };
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
@@ -114,6 +115,30 @@ impl TypeChecker {
                 interface.register_adt_layout_manifest(manifest);
             }
         }
+        self.module_resolver.register_module_interface(interface);
+    }
+
+    /// Register named error-set metadata for the current module interface.
+    pub(super) fn register_current_module_error_set_declaration(
+        &mut self,
+        name: String,
+        members: &[ErrorSetMember],
+        expanded_members: Vec<String>,
+        visibility: &AstVisibility,
+        span: Span,
+    ) {
+        let mut interface = self
+            .module_resolver
+            .module_interface(&self.current_module_path)
+            .unwrap_or_else(|| ModuleInterface::new(self.current_module_path.clone()));
+        interface.register_error_set_declaration(ModuleErrorSetDeclaration {
+            name,
+            source_path: self.current_module_path.clone(),
+            members: members.iter().map(|member| member.name.clone()).collect(),
+            expanded_members,
+            visibility: visibility.clone(),
+            span,
+        });
         self.module_resolver.register_module_interface(interface);
     }
 
@@ -414,6 +439,12 @@ impl TypeChecker {
                         &symbol_to_register.symbol_type,
                         &symbol_to_register.core_type,
                     );
+                    self.register_imported_error_set(
+                        source,
+                        name,
+                        resolved_import_name.as_str(),
+                        item_span,
+                    )?;
                     if let Some(interface) = self.module_resolver.module_interface(source) {
                         if let Some(labels) = interface.function_return_labels(name) {
                             self.register_function_return_labels_for_symbol(
@@ -467,6 +498,12 @@ impl TypeChecker {
                             &symbol.symbol_type,
                             &symbol.core_type,
                         );
+                        self.register_imported_error_set(
+                            source,
+                            symbol_name.as_str(),
+                            symbol_name.as_str(),
+                            import_span,
+                        )?;
                         self.symbol_table.register(symbol);
                     }
                 }
@@ -521,6 +558,40 @@ impl TypeChecker {
             self.symbol_table.register(symbol);
         }
 
+        Ok(())
+    }
+
+    /// Copy an imported named error set into the local checker registry.
+    fn register_imported_error_set(
+        &mut self,
+        source: &str,
+        imported_name: &str,
+        local_name: &str,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let Some(interface) = self.module_resolver.module_interface(source) else {
+            return Ok(());
+        };
+        let Some(declaration) = interface.error_set_declaration(imported_name) else {
+            return Ok(());
+        };
+
+        let members = declaration
+            .expanded_members
+            .iter()
+            .map(|member_name| ErrorSetMember {
+                name: member_name.clone(),
+                span,
+            })
+            .collect::<Vec<_>>();
+        if let Some(error) = self.register_error_set_declaration_raw(
+            local_name.to_owned(),
+            members,
+            AstVisibility::Private,
+            span,
+        ) {
+            return Err(error);
+        }
         Ok(())
     }
 

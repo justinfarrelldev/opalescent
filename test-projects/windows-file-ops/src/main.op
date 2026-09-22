@@ -3,7 +3,7 @@ import path_from, path_to_string, path_file_name, join_path_components, create_d
 ##
   Description: Exercises Windows/MSVC file operations using spaced and non-ASCII paths and prints deterministic markers for the Wine harness.
 ##
-entry main = f(args: string[]): void errors FilesystemPathError, CreateFailureError, FilesystemFullError, FileAlreadyExistsError, FileNotFoundError, WriteFailureError, IsADirectoryError, ReadFailureError, InvalidUtf8Error, DirectoryNotFoundError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, MoveFailureError, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors FilesystemPathErrors, CreateFailureError, FilesystemFullError, FileAlreadyExistsError, FileNotFoundError, WriteFailureError, IsADirectoryError, ReadFailureError, InvalidUtf8Error, DirectoryNotFoundError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, MoveFailureError, IndexOutOfBoundsError =>
     let project_root = 'test-projects/windows-file-ops/'
     let workspace = path_from('{project_root}workspace')
     let nested_dir = path_from('{project_root}workspace/dir with spaces')

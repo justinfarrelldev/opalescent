@@ -304,6 +304,47 @@ impl Formatter {
                     decl_with_annotations
                 }
             }
+            Decl::ErrorSet {
+                ref name,
+                ref members,
+                ref visibility,
+                ref doc_comment,
+                ..
+            } => {
+                let vis = if *visibility == Visibility::Public {
+                    "public "
+                } else {
+                    ""
+                };
+                let member_lines = members
+                    .iter()
+                    .map(|member| {
+                        format!("{}{},", self.indent(depth.saturating_add(1)), member.name)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let decl_str = format!(
+                    "{}{}error set {name} =\n{member_lines}",
+                    self.indent(depth),
+                    vis
+                );
+                if let Some(ref doc) = *doc_comment {
+                    let doc_lines: Vec<String> = doc
+                        .raw
+                        .lines()
+                        .map(|line| format!("{}{}", self.indent(depth), line))
+                        .collect();
+                    format!(
+                        "{}##\n{}\n{}##\n{}",
+                        self.indent(depth),
+                        doc_lines.join("\n"),
+                        self.indent(depth),
+                        decl_str
+                    )
+                } else {
+                    decl_str
+                }
+            }
             Decl::Import {
                 ref items,
                 ref source,

@@ -192,7 +192,7 @@ impl TypeChecker {
     }
 
     pub(super) fn ensure_propagate_error_types_allowed(
-        &self,
+        &mut self,
         call: &Expr,
         error_types: &[CoreType],
         span: Span,
@@ -223,6 +223,7 @@ impl TypeChecker {
             });
         }
 
+        self.record_escaping_error_types(error_types);
         Ok(())
     }
 

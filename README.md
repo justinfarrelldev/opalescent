@@ -23,8 +23,9 @@ An interactive program that asks for a name, generates a random number, and chec
 ```
 import take_input, string_to_int32 from standard
 import random_int32 from math
+import type StandardInputErrors from standard.errors
 
-entry main = f(args: string[]): void errors StandardInputReadError =>
+entry main = f(args: string[]): void errors StandardInputErrors =>
     print('What is your name?')
     let name = propagate take_input()
     let quiz_num = random_int32(1, 5)
@@ -158,7 +159,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
 - [x] `if`, `while`, `for`, `while true`, `continue`, and the fixture-backed `loop => ... break name: value` expression form
 - [x] Multiple return limitations documented and tested: labels are ordered metadata for callers, docs, diagnostics, and cross-module checks, not tuple storage, not function type identity, not ABI identity, and not a value-reordering mechanism
-- [x] Fallible functions with `errors ...` clauses
+- [x] Fallible functions with `errors ...` clauses and named error sets
 - [x] `propagate`, `guard ... else`, and `guard ... into ... else` error handling
 - [x] Importing functions and types from other files
 - [x] Standard-library I/O, string, bytes, filesystem, terminal, stdout-writer, time/frame-clock, and process symbols

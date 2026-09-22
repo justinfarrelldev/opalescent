@@ -6,8 +6,12 @@ use thiserror::Error;
 
 /// Source-span helpers for type-checking diagnostics.
 mod type_error_impl;
+/** Warning diagnostics. */
+pub mod warning;
 /** Warning helper methods. */
 mod warning_impl;
+/// Non-fatal type-checking diagnostic alias.
+pub type Warning = warning::Warning;
 /// Type checking errors that can occur during type analysis
 #[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
 pub enum TypeError {
@@ -473,6 +477,77 @@ pub enum TypeError {
         /// The source span where the undeclared error type was referenced.
         span: SourceSpan,
     },
+    /// A named error-set declaration contains no members.
+    #[error("error set '{set_name}' must contain at least one member")]
+    #[diagnostic(
+        code(opalescent::type_system::error_set_empty),
+        help("Add one or more leaf errors or nested named error sets after '='.")
+    )]
+    EmptyErrorSet {
+        /// Name of the empty error set.
+        set_name: String,
+        #[label("empty error set")]
+        /// Source span of the declaration.
+        span: SourceSpan,
+    },
+    /// A named error-set declaration repeats a direct member.
+    #[error("error set '{set_name}' lists member '{member_name}' more than once")]
+    #[diagnostic(
+        code(opalescent::type_system::error_set_duplicate_member),
+        help("Remove the duplicate member; nested expansions are de-duplicated automatically.")
+    )]
+    DuplicateErrorSetMember {
+        /// Name of the containing error set.
+        set_name: String,
+        /// Repeated member name.
+        member_name: String,
+        #[label("duplicate error set member")]
+        /// Source span of the duplicate member.
+        span: SourceSpan,
+    },
+    /// A named error-set declaration refers to an unknown member.
+    #[error("error set '{set_name}' refers to unknown member '{member_name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::error_set_unknown_member),
+        help("Use a visible leaf error type or another named error set.")
+    )]
+    UnknownErrorSetMember {
+        /// Name of the containing error set.
+        set_name: String,
+        /// Unknown member name.
+        member_name: String,
+        #[label("unknown error set member")]
+        /// Source span of the unknown member.
+        span: SourceSpan,
+    },
+    /// A named error-set declaration includes a type that is not an error leaf or set.
+    #[error("error set '{set_name}' member '{member_name}' is not an error type or error set")]
+    #[diagnostic(
+        code(opalescent::type_system::error_set_non_error_member),
+        help("Named error sets may only contain leaf error types or other named error sets.")
+    )]
+    NonErrorSetMember {
+        /// Name of the containing error set.
+        set_name: String,
+        /// Invalid member name.
+        member_name: String,
+        #[label("not an error set member")]
+        /// Source span of the invalid member.
+        span: SourceSpan,
+    },
+    /// Named error-set declarations recursively include each other.
+    #[error("error set cycle detected: {cycle}")]
+    #[diagnostic(
+        code(opalescent::type_system::error_set_cycle),
+        help("Break the cycle by replacing one set member with concrete leaf errors.")
+    )]
+    ErrorSetCycle {
+        /// Human-readable cycle path.
+        cycle: String,
+        #[label("participates in an error set cycle")]
+        /// Source span of the declaration or member that closes the cycle.
+        span: SourceSpan,
+    },
     /// A call to an error-producing function was made without `guard` or `propagate`.
     #[error(
         "Call to error-producing function `{name}` must be wrapped in `guard` or `propagate` (declared errors: {error_types})"
@@ -932,106 +1007,5 @@ pub enum TypeError {
         #[label("not allowed in .types.op file")]
         /// Source span of the declaration.
         span: SourceSpan,
-    },
-}
-/// Warning diagnostics produced during type checking.
-///
-/// Warnings represent non-fatal issues that should be surfaced to users without
-/// preventing successful compilation. This mirrors [`TypeError`] so diagnostics
-/// remain consistent across fatal and non-fatal analysis paths.
-#[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
-pub enum Warning {
-    /// Compile-time constant integer arithmetic overflows the destination type.
-    #[error("Compile-time {operation} overflows type '{type_name}'; this traps in debug builds")]
-    #[diagnostic(
-        code(opalescent::type_system::warning::arithmetic_overflow),
-        help(
-            "Use checked_*, wrapping_*, or saturating_* explicit variants when overflow behavior is intentional"
-        )
-    )]
-    ArithmeticOverflow {
-        /// Arithmetic operation that overflowed (`addition`, `subtraction`, `multiplication`).
-        operation: String,
-        /// Destination integer type affected by overflow.
-        type_name: String,
-        #[label("constant expression overflows here")]
-        /// Source span highlighting the overflowing constant expression.
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
-    },
-    /// Unsafe cast that may lose data or precision.
-    #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
-    #[diagnostic(
-        code(opalescent::type_system::warning::unsafe_cast),
-        help(
-            "This cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API."
-        )
-    )]
-    UnsafeCast {
-        /// Source type of the cast.
-        from_type: String,
-        /// Target type of the cast.
-        to_type: String,
-        #[label("unsafe narrowing cast")]
-        /// Source span highlighting where the unsafe cast was attempted.
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
-    },
-    /// `let` binding that is never read during type checking.
-    #[error("Variable '{name}' is never used")]
-    #[diagnostic(
-        code(opalescent::type_system::unused_variable),
-        help("Remove the variable or prefix it with '_' if unused intentionally")
-    )]
-    UnusedVariable {
-        /// Name of the variable that is unused.
-        name: String,
-        #[label("unused variable")]
-        /// Source span for the unused variable binding.
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
-    },
-    /// Placeholder warning for future unreachable-code analysis.
-    #[error("Unreachable code detected")]
-    #[diagnostic(
-        code(opalescent::type_system::warning::unreachable_code),
-        help("Remove unreachable statements or refactor control flow")
-    )]
-    UnreachableCode {
-        #[label("unreachable code")]
-        /// Source span for unreachable code.
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
-    },
-    /// A complete error leaf list that can be replaced by a stdlib error family.
-    #[error("Error declarations can be replaced with '{family_name}'")]
-    #[diagnostic(
-        code(opalescent::type_system::warning::replaceable_error_list),
-        help("Replace `errors {replaceable_errors}` with `errors {family_name}`.")
-    )]
-    ReplaceableErrorList {
-        family_name: String,
-        replaceable_errors: String,
-        #[label("complete replaceable error list")]
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
-    },
-    /// Placeholder warning for future exhaustiveness analysis.
-    #[error("Pattern match may be non-exhaustive")]
-    #[diagnostic(
-        code(opalescent::type_system::warning::non_exhaustive_match),
-        help("Add missing pattern arms to handle all possible cases")
-    )]
-    NonExhaustiveMatch {
-        #[label("non-exhaustive pattern match")]
-        /// Source span for the non-exhaustive match.
-        span: SourceSpan,
-        /// Optional suppression annotation identifier for future warning controls.
-        suppression_annotation: Option<String>,
     },
 }

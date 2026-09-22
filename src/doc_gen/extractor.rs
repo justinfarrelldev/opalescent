@@ -18,6 +18,8 @@ pub enum ApiSymbolKind {
     Function,
     /// Type declaration.
     Type,
+    /// Named error-set declaration.
+    ErrorSet,
     /// Top-level let declaration.
     Let,
 }
@@ -113,6 +115,21 @@ pub fn extract_public_api_docs(program: &Program) -> Vec<ApiDocSymbol> {
                 symbols.push(symbol_from_docs(
                     name,
                     ApiSymbolKind::Type,
+                    signature,
+                    doc_comment.as_ref(),
+                ));
+            }
+            Decl::ErrorSet {
+                ref name,
+                ref members,
+                ref visibility,
+                ref doc_comment,
+                ..
+            } if *visibility == Visibility::Public => {
+                let signature = error_set_signature(name, members);
+                symbols.push(symbol_from_docs(
+                    name,
+                    ApiSymbolKind::ErrorSet,
                     signature,
                     doc_comment.as_ref(),
                 ));
@@ -262,6 +279,16 @@ fn function_signature(
     }
 
     signature
+}
+
+/// Render error-set declaration signature text used by generated docs.
+fn error_set_signature(name: &str, members: &[crate::ast::ErrorSetMember]) -> String {
+    let member_names = members
+        .iter()
+        .map(|member| member.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("error set {name} = {member_names}")
 }
 
 /// Render type declaration signature text used by generated docs.

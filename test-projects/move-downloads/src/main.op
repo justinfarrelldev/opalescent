@@ -8,7 +8,7 @@ let wait_for_input = f(message: string): void errors StandardInputReadError =>
 ##
   Description: Moves every child entry from the configured Downloads folder into the Desktop To-Be-Deleted folder.
 ##
-entry main = f(args: string[]): void errors FilesystemError, StandardInputReadError =>
+entry main = f(args: string[]): void errors FilesystemErrors, StandardInputReadError =>
     let folder = path_from('C:\\Users\\justi\\Downloads')
     let desktop_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop')
     let destination_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop\\To-Be-Deleted')

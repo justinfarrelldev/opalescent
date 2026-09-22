@@ -130,6 +130,7 @@ impl AstNode for Decl {
         match *self {
             Self::Function { span, .. }
             | Self::Type { span, .. }
+            | Self::ErrorSet { span, .. }
             | Self::Import { span, .. }
             | Self::Namespace { span, .. }
             | Self::Let { span, .. }
@@ -141,6 +142,7 @@ impl AstNode for Decl {
         match *self {
             Self::Function { id, .. }
             | Self::Type { id, .. }
+            | Self::ErrorSet { id, .. }
             | Self::Import { id, .. }
             | Self::Namespace { id, .. }
             | Self::Let { id, .. }
@@ -152,6 +154,7 @@ impl AstNode for Decl {
         match *self {
             Self::Function { ref metadata, .. }
             | Self::Type { ref metadata, .. }
+            | Self::ErrorSet { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
             Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
@@ -162,6 +165,7 @@ impl AstNode for Decl {
         match *self {
             Self::Function { ref metadata, .. }
             | Self::Type { ref metadata, .. }
+            | Self::ErrorSet { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
             Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
@@ -172,6 +176,7 @@ impl AstNode for Decl {
         match *self {
             Self::Function { ref metadata, .. }
             | Self::Type { ref metadata, .. }
+            | Self::ErrorSet { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
             Self::Namespace { .. } | Self::Comment { .. } => false,

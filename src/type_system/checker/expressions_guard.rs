@@ -731,6 +731,7 @@ impl TypeChecker {
             });
         }
 
+        self.record_escaping_error_types(active_guard_errors.as_slice());
         Ok(())
     }
 
@@ -827,6 +828,7 @@ impl TypeChecker {
             .iter()
             .any(|declared_error| Self::declared_error_type_covers(&wrapper_type, declared_error))
         {
+            self.record_escaping_error_types(core::slice::from_ref(&wrapper_type));
             Ok(())
         } else {
             Err(TypeError::PropagateErrorMismatch {

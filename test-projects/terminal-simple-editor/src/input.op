@@ -49,7 +49,7 @@ public let invalid_named_key_transition = f(state: EditorState): EditorTransitio
 ##
   Description: Applies a finite colon command to the editor state.
 ##
-public let execute_command = f(file_path_text: string, lines: string[], state: EditorState): EditorTransition errors FilesystemWriteError, AllocationFailureError =>
+public let execute_command = f(file_path_text: string, lines: string[], state: EditorState): EditorTransition errors FilesystemWriteErrors, AllocationFailureError =>
     let command = state.command
     if command is EditorCommand.Write:
         propagate save_lines(file_path_text, lines)
@@ -173,7 +173,7 @@ public let apply_text_input = f(lines: string[], state: EditorState, text: strin
 ##
   Description: Applies a terminal named key to the editor state.
 ##
-public let apply_named_key = f(file_path_text: string, lines: string[], state: EditorState, named_key: TerminalNamedKey): updated_lines: string[], transition: EditorTransition errors FilesystemWriteError, IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+public let apply_named_key = f(file_path_text: string, lines: string[], state: EditorState, named_key: TerminalNamedKey): updated_lines: string[], transition: EditorTransition errors FilesystemWriteErrors, IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
     let mode = state.mode
     let current_cursor: CursorPosition = state.cursor
     if named_key is TerminalNamedKey.Escape:

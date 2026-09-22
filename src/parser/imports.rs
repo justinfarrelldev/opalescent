@@ -150,10 +150,31 @@ impl Parser {
                 Ok(path)
             }
 
-            // Bare identifiers for stdlib (math, etc.)
+            // Bare identifiers for stdlib (math, standard.errors, etc.)
             TokenType::Identifier(ref name) => {
-                let path = name.clone();
+                let mut path = name.clone();
                 self.advance();
+                while self.check(&TokenType::Dot) {
+                    self.advance();
+                    match self.current_token().token_type {
+                        TokenType::Identifier(ref component) => {
+                            path.push('.');
+                            path.push_str(component);
+                            self.advance();
+                        }
+                        TokenType::Errors => {
+                            path.push_str(".errors");
+                            self.advance();
+                        }
+                        _ => {
+                            return Err(ParseError::UnexpectedToken {
+                                expected: "module path component after '.'".to_owned(),
+                                found: format!("{}", self.current_token().token_type),
+                                span: ParseError::span_from_token(self.current_token()),
+                            });
+                        }
+                    }
+                }
                 Ok(path)
             }
 

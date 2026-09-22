@@ -40,7 +40,7 @@ impl Parser {
             | TokenType::Public
             | TokenType::Entry
             | TokenType::Let => true,
-            TokenType::Identifier(ref name) => name == "namespace",
+            TokenType::Identifier(ref name) => name == "namespace" || name == "error",
             _ => false,
         }
     }
@@ -93,6 +93,12 @@ impl Parser {
                 && self.token_identifier_is(self.current + 1, "affine")
                 && self.token_identifier_is(self.current + 2, "resource")
                 && self.token_is_type_keyword_at(self.current + 3))
+    }
+
+    /// Check whether the current tokens start a named error-set declaration.
+    pub(super) fn starts_error_set_declaration(&self) -> bool {
+        self.token_identifier_is(self.current, "error")
+            && self.token_identifier_is(self.current + 1, "set")
     }
 
     /// Parse the declaration-form prefix that appears before the `type` keyword.

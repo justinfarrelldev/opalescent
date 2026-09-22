@@ -4,6 +4,7 @@ extern crate alloc;
 
 use crate::lsp::completion::get_completions;
 use crate::lsp::definition::word_at_position;
+use crate::lsp::hover::get_hover;
 use crate::lsp::protocol::{LspNotification, LspRequest, LspResponse, Position};
 use crate::lsp::rename::get_rename_edits;
 use crate::lsp::semantic_tokens::get_semantic_tokens;
@@ -155,6 +156,30 @@ fn hover_location_extracts_identifier_word() {
     );
 
     assert_eq!(word.as_deref(), Some("value"));
+}
+
+#[test]
+fn hover_describes_named_error_set_expansion() {
+    let source = "import type StdoutWriterErrors from standard.errors\n##\n  Description: Demo entry point with enough docs.\n##\nentry demo = f(): void errors StdoutWriterErrors => {\n  return void\n}\n";
+    let hover = get_hover(
+        source,
+        Position {
+            line: 4,
+            character: 32,
+        },
+    )
+    .expect("hover should be available for named error set");
+
+    assert!(
+        hover
+            .contents
+            .contains("error set = FlushFailureError, SinkClosedError, WriteFailureError")
+            || hover
+                .contents
+                .contains("error set = WriteFailureError, FlushFailureError, SinkClosedError"),
+        "hover should show expanded leaves: {}",
+        hover.contents
+    );
 }
 
 #[test]

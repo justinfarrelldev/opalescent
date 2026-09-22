@@ -122,7 +122,7 @@ public let delete_at_cursor = f(lines: string[], cursor: CursorPosition): update
 ##
   Description: Writes all lines with newline separators using an atomic filesystem write.
 ##
-public let save_lines = f(file_path_text: string, lines: string[]): void errors FilesystemWriteError, AllocationFailureError =>
+public let save_lines = f(file_path_text: string, lines: string[]): void errors FilesystemWriteErrors, AllocationFailureError =>
     let path = path_from(file_path_text)
     let text = propagate string_join(lines, '\n')
     propagate write_text_atomic_sync(path, text)

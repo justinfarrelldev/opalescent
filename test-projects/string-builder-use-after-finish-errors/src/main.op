@@ -3,7 +3,7 @@ import string_builder_push, string_builder_finish from standard
 ##
   Description: Verifies StringBuilder reports BuilderFinishedError after finish without undefined behavior.
 ##
-entry main = f(args: string[]): void errors StringBuilderError =>
+entry main = f(args: string[]): void errors StringBuilderErrors =>
     let builder: StringBuilder = new StringBuilder
     propagate string_builder_push(builder, 'done')
     let text = propagate string_builder_finish(builder)

@@ -26,6 +26,8 @@ mod captures;
 mod declaration_metadata;
 /// Parser submodule for declaration parsing (functions, types, let)
 mod declarations;
+/// Parser submodule for named error-set declarations
+mod error_sets;
 /// Parser error types and error collection
 pub mod errors;
 /// Parser submodule for expression parsing (literals, operators, lambdas)

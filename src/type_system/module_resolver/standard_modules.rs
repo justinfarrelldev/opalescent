@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use super::ModuleErrorSetDeclaration;
 use super::ModuleInterface;
 use super::ModuleResolver;
 use super::standard_symbols_core_io_and_bytes::standard_symbols_core_io_and_bytes;
@@ -8,7 +9,9 @@ use super::standard_symbols_filesystem_types_and_errors::standard_symbols_filesy
 use super::standard_symbols_process::standard_symbols_process;
 use super::terminal_proposal_modules::register_terminal_proposal_modules;
 use super::terminal_proposal_symbols::register_terminal_proposal_symbols;
+use crate::ast::Visibility as AstVisibility;
 use crate::token::{Position, Span};
+use crate::type_system::error_families::stdlib_error_families;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -20,6 +23,7 @@ pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_process_module(resolver);
     register_core_prerequisite_module(resolver);
     register_terminal_proposal_modules(resolver);
+    register_standard_errors_module(resolver);
     register_standard_module(resolver);
 }
 
@@ -72,6 +76,48 @@ fn register_standard_module(resolver: &mut ModuleResolver) {
         String::from("FilePermissions"),
         fs_perms_fields,
     );
+}
+
+/// Register `standard.errors` named error-set symbols.
+fn register_standard_errors_module(resolver: &mut ModuleResolver) {
+    let mut interface = ModuleInterface::new(String::from("standard.errors"));
+    let span = Span::single(Position::start());
+
+    for family in stdlib_error_families() {
+        let core_type = CoreType::Generic {
+            name: family.name.to_owned(),
+            type_args: Vec::new(),
+        };
+        if interface
+            .register_symbol(ModuleResolver::module_symbol(
+                family.name.to_owned(),
+                SymbolType::Type,
+                core_type,
+                Visibility::Public,
+            ))
+            .is_err()
+        {
+            return;
+        }
+        interface.register_error_set_declaration(ModuleErrorSetDeclaration {
+            name: family.name.to_owned(),
+            source_path: String::from("__stdlib__/standard.errors"),
+            members: family
+                .members
+                .iter()
+                .map(|member| (*member).to_owned())
+                .collect(),
+            expanded_members: family
+                .members
+                .iter()
+                .map(|member| (*member).to_owned())
+                .collect(),
+            visibility: AstVisibility::Public,
+            span,
+        });
+    }
+
+    resolver.register_module_interface(interface);
 }
 
 /// Register `process` built-in module symbols.
@@ -142,6 +188,12 @@ fn register_standard_terminal_reexports(
         for declaration in source_interface.type_declarations.into_values() {
             interface
                 .type_declarations
+                .entry(declaration.name.clone())
+                .or_insert(declaration);
+        }
+        for declaration in source_interface.error_set_declarations.into_values() {
+            interface
+                .error_set_declarations
                 .entry(declaration.name.clone())
                 .or_insert(declaration);
         }

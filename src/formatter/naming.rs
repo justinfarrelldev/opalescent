@@ -135,6 +135,15 @@ fn check_decl(decl: &Decl, violations: &mut Vec<NamingViolation>) {
                 });
             }
         }
+        Decl::ErrorSet { ref name, .. } => {
+            if !is_pascal_case(name) {
+                violations.push(NamingViolation {
+                    name: name.clone(),
+                    expected: NamingStyle::PascalCase,
+                    location: "error set declaration".to_owned(),
+                });
+            }
+        }
         Decl::Let {
             ref binding,
             ref initializer,

@@ -118,6 +118,7 @@ impl Decl {
         match *self {
             Self::Function { span, .. }
             | Self::Type { span, .. }
+            | Self::ErrorSet { span, .. }
             | Self::Import { span, .. }
             | Self::Namespace { span, .. }
             | Self::Let { span, .. }
@@ -131,6 +132,7 @@ impl Decl {
         match *self {
             Self::Function { id, .. }
             | Self::Type { id, .. }
+            | Self::ErrorSet { id, .. }
             | Self::Import { id, .. }
             | Self::Namespace { id, .. }
             | Self::Let { id, .. }

@@ -3,7 +3,7 @@ import path_from, join_path_components, write_text_sync, move_path_sync, delete_
 ##
   Description: Demonstrates atomic write via composed workdir, temp file, and move.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, FilesystemPathError, IsADirectoryError, WriteFailureError, FilesystemFullError, MoveFailureError, FileAlreadyExistsError, DeleteFailureError, ReadFailureError, InvalidUtf8Error =>
+entry main = f(args: string[]): void errors FileNotFoundError, FilesystemPathErrors, IsADirectoryError, WriteFailureError, FilesystemFullError, MoveFailureError, FileAlreadyExistsError, DeleteFailureError, ReadFailureError, InvalidUtf8Error =>
     let work_dir_raw = '/tmp'
     let work_dir = path_from(work_dir_raw)
     let target_path = join_path_components(work_dir, ['opalescent-fs-write-text-atomic-strict.txt'])

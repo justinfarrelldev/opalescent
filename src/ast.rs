@@ -448,6 +448,15 @@ pub struct ConstructorField {
     pub span: Span,
 }
 
+/// Member of a named error-set declaration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErrorSetMember {
+    /// Leaf error or nested error-set name.
+    pub name: String,
+    /// Source span covering the member name.
+    pub span: Span,
+}
+
 /// Shared metadata for `let` bindings used in statements and declarations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetBinding {
@@ -727,6 +736,24 @@ pub enum Decl {
         /// Unique identifier for this AST node
         id: NodeId,
         /// Hot-reload metadata
+        metadata: HotReloadMetadata,
+    },
+
+    /// Named compile-time alias for an exact set of leaf errors.
+    ErrorSet {
+        /// Name of the error set being declared.
+        name: String,
+        /// Leaf errors or nested error sets named by this declaration.
+        members: Vec<ErrorSetMember>,
+        /// Visibility modifier (public/private).
+        visibility: Visibility,
+        /// Optional structured documentation derived from doc comments.
+        doc_comment: Option<Documentation>,
+        /// Source code location of this error-set declaration.
+        span: Span,
+        /// Unique identifier for this AST node.
+        id: NodeId,
+        /// Hot-reload metadata.
         metadata: HotReloadMetadata,
     },
 
