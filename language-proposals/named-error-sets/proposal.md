@@ -28,7 +28,7 @@ public error set RenderErrors =
     SinkClosedError
 
 # render.op
-import error set RenderErrors from ./render_errors.types
+import type RenderErrors from ./render_errors.types
 
 public let render_frame = f(writer: StdoutWriter, rows: string[]): void errors RenderErrors =>
     for row in rows:
@@ -135,16 +135,21 @@ plural spelling.
 
 ### Import
 
-Use a dedicated import form so readers and tooling can distinguish runtime types
-from compile-time aliases.
+Use the existing type-import syntax. Error sets are compile-time type-level
+aliases, so adding a separate `import error set` form would add user-facing
+cognitive overhead without giving the compiler or LSP meaningful information that
+name resolution does not already provide.
 
 ```opal
-import error set RenderErrors from ./render_errors.types
-import error set FilesystemReadErrors, FilesystemWriteErrors from standard.errors
+import type RenderErrors from ./render_errors.types
+import type FilesystemReadErrors, FilesystemWriteErrors from standard.errors
 ```
 
-A future parser shortcut may allow ordinary `import type`, but the dedicated form
-is clearer for v1 and prevents mistaken value construction.
+Tooling should distinguish error sets after resolution through semantic tokens,
+hovers, completions, and diagnostics. A hover for `RenderErrors`, for example,
+should show that the imported type-level symbol is an error-set alias and display
+its expanded leaves. Mistaken value construction is still rejected by the resolver
+and type checker; no special import syntax is required for that safety property.
 
 ### Use in signatures
 
@@ -595,7 +600,7 @@ entry main = f(args: string[]): void errors FileNotFoundError, FilesystemPathErr
 After:
 
 ```opal
-import error set FilesystemReadErrors, FilesystemOverwriteErrors, IndexAccessErrors, StringJoinErrors from standard.errors
+import type FilesystemReadErrors, FilesystemOverwriteErrors, IndexAccessErrors, StringJoinErrors from standard.errors
 
 entry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemOverwriteErrors, IndexAccessErrors, StringJoinErrors =>
     # ...
@@ -608,7 +613,7 @@ linter should either suggest `FilesystemTextReadErrors` or the exact leaves.
 ### Game of Life rendering
 
 ```opal
-import error set RenderSetupErrors, RenderErrors, TimeErrors, StringBuilderErrors from standard.errors
+import type RenderSetupErrors, RenderErrors, TimeErrors, StringBuilderErrors from standard.errors
 
 entry main = f(args: string[]): void errors RenderSetupErrors, RenderErrors, TimeErrors, StringBuilderErrors =>
     propagate prepare_display()
@@ -623,7 +628,7 @@ A render helper that only builds strings should use `StringBuilderErrors`, not
 ### Simple terminal editor
 
 ```opal
-import error set FilesystemReadErrors, FilesystemWriteErrors, IndexAccessErrors, AllocationErrors, StringRangeErrors, TerminalTextLayoutErrors, TerminalSessionErrors, TerminalSessionRenderErrors, EnvironmentProbeErrors from standard.errors
+import type FilesystemReadErrors, FilesystemWriteErrors, IndexAccessErrors, AllocationErrors, StringRangeErrors, TerminalTextLayoutErrors, TerminalSessionErrors, TerminalSessionRenderErrors, EnvironmentProbeErrors from standard.errors
 
 entry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemWriteErrors, IndexAccessErrors, AllocationErrors, StringRangeErrors, TerminalTextLayoutErrors, TerminalSessionErrors, TerminalSessionRenderErrors, EnvironmentProbeErrors =>
     # ...
@@ -638,7 +643,7 @@ cross-module exported metadata.
 
 ```opal
 # app_errors.types.op
-import error set FilesystemReadErrors, FilesystemWriteErrors, RenderErrors from standard.errors
+import type FilesystemReadErrors, FilesystemWriteErrors, RenderErrors from standard.errors
 
 public error set AppStartupErrors =
     FilesystemReadErrors,
@@ -649,7 +654,7 @@ public error set AppStartupErrors =
 
 ```opal
 # main.op
-import error set AppStartupErrors from ./app_errors.types
+import type AppStartupErrors from ./app_errors.types
 
 entry main = f(args: string[]): void errors AppStartupErrors =>
     let config = propagate load_config()
@@ -665,11 +670,11 @@ and `WriteFailureError`.
 Use TDD with red-green-refactor for every compiler slice. Do not batch large
 compiler changes into one commit; each commit should leave the repository green.
 
-1. Add parser tests for `error set` declarations and imports. Start red with a
-   minimal `test-projects/error-set-declaration-basic` fixture.
+1. Add parser tests for `error set` declarations. Start red with a minimal
+   `test-projects/error-set-declaration-basic` fixture.
 2. Add AST nodes and formatter/doc-generator round trips.
-3. Add resolver tests for public/private aliases, imports, unknown members,
-   duplicate members, nested aliases, and cycles.
+3. Add resolver tests for public/private aliases, existing `import type` imports,
+   unknown members, duplicate members, nested aliases, and cycles.
 4. Add canonical expansion in the type checker. Red tests should cover
    propagation through aliases, leaf/set equivalence, function compatibility, and
    guard binding leaf knowledge.
@@ -688,9 +693,10 @@ compiler changes into one commit; each commit should leave the repository green.
 
 ## Required tests
 
-- Parsing: declaration, import, multiline member list, trailing comma, empty list.
-- Resolution: unknown alias, unknown leaf, non-error member, duplicate member,
-  private alias export leak, same-name conflicts, cyclic aliases.
+- Parsing: declaration, multiline member list, trailing comma, empty list.
+- Resolution: existing `import type` of error sets, unknown alias, unknown leaf,
+  non-error member, duplicate member, private alias export leak, same-name
+  conflicts, cyclic aliases.
 - Type checking: propagation with set, propagation with leaf, nested set expansion,
   mixed leaf/set clauses, redundant members, guard binding narrowing.
 - Lints: exact explicit list collapses to set, broad set unused member, no warning
