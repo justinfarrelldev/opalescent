@@ -1,0 +1,18 @@
+import type EditorStatus from ./editor.types
+
+##
+  Description: Return labels that can be backed by static runtime string storage.
+##
+public let editor_status_text = f(status: EditorStatus): string =>
+    if status is EditorStatus.Ok:
+        return 'ok'
+    if status is EditorStatus.UnsavedChanges:
+        return 'unsaved changes'
+    return 'unknown status'
+
+##
+  Description: Store text in a status payload while the runtime retains or shares immutable storage.
+##
+public let invalid_key_status = f(text: string): EditorStatus =>
+    return new EditorStatus.InvalidKey:
+        key: text

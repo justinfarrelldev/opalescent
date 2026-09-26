@@ -1,0 +1,20 @@
+import string_copy from standard
+import type EditorStatus from ./editor.types
+
+##
+  Description: Return a user-visible status label using an explicit standard string copy helper.
+##
+public let editor_status_text = f(status: EditorStatus): string errors AllocationFailureError =>
+    if status is EditorStatus.Ok:
+        return propagate string_copy('ok')
+    if status is EditorStatus.InvalidKey into invalid:
+        return propagate string_copy(invalid.key)
+    return propagate string_copy('unknown status')
+
+##
+  Description: Build an invalid-key status with an explicit copied key string.
+##
+public let invalid_key_status = f(text: string): EditorStatus errors AllocationFailureError =>
+    let key = propagate string_copy(text)
+    return new EditorStatus.InvalidKey:
+        key: key

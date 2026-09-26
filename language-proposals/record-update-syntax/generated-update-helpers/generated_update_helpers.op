@@ -1,0 +1,22 @@
+import editor_state_with_cursor from ./editor.generated
+import editor_state_with_dirty from ./editor.generated
+import editor_state_with_status from ./editor.generated
+import type CursorPosition, EditorState, EditorStatus from ./editor.types
+
+##
+  Description: Return editor state with a replacement status using a generated update helper.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    return editor_state_with_status(state, status)
+
+##
+  Description: Return editor state after a buffer edit using chained generated update helpers.
+##
+public let edit_state = f(
+    state: EditorState,
+    cursor: CursorPosition,
+    status: EditorStatus
+): EditorState =>
+    let moved = editor_state_with_cursor(state, cursor)
+    let dirtied = editor_state_with_dirty(moved, true)
+    return editor_state_with_status(dirtied, status)

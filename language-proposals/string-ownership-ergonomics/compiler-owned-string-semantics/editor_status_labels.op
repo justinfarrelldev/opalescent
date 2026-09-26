@@ -1,0 +1,20 @@
+import type EditorStatus from ./editor.types
+
+##
+  Description: Return a user-visible status label without defensive ownership copying.
+##
+public let editor_status_text = f(status: EditorStatus): string =>
+    if status is EditorStatus.Ok:
+        return 'ok'
+    if status is EditorStatus.UnsavedChanges:
+        return 'unsaved changes'
+    if status is EditorStatus.InvalidKey into invalid:
+        return 'invalid key {invalid.key}'
+    return 'unknown status'
+
+##
+  Description: Build an invalid-key status by storing text directly in a payload.
+##
+public let invalid_key_status = f(text: string): EditorStatus =>
+    return new EditorStatus.InvalidKey:
+        key: text

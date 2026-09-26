@@ -1,0 +1,16 @@
+import terminal_column_first, terminal_row_from_one_based from standard.terminal
+import terminal_session_move_cursor_sync from standard.terminal
+import type TerminalColumn, TerminalRow, TerminalSession from standard.terminal
+import type TerminalSessionStateError, TerminalSessionWriteError from standard.terminal
+
+##
+  Description: Move to the editor status row using validated terminal coordinate values.
+##
+public let move_to_status_row = f(
+    session: mutable ref TerminalSession,
+    visible_rows: int64
+): void errors InvalidCursorPositionError, TerminalSessionWriteError, TerminalSessionStateError =>
+    let row: TerminalRow = propagate terminal_row_from_one_based(visible_rows + 1)
+    let column: TerminalColumn = terminal_column_first()
+    propagate terminal_session_move_cursor_sync(mutable ref session, row, column)
+    return void

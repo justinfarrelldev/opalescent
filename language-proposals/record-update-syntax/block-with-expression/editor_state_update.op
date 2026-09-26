@@ -1,0 +1,34 @@
+import type CursorPosition, EditorState, EditorStatus, EditorTermination from ./editor.types
+
+##
+  Description: Return editor state with a replacement status using block record update syntax.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    return state with:
+        status: status
+
+##
+  Description: Return editor state after a cursor-moving edit using block record update syntax.
+##
+public let with_cursor_dirty_status = f(
+    state: EditorState,
+    cursor: CursorPosition,
+    status: EditorStatus
+): EditorState =>
+    return state with:
+        cursor: cursor
+        dirty: true
+        status: status
+
+##
+  Description: Return editor state after the editor loop stops using block record update syntax.
+##
+public let with_stopped_status = f(
+    state: EditorState,
+    status: EditorStatus,
+    termination: EditorTermination
+): EditorState =>
+    return state with:
+        status: status
+        running: false
+        termination: termination

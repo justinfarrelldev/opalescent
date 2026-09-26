@@ -1,0 +1,18 @@
+import sleep_ms_sync from standard
+import terminal_session_move_cursor_sync from standard.terminal
+import type TerminalSession, TerminalSessionStateError, TerminalSessionWriteError from standard.terminal
+
+##
+  Description: Use target-typed integer literals for int32 terminal and time arguments.
+##
+public let draw_at_fixed_position = f(
+    session: mutable ref TerminalSession
+): void errors
+    InvalidDurationError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    InvalidCursorPositionError
+=>
+    propagate sleep_ms_sync(50)
+    propagate terminal_session_move_cursor_sync(mutable ref session, 2, 3)
+    return void

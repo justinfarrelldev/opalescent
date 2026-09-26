@@ -1,0 +1,12 @@
+import terminal_session_move_cursor_sync from standard.terminal
+import type TerminalSession, TerminalSessionStateError, TerminalSessionWriteError from standard.terminal
+
+##
+  Description: Move to the editor status row using int64 terminal coordinates.
+##
+public let move_to_status_row = f(
+    session: mutable ref TerminalSession,
+    visible_rows: int64
+): void errors TerminalSessionWriteError, TerminalSessionStateError, InvalidCursorPositionError =>
+    propagate terminal_session_move_cursor_sync(mutable ref session, visible_rows + 1, 1)
+    return void

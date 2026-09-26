@@ -1,0 +1,19 @@
+import int64_to_int32_checked from standard.numeric
+import terminal_session_move_cursor_sync from standard.terminal
+import type TerminalSession, TerminalSessionStateError, TerminalSessionWriteError from standard.terminal
+
+##
+  Description: Move to the editor status row using an explicit checked int64 to int32 conversion.
+##
+public let move_to_status_row = f(
+    session: mutable ref TerminalSession,
+    visible_rows: int64
+): void errors
+    IntegerRangeError,
+    TerminalSessionWriteError,
+    TerminalSessionStateError,
+    InvalidCursorPositionError
+=>
+    let row = propagate int64_to_int32_checked(visible_rows + 1)
+    propagate terminal_session_move_cursor_sync(mutable ref session, row, 1 as int32)
+    return void

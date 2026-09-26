@@ -1,0 +1,23 @@
+import type CursorPosition, EditorState, EditorStatus from ./editor.types
+
+##
+  Description: Return editor state with a replacement status using mutable-copy product update syntax.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    let mutable next = state
+    next.status = status
+    return next
+
+##
+  Description: Return editor state after a text edit using mutable-copy product update syntax.
+##
+public let edit_state = f(
+    state: EditorState,
+    cursor: CursorPosition,
+    status: EditorStatus
+): EditorState =>
+    let mutable next = state
+    next.cursor = cursor
+    next.dirty = true
+    next.status = status
+    return next

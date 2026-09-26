@@ -1,0 +1,16 @@
+import string_from_text, terminal_text_cell_width from standard
+import type EditorStatus from ./editor.types
+
+##
+  Description: Build an invalid-key status from borrowed input text by explicitly owning it.
+##
+public let invalid_key_status = f(text: ref string): EditorStatus errors AllocationFailureError =>
+    let key = propagate string_from_text(text)
+    return new EditorStatus.InvalidKey:
+        key: key
+
+##
+  Description: Measure label width without taking ownership of the string.
+##
+public let label_width = f(label: ref string): int64 =>
+    return terminal_text_cell_width(ref label)

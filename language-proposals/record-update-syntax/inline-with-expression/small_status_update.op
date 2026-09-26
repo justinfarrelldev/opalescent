@@ -1,0 +1,13 @@
+import type EditorState, EditorStatus from ./editor.types
+
+##
+  Description: Return editor state with a replacement status using one-line record update syntax.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    return state with status: status
+
+##
+  Description: Return editor state with the saved flag set using one-line record update syntax.
+##
+public let mark_saved = f(state: EditorState): EditorState =>
+    return state with saved: true
