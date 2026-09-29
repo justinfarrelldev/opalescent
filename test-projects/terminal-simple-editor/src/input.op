@@ -1,46 +1,92 @@
+import string_length, string_delete_range from standard
 import insert_text_at_cursor, split_line_at_cursor, backspace_at_cursor from ./buffer
 import delete_at_cursor, save_lines from ./buffer
 import line_length_at, clamp_column_to_line, move_left, move_right, move_up, move_down from ./buffer
-import editor_transition, with_status, with_command, with_mode_command_status from ./state
+import editor_transition, with_status, with_command_text, with_mode_command_text_status from ./state
 import with_cursor_dirty_status, with_command_result, with_stopped_status from ./state
 import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
 import type EditorState, EditorTransition, CursorPosition from ./editor.types
 import type TerminalNamedKey from standard.terminal
 
 ##
-  Description: Updates the compact colon-command state with committed text.
+  Description: Parses committed colon-command text into a finite editor command.
 ##
-public let update_command = f(command: EditorCommand, text: string): EditorCommand =>
-    if command is EditorCommand.None:
-        if text is 'w':
-            return new EditorCommand.Write
-        if text is 'q':
-            return new EditorCommand.Quit
-        if text is 'wq':
-            return new EditorCommand.WriteQuit
-        if text is 'q!':
-            return new EditorCommand.ForceQuit
-        return new EditorCommand.Invalid:
-            text: text
-    if command is EditorCommand.Write:
-        if text is 'q':
-            return new EditorCommand.WriteQuit
-        return new EditorCommand.Invalid:
-            text: text
-    if command is EditorCommand.Quit:
-        if text is '!':
-            return new EditorCommand.ForceQuit
-        return new EditorCommand.Invalid:
-            text: text
-    return command
+public let parse_command = f(text: string): EditorCommand =>
+    if text is 'w':
+        return new EditorCommand.Write
+    if text is 'q':
+        return new EditorCommand.Quit
+    if text is 'wq':
+        return new EditorCommand.WriteQuit
+    if text is 'q!':
+        return new EditorCommand.ForceQuit
+    return new EditorCommand.Invalid:
+        text: text
+
+##
+  Description: Returns a display label for a terminal named key.
+##
+public let named_key_text = f(named_key: TerminalNamedKey): string =>
+    if named_key is TerminalNamedKey.Enter:
+        return 'Enter'
+    if named_key is TerminalNamedKey.Escape:
+        return 'Escape'
+    if named_key is TerminalNamedKey.Backspace:
+        return 'Backspace'
+    if named_key is TerminalNamedKey.Tab:
+        return 'Tab'
+    if named_key is TerminalNamedKey.BackTab:
+        return 'BackTab'
+    if named_key is TerminalNamedKey.ArrowUp:
+        return 'ArrowUp'
+    if named_key is TerminalNamedKey.ArrowDown:
+        return 'ArrowDown'
+    if named_key is TerminalNamedKey.ArrowLeft:
+        return 'ArrowLeft'
+    if named_key is TerminalNamedKey.ArrowRight:
+        return 'ArrowRight'
+    if named_key is TerminalNamedKey.Insert:
+        return 'Insert'
+    if named_key is TerminalNamedKey.Delete:
+        return 'Delete'
+    if named_key is TerminalNamedKey.Home:
+        return 'Home'
+    if named_key is TerminalNamedKey.End:
+        return 'End'
+    if named_key is TerminalNamedKey.PageUp:
+        return 'PageUp'
+    if named_key is TerminalNamedKey.PageDown:
+        return 'PageDown'
+    return 'named'
 
 ##
   Description: Builds an invalid named-key transition with a safe owned label.
 ##
-public let invalid_named_key_transition = f(state: EditorState): EditorTransition =>
+public let invalid_named_key_transition = f(
+    state: EditorState,
+    key_text: string
+): EditorTransition =>
     let status: EditorStatus = new EditorStatus.InvalidKey:
-        key: 'named'
+        key: key_text
     return editor_transition(with_status(state, status), true)
+
+##
+  Description: Returns a transition for a failed write while preserving the editable buffer.
+##
+public let write_failed_transition = f(state: EditorState, message: string): EditorTransition =>
+    let status: EditorStatus = new EditorStatus.WriteFailed:
+        message: message
+    let next = with_command_result(
+        state,
+        state.dirty,
+        state.saved,
+        new EditorMode.Normal,
+        new EditorCommand.None,
+        status,
+        true,
+        new EditorTermination.Running
+    )
+    return editor_transition(next, true)
 
 ##
   Description: Applies a finite colon command to the editor state.
@@ -49,30 +95,31 @@ public let execute_command = f(
     file_path_text: string,
     lines: string[],
     state: EditorState
-): EditorTransition errors
-    AllocationFailureError,
-    FilesystemFullError,
-    InvalidPathError,
-    IsADirectoryError,
-    PermissionDeniedError,
-    WriteFailureError
-=>
-    let command = state.command
+): EditorTransition =>
+    let command = parse_command(state.command_text)
     if command is EditorCommand.Write:
-        propagate save_lines(file_path_text, lines)
-        let status: EditorStatus = new EditorStatus.Written:
-            path: file_path_text
-        let next = with_command_result(
-            state,
-            false,
-            true,
-            new EditorMode.Normal,
-            new EditorCommand.None,
-            status,
-            true,
-            new EditorTermination.Running
-        )
-        return editor_transition(next, false)
+        let mutable save_transition = editor_transition(state, false)
+        let mutable saving = true
+        while saving:
+            guard save_lines(file_path_text, lines) else err =>
+                save_transition = write_failed_transition(state, 'write failed: {err}')
+                saving = false
+                continue
+            let status: EditorStatus = new EditorStatus.Written:
+                path: file_path_text
+            let next = with_command_result(
+                state,
+                false,
+                true,
+                new EditorMode.Normal,
+                new EditorCommand.None,
+                status,
+                true,
+                new EditorTermination.Running
+            )
+            save_transition = editor_transition(next, false)
+            saving = false
+        return save_transition
     if command is EditorCommand.Quit:
         if state.dirty:
             let next = with_command_result(
@@ -98,18 +145,26 @@ public let execute_command = f(
         )
         return editor_transition(next, false)
     if command is EditorCommand.WriteQuit:
-        propagate save_lines(file_path_text, lines)
-        let next = with_command_result(
-            state,
-            false,
-            true,
-            new EditorMode.Normal,
-            new EditorCommand.None,
-            new EditorStatus.Ok,
-            false,
-            new EditorTermination.CommandWq
-        )
-        return editor_transition(next, false)
+        let mutable save_transition = editor_transition(state, false)
+        let mutable saving = true
+        while saving:
+            guard save_lines(file_path_text, lines) else err =>
+                save_transition = write_failed_transition(state, 'write failed: {err}')
+                saving = false
+                continue
+            let next = with_command_result(
+                state,
+                false,
+                true,
+                new EditorMode.Normal,
+                new EditorCommand.None,
+                new EditorStatus.Ok,
+                false,
+                new EditorTermination.CommandWq
+            )
+            save_transition = editor_transition(next, false)
+            saving = false
+        return save_transition
     if command is EditorCommand.ForceQuit:
         let next = with_command_result(
             state,
@@ -137,7 +192,7 @@ public let execute_command = f(
         )
         return editor_transition(next, true)
     let fallback: EditorStatus = new EditorStatus.InvalidCommand:
-        text: file_path_text
+        text: state.command_text
     let next = with_command_result(
         state,
         state.dirty,
@@ -193,22 +248,24 @@ public let apply_text_input = f(
         return updated_lines: inserted_lines,
                transition: edit_transition(state, inserted_cursor, new EditorStatus.InsertedText)
     if mode is EditorMode.Command:
-        let new_command = update_command(state.command, text)
-        let next = with_command(state, new_command, new EditorStatus.CommandMode)
+        let next_text = '{state.command_text}{text}'
+        let next = with_command_text(state, next_text, new EditorStatus.CommandMode)
         return updated_lines: lines, transition: editor_transition(next, false)
     if text is 'i':
-        let next = with_mode_command_status(
+        let next = with_mode_command_text_status(
             state,
             new EditorMode.Insert,
             state.command,
+            '',
             new EditorStatus.InsertMode
         )
         return updated_lines: lines, transition: editor_transition(next, false)
     if text is ':':
-        let next = with_mode_command_status(
+        let next = with_mode_command_text_status(
             state,
             new EditorMode.Command,
             new EditorCommand.None,
+            '',
             new EditorStatus.CommandMode
         )
         return updated_lines: lines, transition: editor_transition(next, false)
@@ -269,23 +326,20 @@ public let apply_named_key = f(
     named_key: TerminalNamedKey
 ): updated_lines: string[], transition: EditorTransition errors
     AllocationFailureError,
-    FilesystemFullError,
     IndexOutOfBoundsError,
-    InvalidPathError,
-    IsADirectoryError,
-    PermissionDeniedError,
     StringRangeOrderError,
-    StringRangeOutOfBoundsError,
-    WriteFailureError
+    StringRangeOutOfBoundsError
 =>
     let mode = state.mode
+    let key_text = named_key_text(named_key)
     let current_cursor: CursorPosition = state.cursor
     if named_key is TerminalNamedKey.Escape:
         if mode is EditorMode.Insert or mode is EditorMode.Command:
-            let next = with_mode_command_status(
+            let next = with_mode_command_text_status(
                 state,
                 new EditorMode.Normal,
                 new EditorCommand.None,
+                '',
                 new EditorStatus.NormalMode
             )
             return updated_lines: lines, transition: editor_transition(next, false)
@@ -298,8 +352,7 @@ public let apply_named_key = f(
             return updated_lines: split_lines,
                    transition: edit_transition(state, split_cursor, new EditorStatus.LineSplit)
         if mode is EditorMode.Command:
-            return updated_lines: lines,
-                   transition: propagate execute_command(file_path_text, lines, state)
+            return updated_lines: lines, transition: execute_command(file_path_text, lines, state)
         return updated_lines: lines,
                transition: editor_transition(
                 with_status(state, new EditorStatus.EnterInsertOnly),
@@ -312,18 +365,22 @@ public let apply_named_key = f(
             return updated_lines: backspace_lines,
                    transition: edit_transition(state, backspace_cursor, new EditorStatus.Deleted)
         if mode is EditorMode.Command:
-            let next = with_command(state, new EditorCommand.None, new EditorStatus.CommandMode)
+            let length = string_length(state.command_text)
+            let mutable next_text = ''
+            if length > 0:
+                next_text = propagate string_delete_range(state.command_text, length - 1, length)
+            let next = with_command_text(state, next_text, new EditorStatus.CommandMode)
             return updated_lines: lines, transition: editor_transition(next, false)
-        return updated_lines: lines, transition: invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state, key_text)
     if named_key is TerminalNamedKey.Delete:
         if mode is EditorMode.Insert:
             let updated_lines: delete_lines, updated_cursor: delete_cursor =
                 propagate delete_at_cursor(lines, current_cursor)
             return updated_lines: delete_lines,
                    transition: edit_transition(state, delete_cursor, new EditorStatus.Deleted)
-        return updated_lines: lines, transition: invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state, key_text)
     if mode is EditorMode.Command:
-        return updated_lines: lines, transition: invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state, key_text)
     if named_key is TerminalNamedKey.ArrowLeft:
         let moved_cursor: CursorPosition = propagate move_left(lines, current_cursor)
         return updated_lines: lines,
@@ -353,4 +410,4 @@ public let apply_named_key = f(
             column: end_column
         return updated_lines: lines,
                transition: moved_transition(state, moved_cursor, new EditorStatus.LineEnd)
-    return updated_lines: lines, transition: invalid_named_key_transition(state)
+    return updated_lines: lines, transition: invalid_named_key_transition(state, key_text)

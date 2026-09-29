@@ -23,6 +23,8 @@ public type EditorCommand:
 ##
 public type EditorStatus:
     NewEmpty
+    NewFile:
+        path: string
     Opened:
         path: string
     NormalMode
@@ -36,6 +38,10 @@ public type EditorStatus:
     Deleted
     Written:
         path: string
+    WriteFailed:
+        message: string
+    BellFailed:
+        message: string
     Ok
     UnsavedChanges
     InvalidKey:
@@ -78,6 +84,7 @@ public type EditorState:
     saved: boolean
     mode: EditorMode
     command: EditorCommand
+    command_text: string
     status: EditorStatus
     running: boolean
     termination: EditorTermination

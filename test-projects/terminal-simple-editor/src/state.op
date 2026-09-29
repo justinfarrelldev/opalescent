@@ -19,6 +19,7 @@ public let editor_state = f(
     saved: boolean,
     mode: EditorMode,
     command: EditorCommand,
+    command_text: string,
     status: EditorStatus,
     running: boolean,
     termination: EditorTermination
@@ -30,6 +31,7 @@ public let editor_state = f(
         saved: saved
         mode: mode
         command: command
+        command_text: command_text
         status: status
         running: running
         termination: termination
@@ -43,10 +45,10 @@ public let editor_transition = f(state: EditorState, should_bell: boolean): Edit
         should_bell: should_bell
 
 ##
-  Description: Creates the first editor state after loading or creating a buffer.
+  Description: Creates the first editor state after loading, creating, or opening a buffer path.
 ##
-public let initial_editor_state = f(path: string, opened: boolean): EditorState =>
-    if opened:
+public let initial_editor_state = f(path: string, opened: boolean, loaded: boolean): EditorState =>
+    if opened and loaded:
         let status: EditorStatus = new EditorStatus.Opened:
             path: path
         return editor_state(
@@ -56,6 +58,22 @@ public let initial_editor_state = f(path: string, opened: boolean): EditorState 
             false,
             new EditorMode.Normal,
             new EditorCommand.None,
+            '',
+            status,
+            true,
+            new EditorTermination.Running
+        )
+    if opened:
+        let status: EditorStatus = new EditorStatus.NewFile:
+            path: path
+        return editor_state(
+            cursor_position(0, 0),
+            0,
+            false,
+            false,
+            new EditorMode.Normal,
+            new EditorCommand.None,
+            '',
             status,
             true,
             new EditorTermination.Running
@@ -67,6 +85,7 @@ public let initial_editor_state = f(path: string, opened: boolean): EditorState 
         false,
         new EditorMode.Normal,
         new EditorCommand.None,
+        '',
         new EditorStatus.NewEmpty,
         true,
         new EditorTermination.Running
@@ -105,15 +124,31 @@ public let with_stopped_status = f(
         termination: termination
 
 ##
-  Description: Returns state after a command-mode edit.
+  Description: Returns state after command text changes while staying in command mode.
 ##
-public let with_command = f(
+public let with_command_text = f(
     state: EditorState,
-    command: EditorCommand,
+    command_text: string,
     status: EditorStatus
 ): EditorState =>
     return state with:
+        command_text: command_text
+        status: status
+
+##
+  Description: Returns state after a mode, command, and command text change.
+##
+public let with_mode_command_text_status = f(
+    state: EditorState,
+    mode: EditorMode,
+    command: EditorCommand,
+    command_text: string,
+    status: EditorStatus
+): EditorState =>
+    return state with:
+        mode: mode
         command: command
+        command_text: command_text
         status: status
 
 ##
@@ -125,10 +160,7 @@ public let with_mode_command_status = f(
     command: EditorCommand,
     status: EditorStatus
 ): EditorState =>
-    return state with:
-        mode: mode
-        command: command
-        status: status
+    return with_mode_command_text_status(state, mode, command, state.command_text, status)
 
 ##
   Description: Returns state after a cursor edit.
@@ -162,6 +194,7 @@ public let with_command_result = f(
         saved: saved
         mode: mode
         command: command
+        command_text: ''
         status: status
         running: running
         termination: termination

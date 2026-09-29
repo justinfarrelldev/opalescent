@@ -1,4 +1,4 @@
-import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
+import type EditorMode, EditorStatus, EditorTermination from ./editor.types
 
 ##
   Description: Returns a display label for the active editor mode.
@@ -11,27 +11,13 @@ public let mode_name = f(mode: EditorMode): string =>
     return 'NORMAL'
 
 ##
-  Description: Returns the colon-command text for the compact command state.
-##
-public let command_text_for = f(command: EditorCommand): string =>
-    if command is EditorCommand.Write:
-        return 'w'
-    if command is EditorCommand.Quit:
-        return 'q'
-    if command is EditorCommand.WriteQuit:
-        return 'wq'
-    if command is EditorCommand.ForceQuit:
-        return 'q!'
-    if command is EditorCommand.Invalid into invalid:
-        return invalid.text
-    return ''
-
-##
   Description: Returns a display label for the current editor status.
 ##
 public let status_text_for = f(status: EditorStatus): string =>
     if status is EditorStatus.NewEmpty:
         return 'new empty buffer'
+    if status is EditorStatus.NewFile into new_file:
+        return 'new file {new_file.path}'
     if status is EditorStatus.Opened into opened:
         return 'opened {opened.path}'
     if status is EditorStatus.NormalMode:
@@ -54,6 +40,10 @@ public let status_text_for = f(status: EditorStatus): string =>
         return 'deleted'
     if status is EditorStatus.Written into written:
         return 'written {written.path}'
+    if status is EditorStatus.WriteFailed into write_failed:
+        return write_failed.message
+    if status is EditorStatus.BellFailed into bell_failed:
+        return bell_failed.message
     if status is EditorStatus.Ok:
         return 'ok'
     if status is EditorStatus.UnsavedChanges:

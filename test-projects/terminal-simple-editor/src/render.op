@@ -6,7 +6,7 @@ import type EditorState, EditorMode, CursorPosition from ./editor.types
 import type TrustedTerminalOutput from standard.terminal
 
 ##
-  Description: Builds a fixed-width line-number prefix for one buffer row.
+  Description: Builds a line-number prefix for one buffer row.
 ##
 public let line_number_prefix = f(line_index: int64): string =>
     let display_number = line_index + 1
@@ -55,7 +55,9 @@ public let build_render_rows = f(
             let line = propagate lines.at(line_index)
             let prefix = line_number_prefix(line_index)
             let prefix_width = terminal_text_cell_width(prefix)
-            let available_cells = max_cells - prefix_width
+            let mutable available_cells = max_cells - prefix_width
+            if available_cells < 0:
+                available_cells = 0
             let clipped_line, _used_cells = propagate terminal_text_clip_to_cells(
                 line,
                 available_cells
@@ -100,3 +102,14 @@ public let cursor_display_column = f(
     let prefix = line_number_prefix(cursor.line)
     let before_cursor = propagate string_extract_range(line, 0 as int64, cursor.column)
     return terminal_text_cell_width(prefix) + terminal_text_cell_width(before_cursor)
+
+##
+  Description: Converts a zero-based display column into a clamped one-based terminal cursor column.
+##
+public let cursor_screen_column = f(display_column: int64, max_cells: int64): int64 =>
+    let requested_column = display_column + 1
+    if requested_column < 1:
+        return 1
+    if requested_column > max_cells:
+        return max_cells
+    return requested_column
