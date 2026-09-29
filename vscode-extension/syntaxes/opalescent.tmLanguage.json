@@ -74,7 +74,7 @@
         },
         {
           "name": "keyword.other.opalescent",
-          "match": "\\b(let|mutable|as|is|errors)\\b"
+          "match": "\\b(let|mutable|new|as|is|with|errors)\\b"
         },
         {
           "name": "constant.language.boolean.opalescent",

@@ -13,7 +13,9 @@ use super::helpers::{
     type_mismatch_error, unary_operation_name, validate_constant_shift_bounds,
     zero_divisor_operation_name,
 };
-use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Type, TypeParameter, UnaryOp};
+use crate::ast::{
+    AstNode, BinaryOp, ConstructorField, Expr, LambdaBody, Parameter, Type, TypeParameter, UnaryOp,
+};
 use crate::errors::suggestions::{SUGGESTION_DISTANCE_THRESHOLD, closest_identifier_suggestion};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
@@ -193,6 +195,12 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_constructor_expr(callee.as_ref(), fields.as_slice(), span),
+            Expr::RecordUpdate {
+                ref receiver,
+                ref fields,
+                span,
+                ..
+            } => self.type_check_record_update_expr(receiver.as_ref(), fields.as_slice(), span),
             Expr::Index {
                 ref object,
                 ref index,
@@ -387,6 +395,94 @@ impl TypeChecker {
                 self.type_check_propagate_expr(call.as_ref(), span)
             }
         }
+    }
+
+    /// Type check a block `with:` record update against a nominal product receiver.
+    fn type_check_record_update_expr(
+        &mut self,
+        receiver: &Expr,
+        fields: &[ConstructorField],
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let receiver_type = self.type_check_expr(receiver)?;
+        let CoreType::Generic {
+            name: receiver_name,
+            type_args,
+        } = receiver_type.clone()
+        else {
+            return Err(TypeError::InvalidOperation {
+                operation: "record update".to_owned(),
+                type_name: receiver_type.to_string(),
+                span: TypeError::span_from_span(span),
+            });
+        };
+
+        let Some(expected_fields) = self.adt_fields_for_owner(receiver_name.as_str()).cloned()
+        else {
+            return Err(TypeError::InvalidOperation {
+                operation: "record update".to_owned(),
+                type_name: receiver_name,
+                span: TypeError::span_from_span(span),
+            });
+        };
+
+        let mut seen_fields = alloc::collections::BTreeSet::new();
+        for field in fields {
+            if !seen_fields.insert(field.name.clone()) {
+                return Err(TypeError::DuplicateField {
+                    field_name: field.name.clone(),
+                    span: TypeError::span_from_span(field.span),
+                });
+            }
+
+            let Some(expected_type) = expected_fields.get(&field.name) else {
+                return Err(TypeError::UnknownField {
+                    type_name: receiver_name,
+                    field_name: field.name.clone(),
+                    span: TypeError::span_from_span(field.span),
+                });
+            };
+
+            let expected_field_type = self.resolve_generic_adt_field_type(
+                receiver_name.as_str(),
+                type_args.as_slice(),
+                expected_type,
+            );
+            let field_value_type = self.type_check_expr(&field.value)?;
+            self.check_value_escape(
+                &field.value,
+                &field_value_type,
+                "escape through a record update field",
+                false,
+            )?;
+
+            let reconciled_value = if self.types_compatible(&expected_field_type, &field_value_type)
+                || matches!(expected_field_type, CoreType::Variable(_))
+            {
+                field_value_type
+            } else if let Some(adjusted) =
+                coerce_literal_to_expected(&expected_field_type, &field.value, &field_value_type)
+            {
+                adjusted
+            } else {
+                return Err(TypeError::FieldTypeMismatch {
+                    type_name: receiver_name,
+                    field_name: field.name.clone(),
+                    expected: expected_field_type.to_string(),
+                    found: field_value_type.to_string(),
+                    span: TypeError::span_from_span(field.value.span()),
+                });
+            };
+
+            self.add_constraint(TypeConstraint::equality(
+                expected_field_type,
+                reconciled_value,
+                Some(field.span),
+                Some(field.value.span()),
+            ));
+        }
+
+        Ok(receiver_type)
     }
 
     /// Resolve an identifier to its registered core type or emit a symbol error.

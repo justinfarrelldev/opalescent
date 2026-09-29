@@ -205,6 +205,163 @@ entry main = f(): Person =>
     }
 
     #[test]
+    fn test_block_record_update_type_checks_product_fields() {
+        const SOURCE: &str = "
+type CursorPosition:
+    line: int64
+    column: int64
+
+type EditorState:
+    cursor: CursorPosition
+    dirty: boolean
+    status: string
+
+let cursor_position = f(line: int64, column: int64): CursorPosition =>
+    return new CursorPosition:
+        line: line
+        column: column
+
+let make_state = f(): EditorState =>
+    return new EditorState:
+        cursor: cursor_position(1, 2)
+        dirty: false
+        status: 'ready'
+
+entry main = f(): EditorState =>
+    let state = make_state()
+    return state with:
+        cursor: cursor_position(3, 4)
+        dirty: true
+        status: 'moved'
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "block record update should type check product fields: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_block_record_update_unknown_field_reports_error() {
+        const SOURCE: &str = "
+type EditorState:
+    dirty: boolean
+    status: string
+
+let make_state = f(): EditorState =>
+    return new EditorState:
+        dirty: false
+        status: 'ready'
+
+entry main = f(): EditorState =>
+    let state = make_state()
+    return state with:
+        missing: true
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("unknown record update field must fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::UnknownField { .. })),
+            "expected UnknownField error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_block_record_update_duplicate_field_reports_error() {
+        const SOURCE: &str = "
+type EditorState:
+    dirty: boolean
+    status: string
+
+let make_state = f(): EditorState =>
+    return new EditorState:
+        dirty: false
+        status: 'ready'
+
+entry main = f(): EditorState =>
+    let state = make_state()
+    return state with:
+        dirty: true
+        dirty: false
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("duplicate record update field must fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::DuplicateField { .. })),
+            "expected DuplicateField error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_block_record_update_wrong_field_type_reports_error() {
+        const SOURCE: &str = "
+type EditorState:
+    dirty: boolean
+    status: string
+
+let make_state = f(): EditorState =>
+    return new EditorState:
+        dirty: false
+        status: 'ready'
+
+entry main = f(): EditorState =>
+    let state = make_state()
+    return state with:
+        dirty: 'yes'
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("wrong record update field type must fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::FieldTypeMismatch { .. })),
+            "expected FieldTypeMismatch error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_block_record_update_non_product_receiver_reports_error() {
+        const SOURCE: &str = "
+entry main = f(): int64 =>
+    let value = 1
+    return value with:
+        missing: 2
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("non-product record update receiver must fail type checking");
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                TypeError::InvalidOperation { ref operation, .. } if operation == "record update"
+            )),
+            "expected record update InvalidOperation error, got: {errors:?}",
+        );
+    }
+
+    #[test]
     fn test_has_field_constraint_solving_works() {
         let mut checker = TypeChecker::new();
         checker.register_adt_fields(

@@ -419,7 +419,16 @@ let person: Person = new Person:
     age: 36
 ```
 
-The Game of Life fixture uses this style in `test-projects/game-of-life-full/src/life.types.op` and constructs `LifeConfig` in `test-projects/game-of-life-full/src/main.op`.
+Create a changed copy of a product value with block `with:` syntax:
+
+```opal
+let older_person = person with:
+    age: 37
+```
+
+This is a block-only form; inline `person with age: 37` is not supported.
+
+The Game of Life fixture uses product construction in `test-projects/game-of-life-full/src/life.types.op` and constructs `LifeConfig` in `test-projects/game-of-life-full/src/main.op`.
 
 Important caveats:
 

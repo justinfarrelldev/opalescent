@@ -683,6 +683,33 @@ impl Formatter {
                 }
                 out
             }
+            Expr::RecordUpdate {
+                ref receiver,
+                ref fields,
+                ..
+            } => {
+                let receiver_str = self.print_expr(receiver, depth);
+                let field_indent = self.config.indent_unit().repeat(depth.saturating_add(1));
+                let mut out = format!("{receiver_str} with:");
+                for field in fields {
+                    let value_prefix_width = field_indent
+                        .chars()
+                        .count()
+                        .saturating_add(field.name.chars().count())
+                        .saturating_add(": ".chars().count());
+                    let value_str = self.print_expr_with_prefix_width(
+                        &field.value,
+                        depth.saturating_add(1),
+                        value_prefix_width,
+                    );
+                    out.push('\n');
+                    out.push_str(&field_indent);
+                    out.push_str(&field.name);
+                    out.push_str(": ");
+                    out.push_str(&value_str);
+                }
+                out
+            }
             Expr::Index {
                 ref object,
                 ref index,

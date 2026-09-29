@@ -770,6 +770,9 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
                     .map(|element| CoreType::Array(Box::new(element)))
             },
         ),
+        Expr::RecordUpdate { ref receiver, .. } => {
+            infer_expression_core_type(env, receiver.as_ref())
+        }
         Expr::Index { ref object, .. } => match infer_expression_core_type(env, object.as_ref()) {
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
             Some(CoreType::String) => Some(CoreType::String),

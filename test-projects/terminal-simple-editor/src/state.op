@@ -80,33 +80,16 @@ public let with_cursor_and_viewport = f(
     cursor: CursorPosition,
     viewport_top: int64
 ): EditorState =>
-    return editor_state(
-        cursor,
-        viewport_top,
-        state.dirty,
-        state.saved,
-        state.mode,
-        state.command,
-        state.status,
-        state.running,
-        state.termination
-    )
+    return state with:
+        cursor: cursor
+        viewport_top: viewport_top
 
 ##
   Description: Returns state with a replacement status.
 ##
 public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
-    return editor_state(
-        state.cursor,
-        state.viewport_top,
-        state.dirty,
-        state.saved,
-        state.mode,
-        state.command,
-        status,
-        state.running,
-        state.termination
-    )
+    return state with:
+        status: status
 
 ##
   Description: Returns state with replacement running, status, and termination values.
@@ -116,17 +99,10 @@ public let with_stopped_status = f(
     status: EditorStatus,
     termination: EditorTermination
 ): EditorState =>
-    return editor_state(
-        state.cursor,
-        state.viewport_top,
-        state.dirty,
-        state.saved,
-        state.mode,
-        state.command,
-        status,
-        false,
-        termination
-    )
+    return state with:
+        status: status
+        running: false
+        termination: termination
 
 ##
   Description: Returns state after a command-mode edit.
@@ -136,17 +112,9 @@ public let with_command = f(
     command: EditorCommand,
     status: EditorStatus
 ): EditorState =>
-    return editor_state(
-        state.cursor,
-        state.viewport_top,
-        state.dirty,
-        state.saved,
-        state.mode,
-        command,
-        status,
-        state.running,
-        state.termination
-    )
+    return state with:
+        command: command
+        status: status
 
 ##
   Description: Returns state after a mode or command-state change.
@@ -157,17 +125,10 @@ public let with_mode_command_status = f(
     command: EditorCommand,
     status: EditorStatus
 ): EditorState =>
-    return editor_state(
-        state.cursor,
-        state.viewport_top,
-        state.dirty,
-        state.saved,
-        mode,
-        command,
-        status,
-        state.running,
-        state.termination
-    )
+    return state with:
+        mode: mode
+        command: command
+        status: status
 
 ##
   Description: Returns state after a cursor edit.
@@ -178,17 +139,10 @@ public let with_cursor_dirty_status = f(
     dirty: boolean,
     status: EditorStatus
 ): EditorState =>
-    return editor_state(
-        cursor,
-        state.viewport_top,
-        dirty,
-        state.saved,
-        state.mode,
-        state.command,
-        status,
-        state.running,
-        state.termination
-    )
+    return state with:
+        cursor: cursor
+        dirty: dirty
+        status: status
 
 ##
   Description: Returns state after a save or quit command changes command bookkeeping.
@@ -203,14 +157,11 @@ public let with_command_result = f(
     running: boolean,
     termination: EditorTermination
 ): EditorState =>
-    return editor_state(
-        state.cursor,
-        state.viewport_top,
-        dirty,
-        saved,
-        mode,
-        command,
-        status,
-        running,
-        termination
-    )
+    return state with:
+        dirty: dirty
+        saved: saved
+        mode: mode
+        command: command
+        status: status
+        running: running
+        termination: termination

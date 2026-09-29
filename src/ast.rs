@@ -133,6 +133,18 @@ pub enum Expr {
         id: NodeId,
     },
 
+    /// Product record update expression (`state with:` followed by field replacements).
+    RecordUpdate {
+        /// Product expression whose fields are copied into the updated value.
+        receiver: Box<Expr>,
+        /// Named field replacements provided by the update block.
+        fields: Vec<ConstructorField>,
+        /// Source code location of this record update expression.
+        span: Span,
+        /// Unique identifier for this AST node.
+        id: NodeId,
+    },
+
     /// Array/collection access (arr[0], map\[`"key"`\])
     Index {
         /// Expression being indexed

@@ -173,6 +173,14 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
                     .iter()
                     .any(|field| expr_contains_feature(&field.value, feature))
         }
+        Expr::RecordUpdate {
+            receiver, fields, ..
+        } => {
+            expr_contains_feature(receiver, feature)
+                || fields
+                    .iter()
+                    .any(|field| expr_contains_feature(&field.value, feature))
+        }
         Expr::Index { object, index, .. } => {
             expr_contains_feature(object, feature) || expr_contains_feature(index, feature)
         }
@@ -7059,6 +7067,79 @@ entry main = f(): void =>
     assert!(
         fields.is_empty(),
         "bare `new Module.MyOpaque` should have no fields: {fields:?}"
+    );
+}
+
+/// A block `with:` expression must parse as a record update with named field replacements.
+#[test]
+fn block_record_update_expression_parses_fields() {
+    let source = "\
+entry main = f(): void =>
+    let next = state with:
+        dirty: true
+        status: 'saved'
+    return void
+";
+
+    let program = parse_program_from_string(source).expect("block record update should parse");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let initializer, got: {:?}", statements[0]);
+    };
+
+    let Expr::RecordUpdate {
+        receiver, fields, ..
+    } = init
+    else {
+        panic!("Expected Expr::RecordUpdate, got: {init:?}");
+    };
+    assert!(matches!(receiver.as_ref(), Expr::Identifier { name, .. } if name == "state"));
+    assert_eq!(fields.len(), 2, "expected two update fields: {fields:?}");
+    assert_eq!(fields[0].name, "dirty");
+    assert_eq!(fields[1].name, "status");
+}
+
+/// Empty `with:` blocks are rejected because v1 requires at least one field replacement.
+#[test]
+fn empty_block_record_update_is_rejected() {
+    let source = "\
+entry main = f(): void =>
+    let next = state with:
+        # no fields
+    return void
+";
+
+    let errors =
+        parse_program_from_string(source).expect_err("empty record update block should not parse");
+    assert!(
+        !errors.is_empty(),
+        "empty record update block should produce parse diagnostics"
+    );
+}
+
+/// Inline `with` is intentionally not part of v1; only `with:` blocks parse.
+#[test]
+fn inline_record_update_without_colon_is_rejected() {
+    let source = "\
+entry main = f(): void =>
+    let next = state with status: 'saved'
+    return void
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("inline record update should not parse in the block-only v1 syntax");
+    assert!(
+        !errors.is_empty(),
+        "inline record update should produce parse diagnostics"
     );
 }
 

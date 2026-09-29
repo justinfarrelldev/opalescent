@@ -73,6 +73,21 @@ pub enum TypeError {
         /// Source location of the constructor expression.
         span: SourceSpan,
     },
+    /// Record update named a field that does not exist on the product receiver.
+    #[error("Unknown field '{field_name}' for '{type_name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::unknown_field),
+        help("Use a field declared on this product type")
+    )]
+    UnknownField {
+        /// Nominal product type being updated.
+        type_name: String,
+        /// Field name that does not exist on the product.
+        field_name: String,
+        #[label("unknown field in record update")]
+        /// Source location of the unknown field occurrence.
+        span: SourceSpan,
+    },
     /// Constructor provided a value that does not match the declared field type.
     #[error(
         "Field '{field_name}' type mismatch in '{type_name}': expected '{expected}', found '{found}'"

@@ -65,7 +65,6 @@ impl OwnershipState {
     fn enter_scope(&mut self) {
         self.scopes.push(OwnershipScope::default());
     }
-
     /// Exit a lexical scope and restore shadowed ownership metadata.
     fn exit_scope(&mut self) {
         let Some(scope) = self.scopes.pop() else {
@@ -81,7 +80,6 @@ impl OwnershipState {
             restore_entry(&mut self.function_borrows, name, previous);
         }
     }
-
     /// Record the previous owner value before this scope changes it.
     fn remember_owner(&mut self, name: &str) {
         if let Some(scope) = self.scopes.last_mut() {
@@ -91,7 +89,6 @@ impl OwnershipState {
                 .or_insert_with(|| self.owners.get(name).cloned());
         }
     }
-
     /// Record the previous borrow value before this scope changes it.
     fn remember_borrow(&mut self, name: &str) {
         if let Some(scope) = self.scopes.last_mut() {
@@ -101,7 +98,6 @@ impl OwnershipState {
                 .or_insert_with(|| self.borrows.get(name).cloned());
         }
     }
-
     /// Record the previous function metadata before this scope changes it.
     fn remember_function_borrow(&mut self, name: &str) {
         if let Some(scope) = self.scopes.last_mut() {
@@ -127,7 +123,6 @@ impl TypeChecker {
     pub(super) fn enter_ownership_scope(&mut self) {
         self.ownership.enter_scope();
     }
-
     /// Exit a lexical ownership scope in lockstep with the symbol table.
     pub(super) fn exit_ownership_scope(&mut self) {
         self.ownership.exit_scope();
@@ -579,11 +574,16 @@ impl TypeChecker {
                 Ok(())
             }
             Expr::Constructor {
-                ref callee,
+                callee: ref field_owner,
+                ref fields,
+                ..
+            }
+            | Expr::RecordUpdate {
+                receiver: ref field_owner,
                 ref fields,
                 ..
             } => {
-                self.check_affine_or_borrow_escape(callee.as_ref(), context_description)?;
+                self.check_affine_or_borrow_escape(field_owner.as_ref(), context_description)?;
                 for field in fields {
                     self.check_affine_or_borrow_escape(&field.value, context_description)?;
                 }

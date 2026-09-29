@@ -1,0 +1,15 @@
+##
+  Description: Cursor coordinates for record update syntax fixtures.
+##
+public type CursorPosition:
+    line: int64
+    column: int64
+
+##
+  Description: Product state used to validate block record update syntax.
+##
+public type RecordUpdateState:
+    cursor: CursorPosition
+    saved: boolean
+    dirty: boolean
+    status: string

@@ -82,7 +82,7 @@ impl Parser {
 
         if self.check(&TokenType::Colon) {
             self.consume(&TokenType::Colon, "Expected ':' after constructor callee")?;
-            let fields = self.parse_new_expression_field_block()?;
+            let fields = self.parse_indented_constructor_fields()?;
             let span = Span::new(start_span.start, self.previous_token().span.end);
             Ok(Expr::Constructor {
                 callee: Box::new(callee),
@@ -101,8 +101,10 @@ impl Parser {
         }
     }
 
-    /// Parse the indented `field: value` block inside a constructor.
-    fn parse_new_expression_field_block(&mut self) -> ParseResult<Vec<ConstructorField>> {
+    /// Parse an indented `field: value` block used by constructors and record updates.
+    pub(super) fn parse_indented_constructor_fields(
+        &mut self,
+    ) -> ParseResult<Vec<ConstructorField>> {
         let mut fields = Vec::new();
         self.skip_newlines_and_comments();
         self.consume(&TokenType::Indent, "Expected indentation block start")?;

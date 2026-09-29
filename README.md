@@ -158,6 +158,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Strings with `.length` and zero-based Unicode scalar access through fallible `.at(...)` reads such as `message.at(0)` and `message.at(message.length - 1)`, returning `string` values with no public `char` type
 - [x] Arrays with `.length`, fallible `.at(...)` reads, indexed assignment, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
 - [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
+- [x] Block `with:` record update expressions for nominal product values
 - [x] `if`, `while`, `for`, `while true`, `continue`, and the fixture-backed `loop => ... break name: value` expression form
 - [x] Multiple return limitations documented and tested: labels are ordered metadata for callers, docs, diagnostics, and cross-module checks, not tuple storage, not function type identity, not ABI identity, and not a value-reordering mechanism
 - [x] Fallible functions with `errors ...` clauses and named error sets

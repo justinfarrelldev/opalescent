@@ -510,6 +510,27 @@ mod formatter_tests {
     }
 
     #[test]
+    fn test_formatter_emits_block_record_update_fields() {
+        let source = "entry main = f(): void =>\n    let next = state with:\n        dirty: true\n        status: 'saved'\n    return void";
+        let formatted = Formatter::with_defaults()
+            .format_source(source)
+            .expect("block record update should format");
+
+        assert!(
+            formatted
+                .contains("let next = state with:\n        dirty: true\n        status: 'saved'"),
+            "record update fields should stay in an indented with block, got: {formatted}"
+        );
+        let second_pass = Formatter::with_defaults()
+            .format_source(&formatted)
+            .expect("formatted record update should reformat cleanly");
+        assert_eq!(
+            formatted, second_pass,
+            "record update formatting should be idempotent"
+        );
+    }
+
+    #[test]
     fn test_formatter_honors_configured_error_clause_width() {
         let source = "entry main = f(args: string[]): void errors FilesystemReadErrors, FilesystemWriteErrors => return void";
         let wide = Formatter::new(FormatterConfig::new(4, 120, false))

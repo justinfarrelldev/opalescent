@@ -396,6 +396,16 @@ fn check_expr(expr: &Expr, violations: &mut Vec<NamingViolation>) {
                 check_expr(&field.value, violations);
             }
         }
+        Expr::RecordUpdate {
+            ref receiver,
+            ref fields,
+            ..
+        } => {
+            check_expr(receiver, violations);
+            for field in fields {
+                check_expr(&field.value, violations);
+            }
+        }
         Expr::Index {
             ref object,
             ref index,

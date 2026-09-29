@@ -16,6 +16,7 @@ impl AstNode for Expr {
             | Self::Unary { span, .. }
             | Self::Call { span, .. }
             | Self::Constructor { span, .. }
+            | Self::RecordUpdate { span, .. }
             | Self::Index { span, .. }
             | Self::Member { span, .. }
             | Self::BorrowArgument { span, .. }
@@ -43,6 +44,7 @@ impl AstNode for Expr {
             | Self::Unary { id, .. }
             | Self::Call { id, .. }
             | Self::Constructor { id, .. }
+            | Self::RecordUpdate { id, .. }
             | Self::Index { id, .. }
             | Self::Member { id, .. }
             | Self::BorrowArgument { id, .. }

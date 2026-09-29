@@ -86,6 +86,14 @@ fn collect_identifiers_in_expr(
                 collect_identifiers_in_expr(&field.value, param_names, seen, captures);
             }
         }
+        Expr::RecordUpdate {
+            receiver, fields, ..
+        } => {
+            collect_identifiers_in_expr(receiver, param_names, seen, captures);
+            for field in fields {
+                collect_identifiers_in_expr(&field.value, param_names, seen, captures);
+            }
+        }
         Expr::StringInterpolation { parts, .. } => {
             for part in parts {
                 if let StringPart::Expression(e) = part {

@@ -1,14 +1,15 @@
 #![allow(
+    clippy::missing_docs_in_private_items,
     clippy::needless_borrowed_reference,
-    reason = "internal ADT lowering patterns intentionally match borrowed layout metadata directly"
+    reason = "internal ADT lowering modules intentionally centralize private helpers"
 )]
 extern crate alloc;
 use crate::ast::{Expr, Pattern};
 #[path = "adts_manifest.rs"]
-#[doc = "Manifest-backed ADT layout helpers."]
 mod adts_manifest;
+#[path = "adts_record_update.rs"]
+pub(crate) mod adts_record_update;
 #[path = "adts_sum.rs"]
-#[doc = "Extracted sum-constructor lowering helpers to keep adts.rs under the repository line-count cap."]
 mod adts_sum;
 use crate::codegen::affine_aggregates::maybe_codegen_transactional_aggregate_constructor;
 use crate::codegen::context::CodegenContext;
@@ -32,7 +33,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
 use inkwell::values::{BasicValue, BasicValueEnum};
-#[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
 #[must_use]
 pub fn instantiate_generic_adt_name(name: &str, type_args: &[CoreType]) -> String {
     let mut specialized = name.to_owned();
@@ -561,6 +561,7 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
             _ => None,
         },
+        Expr::RecordUpdate { ref receiver, .. } => infer_product_core_type(env, receiver.as_ref()),
         Expr::Member {
             ref object,
             ref member,

@@ -1,0 +1,55 @@
+import type CursorPosition, RecordUpdateState from ./model.types
+
+##
+  Description: Construct a cursor position for the record update fixture.
+##
+let cursor_position = f(line: int64, column: int64): CursorPosition =>
+    return new CursorPosition:
+        line: line
+        column: column
+
+##
+  Description: Construct the full state before record update syntax is applied.
+##
+let make_state = f(status: string): RecordUpdateState =>
+    return new RecordUpdateState:
+        cursor: cursor_position(1, 2)
+        saved: false
+        dirty: false
+        status: status
+
+##
+  Description: Update multiple state fields using block record update syntax.
+##
+let move_and_save = f(state: RecordUpdateState): RecordUpdateState =>
+    return state with:
+        cursor: cursor_position(3, 4)
+        saved: true
+        dirty: true
+        status: 'moved'
+
+##
+  Description: Compose nested block record updates without inline with syntax.
+##
+let rename_and_adjust_column = f(state: RecordUpdateState): RecordUpdateState =>
+    let next_cursor = state.cursor with:
+        column: 9
+    return state with:
+        cursor: next_cursor
+        status: 'renamed'
+
+##
+  Description: Entry point that prints record update fixture results.
+##
+entry main = f(args: string[]): void =>
+    let original = make_state('initial')
+    let updated = move_and_save(original)
+    let renamed = rename_and_adjust_column(updated)
+    print(
+        'ORIGINAL saved={original.saved} dirty={original.dirty} cursor={original.cursor.line},{original.cursor.column} status={original.status}'
+    )
+    print(
+        'UPDATED saved={updated.saved} dirty={updated.dirty} cursor={updated.cursor.line},{updated.cursor.column} status={updated.status}'
+    )
+    print('RENAMED status={renamed.status} cursor={renamed.cursor.line},{renamed.cursor.column}')
+    return void

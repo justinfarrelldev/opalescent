@@ -11,7 +11,8 @@
 extern crate alloc;
 use crate::ast::{BinaryOp, Expr, LiteralValue, Type, UnaryOp};
 use crate::codegen::adts::{
-    codegen_constructor_expression, codegen_field_access_expression, codegen_match_expression,
+    adts_record_update::codegen_record_update_expression, codegen_constructor_expression,
+    codegen_field_access_expression, codegen_match_expression,
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;

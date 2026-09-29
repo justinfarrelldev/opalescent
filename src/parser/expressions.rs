@@ -30,6 +30,14 @@ impl Parser {
 
         // Parse infix expressions
         while !self.is_at_end() {
+            if self.starts_record_update_infix() {
+                if precedence > Precedence::Assignment {
+                    break;
+                }
+                expr = self.parse_record_update_infix(expr)?;
+                continue;
+            }
+
             let token_precedence = Precedence::from_token(&self.current_token().token_type);
 
             // Break if the current token has lower precedence or is not an infix operator
@@ -41,6 +49,36 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    /// Return true when the current token starts block record-update syntax after an expression.
+    fn starts_record_update_infix(&self) -> bool {
+        self.check_contextual_keyword("with")
+            && self
+                .tokens
+                .get(self.current.saturating_add(1))
+                .is_some_and(|token| matches!(token.token_type, TokenType::Colon))
+    }
+
+    /// Parse `receiver with:` followed by an indented field replacement block.
+    fn parse_record_update_infix(&mut self, receiver: Expr) -> ParseResult<Expr> {
+        let start = receiver.span().start;
+        self.advance(); // consume contextual `with`
+        self.consume(&TokenType::Colon, "Expected ':' after 'with'")?;
+        let fields = self.parse_indented_constructor_fields()?;
+        if fields.is_empty() {
+            return Err(ParseError::InvalidSyntax {
+                message: "Expected at least one field in record update block".to_owned(),
+                span: ParseError::span_from_token(self.previous_token()),
+            });
+        }
+        let span = Span::new(start, self.previous_token().span.end);
+        Ok(Expr::RecordUpdate {
+            receiver: Box::new(receiver),
+            fields,
+            span,
+            id: self.next_node_id(),
+        })
     }
 
     /// Parse primary expressions (literals, identifiers, parenthesized)

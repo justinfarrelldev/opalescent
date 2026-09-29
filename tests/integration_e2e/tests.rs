@@ -81,6 +81,7 @@ mod project_execution_rc;
 mod proposal_docs;
 mod rc_counter_negative_fixture;
 mod rc_store_leak_regressions;
+mod record_update_syntax;
 mod scope_leak_counters;
 mod stdout_text_stdlib;
 mod stdout_writer_stdlib;

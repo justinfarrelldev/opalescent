@@ -6,8 +6,8 @@ use super::{
     codegen_call_expression, codegen_cast, codegen_constructor_expression,
     codegen_field_access_expression, codegen_guard_expression, codegen_identifier,
     codegen_if_expression, codegen_literal, codegen_match_expression, codegen_propagate_expression,
-    codegen_refinement, codegen_string_access, codegen_string_interpolation, codegen_unary, format,
-    infer_expression_core_type,
+    codegen_record_update_expression, codegen_refinement, codegen_string_access,
+    codegen_string_interpolation, codegen_unary, format, infer_expression_core_type,
 };
 
 fn codegen_terminal_constrain_expression<'context>(
@@ -194,6 +194,9 @@ pub fn codegen_expression<'context>(
         ),
         Expr::Constructor { .. } => {
             codegen_constructor_expression(codegen_context, env, expr, expected_type)
+        }
+        Expr::RecordUpdate { .. } => {
+            codegen_record_update_expression(codegen_context, env, expr, expected_type)
         }
         Expr::Match { .. } => codegen_match_expression(codegen_context, env, expr),
         Expr::Loop { .. } => Err(CodegenError::new(String::from(
