@@ -20,6 +20,7 @@ use crate::codegen::expressions_array::{
     load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::emit_string_retain;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
@@ -119,6 +120,14 @@ pub(super) fn retain_rc_element_if_needed<'context>(
     value: inkwell::values::BasicValueEnum<'context>,
     name_prefix: &str,
 ) -> Result<(), CodegenError> {
+    if matches!(element_core_type, CoreType::String) {
+        return emit_string_retain(
+            codegen_context,
+            value,
+            env.next_name(format!("{name_prefix}.string.retain").as_str())
+                .as_str(),
+        );
+    }
     if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }

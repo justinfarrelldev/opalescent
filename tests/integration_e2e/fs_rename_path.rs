@@ -57,6 +57,8 @@ int main(int argc, char** argv) {
     compile_command
         .arg("-std=gnu11")
         .arg("-I.")
+        .arg("runtime/opal_string.c")
+        .arg("runtime/opal_rc.c")
         .arg("runtime/opal_fs.c")
         .arg(&harness_c)
         .arg("-o")

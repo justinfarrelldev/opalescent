@@ -1,119 +1,103 @@
 import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
-import copy_text from ./text_helpers
 
 ##
   Description: Returns a display label for the active editor mode.
 ##
-public let mode_name = f(mode: EditorMode): string errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
+public let mode_name = f(mode: EditorMode): string =>
     if mode is EditorMode.Insert:
-        return propagate copy_text('INSERT')
+        return 'INSERT'
     if mode is EditorMode.Command:
-        return propagate copy_text('COMMAND')
-    return propagate copy_text('NORMAL')
+        return 'COMMAND'
+    return 'NORMAL'
 
 ##
   Description: Returns the colon-command text for the compact command state.
 ##
-public let command_text_for = f(command: EditorCommand): string errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
+public let command_text_for = f(command: EditorCommand): string =>
     if command is EditorCommand.Write:
-        return propagate copy_text('w')
+        return 'w'
     if command is EditorCommand.Quit:
-        return propagate copy_text('q')
+        return 'q'
     if command is EditorCommand.WriteQuit:
-        return propagate copy_text('wq')
+        return 'wq'
     if command is EditorCommand.ForceQuit:
-        return propagate copy_text('q!')
+        return 'q!'
     if command is EditorCommand.Invalid into invalid:
-        return propagate copy_text(invalid.text)
-    return propagate copy_text('')
+        return invalid.text
+    return ''
 
 ##
   Description: Returns a display label for the current editor status.
 ##
-public let status_text_for = f(status: EditorStatus): string errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
+public let status_text_for = f(status: EditorStatus): string =>
     if status is EditorStatus.NewEmpty:
-        return propagate copy_text('new empty buffer')
+        return 'new empty buffer'
     if status is EditorStatus.Opened into opened:
         return 'opened {opened.path}'
     if status is EditorStatus.NormalMode:
-        return propagate copy_text('normal mode')
+        return 'normal mode'
     if status is EditorStatus.InsertMode:
-        return propagate copy_text('insert mode')
+        return 'insert mode'
     if status is EditorStatus.CommandMode:
-        return propagate copy_text('command mode')
+        return 'command mode'
     if status is EditorStatus.Moved:
-        return propagate copy_text('moved')
+        return 'moved'
     if status is EditorStatus.LineStart:
-        return propagate copy_text('line start')
+        return 'line start'
     if status is EditorStatus.LineEnd:
-        return propagate copy_text('line end')
+        return 'line end'
     if status is EditorStatus.InsertedText:
-        return propagate copy_text('inserted text')
+        return 'inserted text'
     if status is EditorStatus.LineSplit:
-        return propagate copy_text('line split')
+        return 'line split'
     if status is EditorStatus.Deleted:
-        return propagate copy_text('deleted')
+        return 'deleted'
     if status is EditorStatus.Written into written:
         return 'written {written.path}'
     if status is EditorStatus.Ok:
-        return propagate copy_text('ok')
+        return 'ok'
     if status is EditorStatus.UnsavedChanges:
-        return propagate copy_text('unsaved changes: use :q! or :wq')
+        return 'unsaved changes: use :q! or :wq'
     if status is EditorStatus.InvalidKey into invalid:
         return 'invalid key {invalid.key}'
     if status is EditorStatus.EnterInsertOnly:
-        return propagate copy_text('enter opens lines only in insert mode')
+        return 'enter opens lines only in insert mode'
     if status is EditorStatus.Resized:
-        return propagate copy_text('terminal resized')
+        return 'terminal resized'
     if status is EditorStatus.Cancelled:
-        return propagate copy_text('cancelled')
+        return 'cancelled'
     if status is EditorStatus.EndOfInput:
-        return propagate copy_text('end of input')
+        return 'end of input'
     if status is EditorStatus.QuitWithoutSaving:
-        return propagate copy_text('quit without saving')
+        return 'quit without saving'
     if status is EditorStatus.FileEnd:
-        return propagate copy_text('file end')
+        return 'file end'
     if status is EditorStatus.InvalidCommand into invalid_command:
         return 'not an editor command: {invalid_command.text}'
-    return propagate copy_text('ok')
+    return 'ok'
 
 ##
   Description: Returns a display label for why the editor stopped.
 ##
-public let termination_text_for = f(termination: EditorTermination): string errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
+public let termination_text_for = f(termination: EditorTermination): string =>
     if termination is EditorTermination.NormalQ:
-        return propagate copy_text('normal-q')
+        return 'normal-q'
     if termination is EditorTermination.CommandQ:
-        return propagate copy_text('command-q')
+        return 'command-q'
     if termination is EditorTermination.CommandWq:
-        return propagate copy_text('command-wq')
+        return 'command-wq'
     if termination is EditorTermination.CommandQBang:
-        return propagate copy_text('command-q-bang')
+        return 'command-q-bang'
     if termination is EditorTermination.Cancelled:
-        return propagate copy_text('cancelled')
+        return 'cancelled'
     if termination is EditorTermination.EndOfInput:
-        return propagate copy_text('end-of-input')
-    return propagate copy_text('running')
+        return 'end-of-input'
+    return 'running'
 
 ##
   Description: Returns a display label for whether the buffer has unsaved edits.
 ##
-public let dirty_text_for = f(dirty: boolean): string errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
+public let dirty_text_for = f(dirty: boolean): string =>
     if dirty:
-        return propagate copy_text('dirty')
-    return propagate copy_text('clean')
+        return 'dirty'
+    return 'clean'

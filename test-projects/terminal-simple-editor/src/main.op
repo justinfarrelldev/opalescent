@@ -22,19 +22,27 @@ import type TerminalSessionRestoreError from standard.terminal
   Description: Runs a tiny modal terminal editor with normal, insert, and command modes.
 ##
 entry main = f(args: string[]): void errors
-    FilesystemReadErrors,
-    FilesystemWriteErrors,
-    IndexOutOfBoundsError,
     AllocationFailureError,
-    StringRangeErrors,
-    TerminalTextLayoutError,
+    FileNotFoundError,
+    FilesystemFullError,
+    IndexOutOfBoundsError,
+    InvalidCursorPositionError,
+    InvalidEnvironmentVariableNameError,
+    InvalidPathError,
+    InvalidUtf8Error,
+    IsADirectoryError,
+    OffsetOutOfRangeError,
+    PermissionDeniedError,
+    ReadFailureError,
+    StringRangeOrderError,
+    StringRangeOutOfBoundsError,
     TerminalSessionOpenError,
     TerminalSessionReadError,
-    TerminalSessionWriteError,
-    TerminalSessionStateError,
     TerminalSessionRestoreError,
-    InvalidCursorPositionError,
-    InvalidEnvironmentVariableNameError
+    TerminalSessionStateError,
+    TerminalSessionWriteError,
+    TerminalTextLayoutError,
+    WriteFailureError
 =>
     let file_path_text: string = guard args.at(1) into arg_path: string else
         'test-projects/terminal-simple-editor/workspace/untitled.txt'
@@ -62,7 +70,7 @@ entry main = f(args: string[]): void errors
                 visible_rows
             )
             state = with_cursor_and_viewport(state, clamped_cursor, next_viewport)
-            let command_text = propagate command_text_for(state.command)
+            let command_text = command_text_for(state.command)
             let rows = propagate build_render_rows(
                 lines,
                 state,
@@ -148,8 +156,8 @@ entry main = f(args: string[]): void errors
             1 as int32
         )
         propagate terminal_session_flush_sync(ref session)
-    let final_status = propagate status_text_for(state.status)
-    let final_termination = propagate termination_text_for(state.termination)
+    let final_status = status_text_for(state.status)
+    let final_termination = termination_text_for(state.termination)
     let final_cursor: CursorPosition = state.cursor
     let final_saved = state.saved
     let final_dirty = state.dirty

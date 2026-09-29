@@ -7,6 +7,9 @@ use crate::codegen::expressions_array::{
     declare_or_get_opal_rc_drop_child, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::{
+    declare_or_get_opal_string_release, retain_string_for_expr_boundary,
+};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
@@ -150,6 +153,14 @@ pub fn codegen_sum_variant_constructor<'context>(
                     &constructor_field.value,
                     Some(field_type),
                 )?;
+                if field_type == &CoreType::String {
+                    retain_string_for_expr_boundary(
+                        codegen_context,
+                        env,
+                        &constructor_field.value,
+                        lowered_value,
+                    )?;
+                }
                 let Ok(converted_index) = u64::try_from(field_index) else {
                     continue;
                 };
@@ -185,9 +196,9 @@ pub fn codegen_sum_variant_constructor<'context>(
     if let Some(&CoreType::Generic { .. }) = expected_type {
         let drop_children_fn = match (variant_layout_name, variant_field_layout.as_deref()) {
             (Some(layout_name), Some(field_layout))
-                if field_layout
-                    .iter()
-                    .any(|&(_, ref field_type)| requires_rc_runtime_hooks(field_type)) =>
+                if field_layout.iter().any(|&(_, ref field_type)| {
+                    requires_rc_runtime_hooks(field_type) || field_type == &CoreType::String
+                }) =>
             {
                 Some(declare_or_get_sum_variant_drop_children_fn(
                     codegen_context,
@@ -317,7 +328,7 @@ fn declare_or_get_sum_variant_drop_children_fn<'context>(
     )?;
     let drop_child_fn = declare_or_get_opal_rc_drop_child(codegen_context);
     for (index, &(_, ref field_type)) in field_layout.iter().enumerate() {
-        if !requires_rc_runtime_hooks(field_type) {
+        if !requires_rc_runtime_hooks(field_type) && field_type != &CoreType::String {
             continue;
         }
         let converted_index = u64::try_from(index)
@@ -337,6 +348,15 @@ fn declare_or_get_sum_variant_drop_children_fn<'context>(
             .builder
             .build_load(field_ptr, "sum.drop.field.load")?
             .into_pointer_value();
+        if field_type == &CoreType::String {
+            let release_fn = declare_or_get_opal_string_release(codegen_context);
+            let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                release_fn,
+                &[field_value.into()],
+                "sum.drop.string.release",
+            )?;
+            continue;
+        }
         let child_ptr = codegen_context.builder.build_pointer_cast(
             field_value,
             i8_ptr_type,

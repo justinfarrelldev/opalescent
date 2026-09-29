@@ -10,6 +10,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::{emit_string_release, emit_string_retain};
 use crate::type_system::heap_class::{HeapClass, classify_core_type};
 use crate::type_system::types::CoreType;
 use alloc::borrow::Cow;
@@ -136,6 +137,9 @@ fn retain_new_binding_value_if_needed<'context>(
     if !binding_requires_rc_cleanup(core_type) {
         return Ok(());
     }
+    if core_type == &CoreType::String {
+        return emit_string_retain(codegen_context, value, "string.binding.retain");
+    }
     if !value.is_pointer_value() {
         return Err(CodegenError::new(format!(
             "RC-bearing binding type '{core_type}' expected pointer value during overwrite"
@@ -176,6 +180,9 @@ pub(crate) fn release_binding_value_if_needed<'context>(
 ) -> Result<(), CodegenError> {
     if !binding_requires_rc_cleanup(core_type) {
         return Ok(());
+    }
+    if core_type == &CoreType::String {
+        return emit_string_release(codegen_context, value, "string.binding.release");
     }
     if !value.is_pointer_value() {
         let operation = operation.into();

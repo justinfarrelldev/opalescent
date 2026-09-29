@@ -1,0 +1,50 @@
+import type EditorStatus, StringBox from ./editor_status.types
+
+##
+  Description: Returns a string literal without defensive copying or allocation errors.
+##
+public let label_ok = f(): string =>
+    return 'ok'
+
+##
+  Description: Returns an owned string value derived from the input parameter.
+##
+public let echo_text = f(text: string): string =>
+    return text
+
+##
+  Description: Stores an existing string value in a sum-variant payload.
+##
+public let invalid_key_status = f(text: string): EditorStatus =>
+    return new EditorStatus.InvalidKey:
+        key: text
+
+##
+  Description: Stores a string literal in a sum-variant payload.
+##
+public let literal_key_status = f(): EditorStatus =>
+    return new EditorStatus.LiteralKey:
+        key: 'literal-key'
+
+##
+  Description: Reads a string payload field and returns it as an owned value.
+##
+public let status_key_text = f(status: EditorStatus): string =>
+    if status is EditorStatus.InvalidKey into invalid:
+        return invalid.key
+    if status is EditorStatus.LiteralKey into literal:
+        return literal.key
+    return 'ok'
+
+##
+  Description: Stores an existing string value in a product field.
+##
+public let box_text = f(text: string): StringBox =>
+    return new StringBox:
+        value: text
+
+##
+  Description: Reads a product string field and returns it as an owned value.
+##
+public let box_value = f(box: StringBox): string =>
+    return box.value

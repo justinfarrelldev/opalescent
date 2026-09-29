@@ -28,6 +28,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern char* opal_string_alloc(uint64_t size);
+
 typedef struct {
   size_t length;
   uint8_t *data;
@@ -181,12 +183,11 @@ char *bytes_to_hex(OpalBytes *bytes) {
     return NULL;
   }
   size_t encoded_length = (bytes->length * 2) + 1;
-  char *buffer = (char *)malloc(encoded_length);
+  char *buffer = opal_string_alloc(encoded_length);
   if (buffer == NULL) {
     opal_runtime_error("out of memory: failed to allocate hex encoding buffer");
     return NULL;
   }
-  opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
   for (size_t index = 0; index < bytes->length; ++index) {
     uint8_t byte = bytes->data[index];
     buffer[(index * 2) + 0] =

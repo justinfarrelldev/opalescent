@@ -15,15 +15,16 @@ use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expressio
 use crate::codegen::expressions_array::{
     codegen_array_at_call, codegen_string_at_call, infer_expression_core_type,
     load_array_data_ptr_for_element_type, load_array_length_from_value,
-    materialize_runtime_array_from_raw_elements,
+    materialize_owned_runtime_array_from_raw_elements,
 };
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
+use crate::codegen::scope_tracker::runtime_returns_owned_string;
+use crate::codegen::string_ownership::adopt_string_call_result_if_needed;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::AddressSpace;
 use inkwell::IntPredicate;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{
@@ -384,27 +385,12 @@ pub fn codegen_call_expression<'context>(
                                     &[bool_string_ptr.into()],
                                     &env.next_name("print.bool.puts"),
                                 )?;
-                            let i8_ptr = codegen_context
-                                .context
-                                .i8_type()
-                                .ptr_type(AddressSpace::default());
-                            let free_fn_type = codegen_context
-                                .context
-                                .void_type()
-                                .fn_type(&[i8_ptr.into()], false);
-                            let free_fn = codegen_context
-                                .module
-                                .get_function("free")
-                                .unwrap_or_else(|| {
-                                    codegen_context
-                                        .module
-                                        .add_function("free", free_fn_type, None)
-                                });
+                            let release_fn = crate::codegen::string_ownership::declare_or_get_opal_string_release(codegen_context);
                             let _: inkwell::values::CallSiteValue =
                                 codegen_context.builder.build_call(
-                                    free_fn,
+                                    release_fn,
                                     &[bool_string_ptr.into()],
-                                    &env.next_name("print.bool.free"),
+                                    &env.next_name("print.bool.release"),
                                 )?;
                             return Ok(void_value);
                         }
@@ -526,7 +512,7 @@ pub fn codegen_call_expression<'context>(
             call_args.as_slice(),
             env.next_name("call").as_str(),
         )?;
-        let call_result = call.try_as_basic_value().basic().map_or_else(
+        let mut call_result = call.try_as_basic_value().basic().map_or_else(
             || {
                 codegen_context
                     .context
@@ -541,9 +527,16 @@ pub fn codegen_call_expression<'context>(
             let runtime_name = env
                 .imported_functions
                 .get(name.as_str())
-                .map_or_else(|| name.as_str(), String::as_str);
+                .cloned()
+                .unwrap_or_else(|| name.clone());
+            call_result = adopt_string_call_result_if_needed(
+                codegen_context,
+                env,
+                call_result,
+                runtime_returns_owned_string(runtime_name.as_str()),
+            )?;
             let direct_runtime_boolean = matches!(
-                runtime_name,
+                runtime_name.as_str(),
                 "environment_variable_exists"
                     | "string_is_blank"
                     | "error_attachment_truncation_cause_depth"
@@ -744,7 +737,7 @@ pub fn codegen_propagate_expression<'context>(
                         )
                         .map_err(CodegenError::from)?
                         .into_int_value();
-                    let runtime_array = materialize_runtime_array_from_raw_elements(
+                    let runtime_array = materialize_owned_runtime_array_from_raw_elements(
                         codegen_context,
                         env,
                         first_success_value.into_pointer_value(),

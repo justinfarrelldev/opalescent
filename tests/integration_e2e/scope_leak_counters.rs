@@ -418,6 +418,81 @@ entry main = f(args: string[]): void errors AllocationFailureError =>
 
 #[test]
 #[serial(fs)]
+fn scope_leak_string_array_indexed_overwrite() {
+    let source = "
+import string_join from standard
+
+##
+  Description: Scope leak fixture for indexed string-array overwrite cleanup.
+##
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    let old_parts: string[] = ['old', 'value']
+    let new_parts: string[] = ['new', 'value']
+    let mutable values: string[] = [propagate string_join(old_parts, '-')]
+    values[0] = propagate string_join(new_parts, '-')
+    print(propagate values.at(0))
+    return void
+";
+
+    run_scope_leak_test_case(
+        "scope_leak_string_array_indexed_overwrite",
+        "scope_leak_string_array_indexed_overwrite",
+        source,
+    );
+}
+
+#[test]
+#[serial(fs)]
+fn scope_leak_shared_string_array_indexed_overwrite() {
+    let source = "
+import string_join from standard
+
+##
+  Description: Scope leak fixture for COW string-array overwrite cleanup with an aliased array.
+##
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    let old_parts: string[] = ['old', 'shared']
+    let new_parts: string[] = ['new', 'shared']
+    let original: string[] = [propagate string_join(old_parts, '-')]
+    let mutable values = original
+    values[0] = propagate string_join(new_parts, '-')
+    print(propagate original.at(0))
+    print(propagate values.at(0))
+    return void
+";
+
+    run_scope_leak_test_case(
+        "scope_leak_shared_string_array_indexed_overwrite",
+        "scope_leak_shared_string_array_indexed_overwrite",
+        source,
+    );
+}
+
+#[test]
+#[serial(fs)]
+fn scope_leak_string_interpolation_releases_at_temporaries() {
+    let source = "
+import int32_to_string from standard
+
+##
+  Description: Scope leak fixture for owned string temporaries used directly inside interpolation.
+##
+entry main = f(args: string[]): void =>
+    let dummy: string[] = ['interpolation']
+    let rendered = 'rendered {int32_to_string(7 as int32)} {dummy.length}'
+    print(rendered)
+    return void
+";
+
+    run_scope_leak_test_case(
+        "scope_leak_string_interpolation_releases_at_temporaries",
+        "scope_leak_string_interpolation_releases_at_temporaries",
+        source,
+    );
+}
+
+#[test]
+#[serial(fs)]
 fn scope_leak_propagated_string_local() {
     let source = "
 import string_builder_push, string_builder_finish from standard

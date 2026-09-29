@@ -45,7 +45,9 @@ Reference counting is used for heap-allocated types:
 
 Primitives (e.g., `int32`, `float64`, `boolean`) are stored inline and are **not** RC-managed.
 
-For public language semantics, fallible string access still yields a `string` on success. `value.at(0)` and `value.at(value.length - 1)` produce one-scalar strings, using zero-based Unicode scalar positions. This model does not add a public `char` or `rune` type, and out-of-bounds access surfaces `IndexOutOfBoundsError` for callers to handle with `guard` or `propagate`. The additive string helpers (`string_find_index_or`, `string_find_last_index_of_text`, `string_take_prefix`, `string_take_suffix`, and `string_extract_range`) follow the same scalar-position contract.
+For public language semantics, ordinary `string` values are owned values. Function parameters of type `string` are owned unless declared as `ref string`; returning a string transfers an owned value to the caller; product fields, variant payloads, field reads, and string arrays retain, transfer, or release string storage at compiler-managed ownership boundaries. String literals have static lifetime and must not be released as heap allocations.
+
+Fallible string access still yields a `string` on success. `value.at(0)` and `value.at(value.length - 1)` produce one-scalar strings, using zero-based Unicode scalar positions. This model does not add a public `char` or `rune` type, and out-of-bounds access surfaces `IndexOutOfBoundsError` for callers to handle with `guard` or `propagate`. The additive string helpers (`string_find_index_or`, `string_find_last_index_of_text`, `string_take_prefix`, `string_take_suffix`, and `string_extract_range`) follow the same scalar-position contract.
 
 ### 3.2 RC Object Header Layout (ABI-stable)
 Every RC-managed object is preceded by a 24-byte header. The user pointer points directly to the payload, with the header residing at `pointer - 24`.
@@ -168,4 +170,5 @@ The Opalescent memory model maintains the following invariants:
 - **Leak Prevention**: RC ensures memory is reclaimed; `Weak<T>` provides tools to break cycles manually.
 - **Stack Safety**: Iterative drop prevents deep recursion during deallocation.
 - **Concurrency Ready**: RC operations are designed to be atomic (though the current implementation is single-threaded).
+- **String Ownership Contract**: Ordinary string returns, parameters, fields, variant payloads, field reads, and string arrays must not dangle and must not require user-written defensive copies; static literals are release-safe no-ops.
 - **String Indexing Contract**: Out-of-bounds string indexing currently surfaces `IndexOutOfBoundsError` on stderr, so callers should keep the index within `0 <= index < string.length` or handle the error explicitly.

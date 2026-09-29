@@ -9,10 +9,14 @@ pub(crate) mod affine_aggregates;
 pub mod binding_store;
 pub mod context;
 pub mod control_flow;
+#[doc = "Return-statement helper routines for LLVM control-flow lowering."]
+pub mod control_flow_return;
 pub mod error;
 pub mod error_abi;
 pub mod expressions;
 pub mod expressions_array;
+#[doc = "String-aware array ownership helper routines for LLVM lowering."]
+pub mod expressions_array_string;
 pub mod expressions_cast;
 pub mod expressions_numeric;
 pub mod expressions_string;
@@ -35,6 +39,8 @@ pub mod rc_emitter;
 pub mod scope_tracker;
 /// Statement lowering for LLVM backend.
 pub mod statements;
+#[doc = "Compiler-owned string ownership helper routines for LLVM lowering."]
+pub mod string_ownership;
 pub mod types;
 pub mod values;
 

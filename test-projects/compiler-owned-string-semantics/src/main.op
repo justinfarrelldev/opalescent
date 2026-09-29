@@ -1,0 +1,51 @@
+import string_join from standard
+import label_ok, echo_text, invalid_key_status, literal_key_status, status_key_text, box_text, box_value from ./helpers
+
+##
+  Description: Exercises compiler-owned string values across returns, payloads, products, and arrays.
+##
+entry main = f(args: string[]): void errors AllocationFailureError, IndexOutOfBoundsError =>
+    let base_parts: string[] = ['dyn', 'amic']
+    let original = propagate string_join(base_parts, '')
+    let echoed = echo_text(original)
+    print('literal={label_ok()}')
+    print('original={original}')
+    print('echoed={echoed}')
+
+    let invalid = invalid_key_status(original)
+    let literal_status = literal_key_status()
+    print('invalid={status_key_text(invalid)}')
+    print('literal_status={status_key_text(literal_status)}')
+
+    let boxed = box_text(echoed)
+    print('box={box_value(boxed)}')
+
+    let escaped_array =
+        loop =>
+            let inner_parts: string[] = ['arr', 'ay']
+            let inner_text = propagate string_join(inner_parts, '')
+            let values: string[] = [inner_text, label_ok()]
+            break escaped_array: values
+    let escaped_first = propagate escaped_array.at(0)
+    let escaped_second = propagate escaped_array.at(1)
+    print('array={escaped_first},{escaped_second}')
+
+    let escaped_payload =
+        loop =>
+            let payload_parts: string[] = ['pay', 'load']
+            let payload_text = propagate string_join(payload_parts, '')
+            let payload_status = invalid_key_status(payload_text)
+            let payload_key = status_key_text(payload_status)
+            break escaped_payload: payload_key
+    print('payload={escaped_payload}')
+
+    let escaped_product =
+        loop =>
+            let product_parts: string[] = ['pro', 'duct']
+            let product_text = propagate string_join(product_parts, '')
+            let product_box = box_text(product_text)
+            let product_value = box_value(product_box)
+            break escaped_product: product_value
+    print('product={escaped_product}')
+
+    return void

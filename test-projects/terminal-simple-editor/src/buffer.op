@@ -169,7 +169,14 @@ public let delete_at_cursor = f(
 public let save_lines = f(
     file_path_text: string,
     lines: string[]
-): void errors FilesystemWriteErrors, AllocationFailureError =>
+): void errors
+    AllocationFailureError,
+    FilesystemFullError,
+    InvalidPathError,
+    IsADirectoryError,
+    PermissionDeniedError,
+    WriteFailureError
+=>
     let path = path_from(file_path_text)
     let text = propagate string_join(lines, '\n')
     propagate write_text_atomic_sync(path, text)

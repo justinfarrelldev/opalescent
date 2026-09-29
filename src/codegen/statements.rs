@@ -25,13 +25,14 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::build_error_aggregate;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::expressions_array::{
-    codegen_identifier_indexed_array_assignment, materialize_runtime_array_from_raw_elements,
+    codegen_identifier_indexed_array_assignment, materialize_owned_runtime_array_from_raw_elements,
 };
 use crate::codegen::scope_tracker::{
     cleanup_return_scopes_preserving_codegen_env, cleanup_scopes_to_depth_preserving_codegen_env,
     expr_requires_malloc_string_cleanup, infer_loop_break_binding_requires_malloc_string_cleanup,
     mark_binding_malloc_string_cleanup,
 };
+use crate::codegen::string_ownership::string_expr_needs_retain_at_ownership_boundary;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -193,7 +194,6 @@ fn codegen_let_statement<'context>(
             );
         }
     }
-
     let (declared_type, lowered_initializer) = if let Some(ref annotation) = binding.type_annotation
     {
         let declared_type = ast_type_to_core_type_for_let(annotation)?;
@@ -251,7 +251,11 @@ fn codegen_let_statement<'context>(
         mark_binding_malloc_string_cleanup(env, binding.name.as_str());
     }
     if let (Some(initializer_expr), Some(initializer_value)) = (initializer, lowered_initializer) {
-        let retain_new_value = matches!(*initializer_expr, Expr::Identifier { .. });
+        let retain_new_value = if declared_type == CoreType::String {
+            string_expr_needs_retain_at_ownership_boundary(initializer_expr)
+        } else {
+            matches!(*initializer_expr, Expr::Identifier { .. })
+        };
         initialize_binding_value(
             codegen_context,
             env,
@@ -939,14 +943,15 @@ fn codegen_guard_statement<'context>(
                                     1,
                                     env.next_name("guard.len").as_str(),
                                 )?;
-                                let runtime_array = materialize_runtime_array_from_raw_elements(
-                                    codegen_context,
-                                    env,
-                                    success_value.into_pointer_value(),
-                                    length_value.into_int_value(),
-                                    element_core_type.as_ref(),
-                                    "guard.array",
-                                )?;
+                                let runtime_array =
+                                    materialize_owned_runtime_array_from_raw_elements(
+                                        codegen_context,
+                                        env,
+                                        success_value.into_pointer_value(),
+                                        length_value.into_int_value(),
+                                        element_core_type.as_ref(),
+                                        "guard.array",
+                                    )?;
                                 runtime_array.as_basic_value_enum()
                             } else {
                                 success_value

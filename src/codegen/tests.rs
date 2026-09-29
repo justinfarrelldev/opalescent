@@ -658,8 +658,12 @@ fn codegen_string_interpolation_frees_to_string_temporary_arguments() {
         "interpolation should call int64_to_string for temporary string expression: {ir}"
     );
     assert!(
-        ir.contains("call void @free(i8*"),
-        "interpolation should free temporary string returned by *_to_string after snprintf: {ir}"
+        ir.contains("@opal_string_adopt"),
+        "interpolation should adopt temporary string returned by *_to_string: {ir}"
+    );
+    assert!(
+        ir.contains("call void @opal_string_release(i8*"),
+        "interpolation should release temporary string returned by *_to_string after snprintf: {ir}"
     );
 }
 
@@ -700,12 +704,12 @@ fn codegen_nested_string_interpolation_frees_inner_temporary_buffer() {
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        ir.matches("call i8* @malloc(i64").count() >= 2,
+        ir.matches("call i8* @opal_string_alloc(i64").count() >= 2,
         "nested interpolation should allocate separate outer and inner buffers: {ir}"
     );
     assert!(
-        ir.contains("call void @free(i8*"),
-        "outer interpolation should free inner temporary interpolation buffer: {ir}"
+        ir.contains("call void @opal_string_release(i8*"),
+        "outer interpolation should release inner temporary interpolation buffer: {ir}"
     );
 }
 

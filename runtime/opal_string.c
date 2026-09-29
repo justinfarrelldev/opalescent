@@ -18,92 +18,200 @@ const char* opal_runtime_string_index_source_path = NULL;
 const char* opal_runtime_string_index_source_text = NULL;
 void opal_array_bounds_error(uint64_t index, uint64_t length);
 
+typedef struct OpalManagedStringEntry {
+    char* value;
+    size_t refcount;
+    struct OpalManagedStringEntry* next;
+} OpalManagedStringEntry;
+
+static OpalManagedStringEntry* OPAL_MANAGED_STRINGS = NULL;
+
+static OpalManagedStringEntry* opal_string_find_entry(const char* value) {
+    OpalManagedStringEntry* entry = OPAL_MANAGED_STRINGS;
+    while (entry) {
+        if (entry->value == value) {
+            return entry;
+        }
+        entry = entry->next;
+    }
+    return NULL;
+}
+
+static void opal_string_unregister_entry(OpalManagedStringEntry* target, OpalManagedStringEntry* previous) {
+    if (!target) {
+        return;
+    }
+    if (previous) {
+        previous->next = target->next;
+    } else {
+        OPAL_MANAGED_STRINGS = target->next;
+    }
+    free(target);
+}
+
+char* opal_string_alloc(uint64_t size) {
+    char* value = (char*)malloc((size_t)size);
+    if (!value) {
+        return NULL;
+    }
+    OpalManagedStringEntry* entry = (OpalManagedStringEntry*)malloc(sizeof(OpalManagedStringEntry));
+    if (!entry) {
+        free(value);
+        return NULL;
+    }
+    entry->value = value;
+    entry->refcount = 1u;
+    entry->next = OPAL_MANAGED_STRINGS;
+    OPAL_MANAGED_STRINGS = entry;
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    return value;
+}
+
+char* opal_string_realloc(char* value, uint64_t size) {
+    if (!value) {
+        return opal_string_alloc(size);
+    }
+    OpalManagedStringEntry* entry = opal_string_find_entry(value);
+    char* resized = (char*)realloc(value, (size_t)size);
+    if (!resized) {
+        return NULL;
+    }
+    if (entry) {
+        entry->value = resized;
+    }
+    return resized;
+}
+
+char* opal_string_adopt(char* value) {
+    if (!value || opal_string_find_entry(value)) {
+        return value;
+    }
+    OpalManagedStringEntry* entry = (OpalManagedStringEntry*)malloc(sizeof(OpalManagedStringEntry));
+    if (!entry) {
+        fprintf(stderr, "Runtime error: out of memory while adopting string\n");
+        exit(1);
+    }
+    entry->value = value;
+    entry->refcount = 1u;
+    entry->next = OPAL_MANAGED_STRINGS;
+    OPAL_MANAGED_STRINGS = entry;
+    return value;
+}
+
+char* opal_string_retain(char* value) {
+    OpalManagedStringEntry* entry = opal_string_find_entry(value);
+    if (entry) {
+        entry->refcount++;
+    }
+    return value;
+}
+
+void opal_string_release(char* value) {
+    if (!value) {
+        return;
+    }
+    OpalManagedStringEntry* previous = NULL;
+    OpalManagedStringEntry* entry = OPAL_MANAGED_STRINGS;
+    while (entry) {
+        if (entry->value == value) {
+            if (entry->refcount > 1u) {
+                entry->refcount--;
+                return;
+            }
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
+            free(entry->value);
+            opal_string_unregister_entry(entry, previous);
+            return;
+        }
+        previous = entry;
+        entry = entry->next;
+    }
+}
+
+void opal_string_array_free(char** values) {
+    if (!values) {
+        return;
+    }
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
+    free(values);
+}
+
 char* int8_to_string(int8_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", (int)value);
     return buf;
 }
 
 char* int16_to_string(int16_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", (int)value);
     return buf;
 }
 
 char* int32_to_string(int32_t value) {
     int len = snprintf(NULL, 0, "%d", value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", value);
     return buf;
 }
 
 char* int64_to_string(int64_t value) {
     int len = snprintf(NULL, 0, "%" PRId64, value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%" PRId64, value);
     return buf;
 }
 
 char* uint8_to_string(uint8_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", (unsigned)value);
     return buf;
 }
 
 char* uint16_to_string(uint16_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", (unsigned)value);
     return buf;
 }
 
 char* uint32_to_string(uint32_t value) {
     int len = snprintf(NULL, 0, "%u", value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", value);
     return buf;
 }
 
 char* uint64_to_string(uint64_t value) {
     int len = snprintf(NULL, 0, "%" PRIu64, value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%" PRIu64, value);
     return buf;
 }
 
 char* float32_to_string(float value) {
     int len = snprintf(NULL, 0, "%g", (double)value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%g", (double)value);
     return buf;
 }
 
 char* float64_to_string(double value) {
     int len = snprintf(NULL, 0, "%g", value);
-    char* buf = (char*)malloc(len + 1);
+    char* buf = (char*)opal_string_alloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%g", value);
     return buf;
 }
@@ -151,18 +259,22 @@ static OpalStringBuilderNode* OPAL_STRING_BUILDERS = NULL;
 static int OPAL_STRING_BUILDERS_CLEANUP_REGISTERED = 0;
 
 static char* opal_string_duplicate_or_die(const char* source) {
-    char* copy = opal_strdup(source ? source : "");
+    const char* safe_source = source ? source : "";
+    size_t length = strlen(safe_source);
+    char* copy = opal_string_alloc(length + 1u);
     if (!copy) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    memcpy(copy, safe_source, length + 1u);
     return copy;
 }
 
 static char* opal_string_duplicate(const char* source) {
-    char* copy = opal_strdup(source ? source : "");
+    const char* safe_source = source ? source : "";
+    size_t length = strlen(safe_source);
+    char* copy = opal_string_alloc(length + 1u);
     if (!copy) {
         return NULL;
     }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    memcpy(copy, safe_source, length + 1u);
     return copy;
 }
 
@@ -172,8 +284,7 @@ static void opal_string_builder_cleanup_all(void) {
         OpalStringBuilderNode* next = node->next;
         if (node->builder) {
             if (node->builder->buffer) {
-                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
-                free(node->builder->buffer);
+                opal_string_release(node->builder->buffer);
                 node->builder->buffer = NULL;
             }
             opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BUILDERS);
@@ -214,7 +325,7 @@ static const char* string_builder_ensure_capacity(OpalStringBuilder* builder, si
         new_capacity *= 2u;
     }
 
-    char* resized = (char*)realloc(builder->buffer, new_capacity);
+    char* resized = opal_string_realloc(builder->buffer, new_capacity);
     if (!resized) {
         return "AllocationFailureError";
     }
@@ -225,9 +336,7 @@ static const char* string_builder_ensure_capacity(OpalStringBuilder* builder, si
 }
 
 char* bool_to_string(int8_t value) {
-    char* result = opal_strdup(value ? "true" : "false");
-    if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    return result;
+    return opal_string_duplicate_or_die(value ? "true" : "false");
 }
 
 static int opal_utf8_is_scalar_start(unsigned char byte) {
@@ -357,9 +466,8 @@ char* string_index(const char* value, int64_t index) {
     }
 
     size_t scalar_length = (size_t)(end - start);
-    char* result = (char*)malloc(scalar_length + 1u);
+    char* result = (char*)opal_string_alloc(scalar_length + 1u);
     if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     memcpy(result, start, scalar_length);
     result[scalar_length] = '\0';
     return result;
@@ -461,6 +569,7 @@ FsStringArrayResult string_split_lines(const char* value) {
         r.error = "AllocationFailureError";
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
 
     size_t out = 0u;
     start = 0u;
@@ -468,19 +577,17 @@ FsStringArrayResult string_split_lines(const char* value) {
     while (index < length) {
         if (value[index] == '\n' || value[index] == '\r') {
             size_t segment_len = index - start;
-            char* segment = (char*)malloc(segment_len + 1u);
+            char* segment = (char*)opal_string_alloc(segment_len + 1u);
             if (!segment) {
                 for (size_t i = 0; i < out; i++) {
-                    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
-                    free(lines[i]);
+                    opal_string_release(lines[i]);
                 }
-                free(lines);
+                opal_string_array_free(lines);
                 r.error = "AllocationFailureError";
                 return r;
             }
             memcpy(segment, value + start, segment_len);
             segment[segment_len] = '\0';
-            opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
             lines[out++] = segment;
             index++;
             if (value[index - 1] == '\r' && index < length && value[index] == '\n') {
@@ -493,19 +600,17 @@ FsStringArrayResult string_split_lines(const char* value) {
     }
     if (start < length) {
         size_t segment_len = length - start;
-        char* segment = (char*)malloc(segment_len + 1u);
+        char* segment = (char*)opal_string_alloc(segment_len + 1u);
         if (!segment) {
             for (size_t i = 0; i < out; i++) {
-                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
-                free(lines[i]);
+                opal_string_release(lines[i]);
             }
-            free(lines);
+            opal_string_array_free(lines);
             r.error = "AllocationFailureError";
             return r;
         }
         memcpy(segment, value + start, segment_len);
         segment[segment_len] = '\0';
-        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
         lines[out++] = segment;
     }
 
@@ -579,14 +684,13 @@ FsStringResult string_trim_whitespace(const char* value) {
     }
 
     size_t trimmed_len = (size_t)(end - start);
-    char* result = (char*)malloc(trimmed_len + 1u);
+    char* result = (char*)opal_string_alloc(trimmed_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
     }
     memcpy(result, start, trimmed_len);
     result[trimmed_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -624,14 +728,13 @@ FsStringResult string_take_prefix(const char* value, int64_t count) {
         seen++;
     }
     size_t prefix_len = (size_t)((const char*)cursor - value);
-    char* result = (char*)malloc(prefix_len + 1u);
+    char* result = (char*)opal_string_alloc(prefix_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
     }
     memcpy(result, value, prefix_len);
     result[prefix_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -717,14 +820,13 @@ FsStringResult string_extract_range(const char* value, int64_t start_index, int6
     const char* start = opal_string_scalar_boundary(value, start_index);
     const char* end = opal_string_scalar_boundary(value, end_index);
     size_t range_len = (size_t)(end - start);
-    char* result = (char*)malloc(range_len + 1u);
+    char* result = (char*)opal_string_alloc(range_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
     }
     memcpy(result, start, range_len);
     result[range_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -753,7 +855,7 @@ FsStringResult string_insert_at(const char* value, int64_t scalar_index, const c
         return r;
     }
     size_t total_len = prefix_len + inserted_len + suffix_len;
-    char* result = (char*)malloc(total_len + 1u);
+    char* result = (char*)opal_string_alloc(total_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
@@ -762,7 +864,6 @@ FsStringResult string_insert_at(const char* value, int64_t scalar_index, const c
     memcpy(result + prefix_len, inserted, inserted_len);
     memcpy(result + prefix_len + inserted_len, boundary, suffix_len);
     result[total_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -794,7 +895,7 @@ FsStringResult string_delete_range(const char* value, int64_t start_index, int64
         return r;
     }
     size_t total_len = prefix_len + suffix_len;
-    char* result = (char*)malloc(total_len + 1u);
+    char* result = (char*)opal_string_alloc(total_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
@@ -802,7 +903,6 @@ FsStringResult string_delete_range(const char* value, int64_t start_index, int64
     memcpy(result, value, prefix_len);
     memcpy(result + prefix_len, end, suffix_len);
     result[total_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -836,7 +936,7 @@ FsStringResult string_replace_range(const char* value, int64_t start_index, int6
         return r;
     }
     size_t total_len = prefix_len + replacement_len + suffix_len;
-    char* result = (char*)malloc(total_len + 1u);
+    char* result = (char*)opal_string_alloc(total_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
@@ -845,7 +945,6 @@ FsStringResult string_replace_range(const char* value, int64_t start_index, int6
     memcpy(result + prefix_len, replacement, replacement_len);
     memcpy(result + prefix_len + replacement_len, end, suffix_len);
     result[total_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;
 }
@@ -1138,14 +1237,13 @@ FsStringInt64Result terminal_text_clip_to_cells(const char* value, int64_t max_c
     }
 
     size_t byte_len = (size_t)(end - start);
-    char* result = (char*)malloc(byte_len + 1u);
+    char* result = (char*)opal_string_alloc(byte_len + 1u);
     if (!result) {
         r.error = "AllocationFailureError";
         return r;
     }
     memcpy(result, value, byte_len);
     result[byte_len] = '\0';
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     r.used_cells = used_cells;
     return r;
@@ -1179,13 +1277,11 @@ StringBuilderStringResult string_join(const char** values, int64_t count, const 
         }
     }
 
-    char* joined = (char*)malloc(total_length + 1u);
+    char* joined = (char*)opal_string_alloc(total_length + 1u);
     if (!joined) {
         result.error = "AllocationFailureError";
         return result;
     }
-    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
-
     size_t offset = 0;
     for (int64_t index = 0; index < count; index++) {
         const char* value = values[index] ? values[index] : "";
@@ -1245,8 +1341,7 @@ StringBuilderStringResult string_builder_finish(OpalStringBuilder* builder) {
     char* result = opal_string_duplicate_or_die(builder->buffer ? builder->buffer : "");
     builder->finished = 1;
     if (builder->buffer) {
-        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
-        free(builder->buffer);
+        opal_string_release(builder->buffer);
         builder->buffer = NULL;
     }
     builder->length = 0u;

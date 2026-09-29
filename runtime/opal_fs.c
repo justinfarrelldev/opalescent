@@ -3,12 +3,14 @@
  *
  * Ownership contracts
  * -------------------
- * - Caller owns all returned heap strings (char*) and must free them.
+ * - Caller owns all returned heap strings (char*) and must release them through
+ *   the compiler/runtime string ownership hooks.
  * - Caller owns returned OpalBytes* values and must free them via bytes_free.
  * - Legacy stubs still return static-literal errors; newer fs impls return heap
  *   error strings (caller-owned) per the fs error allocation contract.
  * - FilesystemPath values are heap-allocated char* (the raw path string).
- * - FsPathArrayResult / FsStringArrayResult: caller frees each element and the array.
+ * - FsPathArrayResult / FsStringArrayResult: caller releases each string element
+ *   through the string ownership hooks and frees the array payload.
  *
  * Error model
  * -----------
@@ -34,6 +36,9 @@
 #define calloc(count, size) opal_test_calloc_for_test(count, size)
 #define realloc(ptr, size) opal_test_realloc_for_test(ptr, size)
 #endif
+
+extern char* opal_string_alloc(uint64_t size);
+extern void opal_string_release(char* value);
 
 #if !defined(OPAL_RC_DEBUG_NOTES_IMPLEMENTED) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((weak)) void opal_rc_debug_note_alloc(OpalRcDebugCounterKind kind) {
@@ -373,7 +378,7 @@ static void free_path_segments(char** segments, int64_t count) {
 static void free_string_array_elements(char** values, size_t count) {
     if (!values) return;
     for (size_t i = 0; i < count; i++) {
-        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(values[i]);
     }
 }
@@ -2228,9 +2233,11 @@ FsStringArrayResult read_lines_sync(const char* path) {
         }
 
         size_t line_len = i - start;
-        char* line = (char*)malloc(line_len + 1);
+        char* line = opal_string_alloc(line_len + 1);
         if (!line) {
-            free_string_array_elements(lines, line_index);
+            for (size_t existing_line = 0; existing_line < line_index; existing_line++) {
+                opal_string_release(lines[existing_line]);
+            }
             opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
             free(lines);
             opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
@@ -2241,8 +2248,6 @@ FsStringArrayResult read_lines_sync(const char* path) {
             }
             return r;
         }
-        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
-
         if (line_len > 0) {
             memcpy(line, normalized + start, line_len);
         }
@@ -3157,6 +3162,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
         if (!entries[count]) {
             int alloc_errno = errno ? errno : ENOMEM;
             free_string_array_elements(entries, count);
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
             free(entries);
             opal_closedir(dir);
             r.error = errno_to_fs_error(alloc_errno, OPAL_FS_ERR_IO);

@@ -231,7 +231,7 @@ pub fn codegen_function_declaration<'context>(
                     parameter.name.as_str(),
                     param_value,
                     "function.param.init",
-                    false,
+                    matches!(parameter_core_types[index], CoreType::String),
                 )?;
                 llvm_param_index = llvm_param_index.saturating_add(1);
             }

@@ -22,6 +22,7 @@ fn run_binary_with_timeout(
 }
 mod bytes_stdlib;
 mod compile_failures;
+mod compiler_owned_string_semantics;
 mod fs_absolute_path_sync;
 mod fs_append_file_string;
 mod fs_append_log;

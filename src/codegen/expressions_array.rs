@@ -20,7 +20,15 @@ use crate::codegen::error_abi::{
     build_error_aggregate, build_error_return_type, build_success_aggregate, intern_variant_name,
 };
 use crate::codegen::expressions::{CodegenEnv, codegen_expression, current_function};
+use crate::codegen::expressions_array_string::{
+    declare_or_get_array_drop_children_fn, declare_or_get_string_array_drop_children_fn,
+    free_owned_raw_string_array,
+};
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::{
+    emit_string_adopt, emit_string_release, emit_string_retain, retain_string_for_expr_boundary,
+    string_expr_needs_retain_at_ownership_boundary,
+};
 use crate::codegen::types::core_type_to_llvm;
 use crate::token::Span;
 use crate::type_system::heap_class::{HeapClass, classify_core_type};
@@ -350,6 +358,8 @@ pub fn codegen_identifier_indexed_array_assignment<'context>(
         })?;
     let replacement_value =
         codegen_expression(codegen_context, env, value, Some(&element_core_type))?;
+    let replacement_needs_retain = !matches!(element_core_type, CoreType::String)
+        || string_expr_needs_retain_at_ownership_boundary(value);
 
     match *object {
         Expr::Identifier { ref name, .. } => {
@@ -365,6 +375,7 @@ pub fn codegen_identifier_indexed_array_assignment<'context>(
                 &element_core_type,
                 index,
                 replacement_value,
+                replacement_needs_retain,
                 None,
                 "index.assign",
             )?;
@@ -381,6 +392,7 @@ pub fn codegen_identifier_indexed_array_assignment<'context>(
             outer_index,
             index,
             replacement_value,
+            replacement_needs_retain,
             &element_core_type,
         ),
         _ => Err(CodegenError::new(String::from(
@@ -463,6 +475,7 @@ fn codegen_nested_indexed_array_assignment<'context>(
     outer_index: &Expr,
     inner_index: &Expr,
     replacement_value: BasicValueEnum<'context>,
+    replacement_needs_retain: bool,
     element_core_type: &CoreType,
 ) -> Result<(), CodegenError> {
     let Expr::Identifier { ref name, .. } = *outer_object else {
@@ -539,6 +552,7 @@ fn codegen_nested_indexed_array_assignment<'context>(
         element_core_type,
         inner_index,
         replacement_value,
+        replacement_needs_retain,
         Some(outer_is_unique),
         "index.assign.inner",
     )?;
@@ -550,6 +564,7 @@ fn codegen_nested_indexed_array_assignment<'context>(
         &row_core_type,
         outer_index,
         updated_row.as_basic_value_enum(),
+        true,
         None,
         "index.assign.outer",
     )?;
@@ -564,6 +579,7 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
     element_core_type: &CoreType,
     index: &Expr,
     replacement_value: BasicValueEnum<'context>,
+    replacement_needs_retain: bool,
     in_place_guard: Option<IntValue<'context>>,
     name_prefix: &str,
 ) -> Result<PointerValue<'context>, CodegenError> {
@@ -623,15 +639,18 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
     codegen_context.builder.position_at_end(unique_block);
     let overwrite_slot =
         build_array_element_ptr(codegen_context, env, source_data_ptr, index_value)?;
-    let overwritten_value_unique = requires_rc_runtime_hooks(element_core_type)
-        .then(|| {
-            codegen_context.builder.build_load(
-                overwrite_slot,
-                &env.next_name(format!("{name_prefix}.unique.old.load").as_str()),
-            )
-        })
-        .transpose()?;
-    retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
+    let overwritten_value_unique = (matches!(element_core_type, CoreType::String)
+        || requires_rc_runtime_hooks(element_core_type))
+    .then(|| {
+        codegen_context.builder.build_load(
+            overwrite_slot,
+            &env.next_name(format!("{name_prefix}.unique.old.load").as_str()),
+        )
+    })
+    .transpose()?;
+    if replacement_needs_retain {
+        retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
+    }
     codegen_context
         .builder
         .build_store(overwrite_slot, replacement_value)?;
@@ -666,15 +685,18 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
 
     let shared_overwrite_slot =
         build_array_element_ptr(codegen_context, env, cloned_data_ptr, index_value)?;
-    let overwritten_value_shared = requires_rc_runtime_hooks(element_core_type)
-        .then(|| {
-            codegen_context.builder.build_load(
-                shared_overwrite_slot,
-                &env.next_name(format!("{name_prefix}.shared.old.load").as_str()),
-            )
-        })
-        .transpose()?;
-    retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
+    let overwritten_value_shared = (matches!(element_core_type, CoreType::String)
+        || requires_rc_runtime_hooks(element_core_type))
+    .then(|| {
+        codegen_context.builder.build_load(
+            shared_overwrite_slot,
+            &env.next_name(format!("{name_prefix}.shared.old.load").as_str()),
+        )
+    })
+    .transpose()?;
+    if replacement_needs_retain {
+        retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
+    }
     codegen_context
         .builder
         .build_store(shared_overwrite_slot, replacement_value)?;
@@ -685,6 +707,8 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
         codegen_context
             .builder
             .build_store(binding_alloca, cloned_array_value)?;
+        let rebind_emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+        rebind_emitter.emit_dec(array_value)?;
     }
     codegen_context
         .builder
@@ -820,7 +844,11 @@ fn codegen_flat_array_literal<'context>(
         let index_value = codegen_context.context.i64_type().const_int(idx, false);
         let ptr = build_array_element_ptr(codegen_context, env, data_ptr, index_value)?;
         let value = codegen_expression(codegen_context, env, element_expr, Some(element_core))?;
-        retain_rc_value_if_needed(codegen_context, element_core, value)?;
+        if matches!(element_core, CoreType::String) {
+            retain_string_for_expr_boundary(codegen_context, env, element_expr, value)?;
+        } else {
+            retain_rc_value_if_needed(codegen_context, element_core, value)?;
+        }
         let _store_instruction = codegen_context.builder.build_store(ptr, value)?;
     }
 
@@ -890,6 +918,45 @@ pub(crate) fn materialize_runtime_array_from_raw_elements<'context>(
     element_core_type: &CoreType,
     name_prefix: &str,
 ) -> Result<PointerValue<'context>, CodegenError> {
+    materialize_runtime_array_from_raw_elements_with_mode(
+        codegen_context,
+        env,
+        raw_elements_ptr,
+        length,
+        element_core_type,
+        name_prefix,
+        true,
+    )
+}
+
+pub(crate) fn materialize_owned_runtime_array_from_raw_elements<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    raw_elements_ptr: PointerValue<'context>,
+    length: IntValue<'context>,
+    element_core_type: &CoreType,
+    name_prefix: &str,
+) -> Result<PointerValue<'context>, CodegenError> {
+    materialize_runtime_array_from_raw_elements_with_mode(
+        codegen_context,
+        env,
+        raw_elements_ptr,
+        length,
+        element_core_type,
+        name_prefix,
+        false,
+    )
+}
+
+fn materialize_runtime_array_from_raw_elements_with_mode<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    raw_elements_ptr: PointerValue<'context>,
+    length: IntValue<'context>,
+    element_core_type: &CoreType,
+    name_prefix: &str,
+    retain_elements: bool,
+) -> Result<PointerValue<'context>, CodegenError> {
     let source_data_ptr = codegen_context.builder.build_pointer_cast(
         raw_elements_ptr,
         core_type_to_llvm(codegen_context.context, element_core_type)
@@ -957,10 +1024,21 @@ pub(crate) fn materialize_runtime_array_from_raw_elements<'context>(
     )?;
     let destination_slot =
         build_array_element_ptr(codegen_context, env, runtime_data_ptr, index_value)?;
-    retain_rc_value_if_needed(codegen_context, element_core_type, source_value)?;
+    let stored_value = if retain_elements {
+        retain_rc_value_if_needed(codegen_context, element_core_type, source_value)?;
+        source_value
+    } else if matches!(element_core_type, CoreType::String) {
+        emit_string_adopt(
+            codegen_context,
+            source_value,
+            &env.next_name(format!("{name_prefix}.copy.adopt").as_str()),
+        )?
+    } else {
+        source_value
+    };
     codegen_context
         .builder
-        .build_store(destination_slot, source_value)?;
+        .build_store(destination_slot, stored_value)?;
 
     let next_index = codegen_context.builder.build_int_add(
         index_value,
@@ -975,6 +1053,9 @@ pub(crate) fn materialize_runtime_array_from_raw_elements<'context>(
         .build_unconditional_branch(loop_block)?;
 
     codegen_context.builder.position_at_end(done_block);
+    if !retain_elements && matches!(element_core_type, CoreType::String) {
+        free_owned_raw_string_array(codegen_context, env, raw_elements_ptr, name_prefix)?;
+    }
     Ok(runtime_array_payload)
 }
 
@@ -1153,6 +1234,13 @@ fn array_drop_children_fn_ptr<'context>(
         .context
         .i8_type()
         .ptr_type(AddressSpace::default());
+    if matches!(element_core_type, CoreType::String) {
+        let callback = declare_or_get_string_array_drop_children_fn(codegen_context)?;
+        return Ok(callback
+            .as_global_value()
+            .as_pointer_value()
+            .const_cast(i8_ptr_type));
+    }
     if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(i8_ptr_type.const_null());
     }
@@ -1162,158 +1250,6 @@ fn array_drop_children_fn_ptr<'context>(
         .as_global_value()
         .as_pointer_value()
         .const_cast(i8_ptr_type))
-}
-
-fn declare_or_get_array_drop_children_fn<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> Result<FunctionValue<'context>, CodegenError> {
-    let module = &codegen_context.module;
-    if let Some(function) = module.get_function("opal_array_drop_children") {
-        return Ok(function);
-    }
-
-    let context = codegen_context.context;
-    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
-    let i8_ptr_ptr_type = i8_ptr_type.ptr_type(AddressSpace::default());
-    let i8_ptr_ptr_ptr_type = i8_ptr_ptr_type.ptr_type(AddressSpace::default());
-    let size_t_ptr_type = context.i64_type().ptr_type(AddressSpace::default());
-    let function_type = context.void_type().fn_type(
-        &[
-            i8_ptr_type.into(),
-            i8_ptr_ptr_ptr_type.into(),
-            size_t_ptr_type.into(),
-            size_t_ptr_type.into(),
-        ],
-        false,
-    );
-    let function = module.add_function(
-        "opal_array_drop_children",
-        function_type,
-        Some(Linkage::Internal),
-    );
-    let entry = context.append_basic_block(function, "entry");
-    let current_block = codegen_context.builder.get_insert_block();
-    codegen_context.builder.position_at_end(entry);
-
-    let array_payload = function
-        .get_nth_param(0)
-        .expect("opal_array_drop_children should receive payload")
-        .into_pointer_value();
-    let stack = function
-        .get_nth_param(1)
-        .expect("opal_array_drop_children should receive stack")
-        .into_pointer_value();
-    let stack_top = function
-        .get_nth_param(2)
-        .expect("opal_array_drop_children should receive stack_top")
-        .into_pointer_value();
-    let stack_cap = function
-        .get_nth_param(3)
-        .expect("opal_array_drop_children should receive stack_cap")
-        .into_pointer_value();
-
-    let len_fn = declare_or_get_opal_array_len(codegen_context);
-    let data_fn = declare_or_get_opal_array_data(codegen_context);
-    let drop_child_fn = declare_or_get_opal_rc_drop_child(codegen_context);
-
-    let length_value = codegen_context
-        .builder
-        .build_call(len_fn, &[array_payload.into()], "array.drop.len")?
-        .try_as_basic_value()
-        .basic()
-        .expect("opal_array_len should return value")
-        .into_int_value();
-    let data_ptr = codegen_context
-        .builder
-        .build_call(
-            data_fn,
-            &[
-                array_payload.into(),
-                context.i64_type().const_int(8, false).into(),
-            ],
-            "array.drop.data",
-        )?
-        .try_as_basic_value()
-        .basic()
-        .expect("opal_array_data should return value")
-        .into_pointer_value();
-    let typed_data_ptr = codegen_context.builder.build_pointer_cast(
-        data_ptr,
-        i8_ptr_type.ptr_type(AddressSpace::default()),
-        "array.drop.typed.data",
-    )?;
-
-    let index_alloca = codegen_context
-        .builder
-        .build_alloca(context.i64_type(), "array.drop.index")?;
-    codegen_context
-        .builder
-        .build_store(index_alloca, context.i64_type().const_zero())?;
-
-    let loop_block = context.append_basic_block(function, "loop");
-    let body_block = context.append_basic_block(function, "body");
-    let exit_block = context.append_basic_block(function, "exit");
-    codegen_context
-        .builder
-        .build_unconditional_branch(loop_block)?;
-
-    codegen_context.builder.position_at_end(loop_block);
-    let index_value = codegen_context
-        .builder
-        .build_load(index_alloca, "array.drop.index.load")?
-        .into_int_value();
-    let should_continue = codegen_context.builder.build_int_compare(
-        IntPredicate::ULT,
-        index_value,
-        length_value,
-        "array.drop.cond",
-    )?;
-    codegen_context
-        .builder
-        .build_conditional_branch(should_continue, body_block, exit_block)?;
-
-    codegen_context.builder.position_at_end(body_block);
-    let element_slot = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            typed_data_ptr,
-            &[index_value],
-            "array.drop.slot",
-        )?
-    };
-    let child_value = codegen_context
-        .builder
-        .build_load(element_slot, "array.drop.child")?
-        .into_pointer_value();
-    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
-        drop_child_fn,
-        &[
-            child_value.into(),
-            stack.into(),
-            stack_top.into(),
-            stack_cap.into(),
-        ],
-        "array.drop.child.call",
-    )?;
-    let next_index = codegen_context.builder.build_int_add(
-        index_value,
-        context.i64_type().const_int(1, false),
-        "array.drop.next",
-    )?;
-    codegen_context
-        .builder
-        .build_store(index_alloca, next_index)?;
-    codegen_context
-        .builder
-        .build_unconditional_branch(loop_block)?;
-
-    codegen_context.builder.position_at_end(exit_block);
-    let _: inkwell::values::InstructionValue = codegen_context.builder.build_return(None)?;
-
-    if let Some(block) = current_block {
-        codegen_context.builder.position_at_end(block);
-    }
-
-    Ok(function)
 }
 
 pub(crate) fn declare_or_get_opal_rc_drop_child<'context>(
@@ -1612,6 +1548,9 @@ fn retain_rc_value_if_needed<'context>(
     element_core_type: &CoreType,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
+    if matches!(element_core_type, CoreType::String) {
+        return emit_string_retain(codegen_context, value, "array.string.retain");
+    }
     if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
@@ -1629,6 +1568,9 @@ fn release_rc_value_if_needed<'context>(
     element_core_type: &CoreType,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
+    if matches!(element_core_type, CoreType::String) {
+        return emit_string_release(codegen_context, value, "array.string.release");
+    }
     if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
@@ -1661,9 +1603,8 @@ pub(crate) fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
 }
 
 pub(crate) const fn requires_rc_runtime_hooks(element_core_type: &CoreType) -> bool {
-    // Runtime RC hooks currently operate on RC payload pointers (`opal_rc_inc/dec/drop_child`).
-    // Only nested arrays lower to that representation here; strings and nominal/generic values
-    // are not RC payload pointers and must not be passed to those hooks.
+    // Runtime RC child hooks currently operate on RC payload pointers (`opal_rc_drop_child`).
+    // Strings use string-specific retain/release hooks and therefore are intentionally excluded.
     matches!(element_core_type, CoreType::Array(_))
 }
 

@@ -98,6 +98,8 @@ fn compile_list_harness(
     compile_command
         .arg("-std=gnu11")
         .arg(format!("-I{}", repo_root.display()))
+        .arg(repo_root.join("runtime/opal_string.c"))
+        .arg(repo_root.join("runtime/opal_rc.c"))
         .arg(repo_root.join("runtime/opal_fs.c"))
         .arg(harness_c)
         .arg("-o")

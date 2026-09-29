@@ -10,6 +10,13 @@ extern uint64_t opal_runtime_string_index_span_len;
 extern const char* opal_runtime_string_index_source_path;
 extern const char* opal_runtime_string_index_source_text;
 
+char* opal_string_alloc(uint64_t size);
+char* opal_string_realloc(char* value, uint64_t size);
+char* opal_string_adopt(char* value);
+char* opal_string_retain(char* value);
+void opal_string_release(char* value);
+void opal_string_array_free(char** values);
+
 typedef struct { int8_t value;   const char* error; } ParseResultI8;
 typedef struct { int16_t value;  const char* error; } ParseResultI16;
 typedef struct { int32_t value;  const char* error; } ParseResultI32;

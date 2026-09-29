@@ -154,6 +154,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Algebraic data types: product types, sum types, enums, and recursive types
 - [x] Generic type syntax and selected generic surfaces such as `Weak<T>` and standard-library array helpers
 - [x] String interpolation with single-quoted strings such as `'Hello {name}'`
+- [x] Compiler-owned string value semantics for ordinary returns, parameters, product fields, variant payloads, field reads, and string arrays, so defensive copy helpers are not required for ownership safety
 - [x] Strings with `.length` and zero-based Unicode scalar access through fallible `.at(...)` reads such as `message.at(0)` and `message.at(message.length - 1)`, returning `string` values with no public `char` type
 - [x] Arrays with `.length`, fallible `.at(...)` reads, indexed assignment, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
 - [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
@@ -269,7 +270,9 @@ Generate Markdown docs from a source file:
 ./target/release/opalescent doc test-projects/hello-world/src/main.op
 ```
 
-## String access
+## String ownership and access
+
+Ordinary `string` values are compiler-owned values. Returning a string literal, returning a string parameter, storing a string in a product field or variant payload, reading a string field, and storing strings in arrays are safe without a defensive copy helper. The compiler/runtime retain, transfer, or release managed string storage as needed; static string literals are not freed as heap allocations.
 
 Public string access uses zero-based Unicode scalar positions through fallible `.at(...)` calls. `message.at(0)` returns a one-scalar `string` on success, and `message.at(message.length - 1)` returns the last scalar as another `string`. Opalescent does not expose a public `char` or `rune` type for this feature. New string helper functions such as `string_find_index_or`, `string_find_last_index_of_text`, `string_take_prefix`, `string_take_suffix`, and `string_extract_range` follow the same Unicode-scalar indexing model.
 

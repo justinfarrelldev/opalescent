@@ -56,6 +56,7 @@ pub(super) fn infer_core_type_from_expr<'context>(
                 CoreType::Array(alloc::boxed::Box::new(element_core))
             },
         ),
+        Expr::StringInterpolation { .. } => CoreType::String,
         Expr::Call {
             ref callee,
             ref args,

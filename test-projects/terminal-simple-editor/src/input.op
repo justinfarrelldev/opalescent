@@ -3,7 +3,6 @@ import delete_at_cursor, save_lines from ./buffer
 import line_length_at, clamp_column_to_line, move_left, move_right, move_up, move_down from ./buffer
 import editor_transition, with_status, with_command, with_mode_command_status from ./state
 import with_cursor_dirty_status, with_command_result, with_stopped_status from ./state
-import copy_text from ./text_helpers
 import type EditorMode, EditorCommand, EditorStatus, EditorTermination from ./editor.types
 import type EditorState, EditorTransition, CursorPosition from ./editor.types
 import type TerminalNamedKey from standard.terminal
@@ -38,13 +37,9 @@ public let update_command = f(command: EditorCommand, text: string): EditorComma
 ##
   Description: Builds an invalid named-key transition with a safe owned label.
 ##
-public let invalid_named_key_transition = f(state: EditorState): EditorTransition errors
-    StringRangeOutOfBoundsError,
-    AllocationFailureError
-=>
-    let key = propagate copy_text('named')
+public let invalid_named_key_transition = f(state: EditorState): EditorTransition =>
     let status: EditorStatus = new EditorStatus.InvalidKey:
-        key: key
+        key: 'named'
     return editor_transition(with_status(state, status), true)
 
 ##
@@ -54,7 +49,14 @@ public let execute_command = f(
     file_path_text: string,
     lines: string[],
     state: EditorState
-): EditorTransition errors FilesystemWriteErrors, AllocationFailureError =>
+): EditorTransition errors
+    AllocationFailureError,
+    FilesystemFullError,
+    InvalidPathError,
+    IsADirectoryError,
+    PermissionDeniedError,
+    WriteFailureError
+=>
     let command = state.command
     if command is EditorCommand.Write:
         propagate save_lines(file_path_text, lines)
@@ -266,11 +268,15 @@ public let apply_named_key = f(
     state: EditorState,
     named_key: TerminalNamedKey
 ): updated_lines: string[], transition: EditorTransition errors
-    FilesystemWriteErrors,
+    AllocationFailureError,
+    FilesystemFullError,
     IndexOutOfBoundsError,
+    InvalidPathError,
+    IsADirectoryError,
+    PermissionDeniedError,
     StringRangeOrderError,
     StringRangeOutOfBoundsError,
-    AllocationFailureError
+    WriteFailureError
 =>
     let mode = state.mode
     let current_cursor: CursorPosition = state.cursor
@@ -308,16 +314,16 @@ public let apply_named_key = f(
         if mode is EditorMode.Command:
             let next = with_command(state, new EditorCommand.None, new EditorStatus.CommandMode)
             return updated_lines: lines, transition: editor_transition(next, false)
-        return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state)
     if named_key is TerminalNamedKey.Delete:
         if mode is EditorMode.Insert:
             let updated_lines: delete_lines, updated_cursor: delete_cursor =
                 propagate delete_at_cursor(lines, current_cursor)
             return updated_lines: delete_lines,
                    transition: edit_transition(state, delete_cursor, new EditorStatus.Deleted)
-        return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state)
     if mode is EditorMode.Command:
-        return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
+        return updated_lines: lines, transition: invalid_named_key_transition(state)
     if named_key is TerminalNamedKey.ArrowLeft:
         let moved_cursor: CursorPosition = propagate move_left(lines, current_cursor)
         return updated_lines: lines,
@@ -347,4 +353,4 @@ public let apply_named_key = f(
             column: end_column
         return updated_lines: lines,
                transition: moved_transition(state, moved_cursor, new EditorStatus.LineEnd)
-    return updated_lines: lines, transition: propagate invalid_named_key_transition(state)
+    return updated_lines: lines, transition: invalid_named_key_transition(state)

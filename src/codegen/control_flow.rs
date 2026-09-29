@@ -12,6 +12,10 @@ extern crate alloc;
 use crate::ast::{Expr, LabeledValue, Stmt};
 use crate::codegen::binding_store::initialize_binding_value;
 use crate::codegen::context::CodegenContext;
+use crate::codegen::control_flow_return::{
+    collect_transferred_return_identifier_names, current_error_return_type,
+    extract_error_variant_name, extract_guard_wrapper_error_variant,
+};
 use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::{
     build_error_aggregate_for_return_type, build_success_aggregate, build_void_error_aggregate,
@@ -23,6 +27,7 @@ use crate::codegen::scope_tracker::{
     cleanup_scopes_to_depth_with_malloc_string_release,
 };
 use crate::codegen::statements::{codegen_statement, unwind_scope_without_cleanup};
+use crate::codegen::string_ownership::retain_string_return_value_if_needed;
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
 use alloc::format;
@@ -729,6 +734,15 @@ pub fn codegen_return_statement<'context>(
             let _ret = codegen_context.builder.build_return(None)?;
             return Ok(());
         }
+        if expected_return_types.first() == Some(&CoreType::String) {
+            retain_string_return_value_if_needed(
+                codegen_context,
+                env,
+                &values[0].value,
+                value,
+                &transferred_names,
+            )?;
+        }
         cleanup_return_scopes_preserving_codegen_env(
             codegen_context,
             env,
@@ -749,6 +763,17 @@ pub fn codegen_return_statement<'context>(
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
+    for (index, value) in lowered.iter().enumerate() {
+        if expected_return_types.get(index) == Some(&CoreType::String) {
+            retain_string_return_value_if_needed(
+                codegen_context,
+                env,
+                &values[index].value,
+                *value,
+                &transferred_names,
+            )?;
+        }
+    }
     let aggregate_type = codegen_context.context.struct_type(
         lowered
             .iter()
@@ -859,6 +884,18 @@ fn codegen_error_aware_return_statement<'context>(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    for (index, value) in lowered.iter().enumerate() {
+        if expected_success_types.get(index) == Some(&CoreType::String) {
+            retain_string_return_value_if_needed(
+                codegen_context,
+                env,
+                &values[index].value,
+                *value,
+                &transferred_names,
+            )?;
+        }
+    }
+
     let success_value = if lowered.len() == 1 {
         let value = lowered[0];
         if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
@@ -901,90 +938,6 @@ fn codegen_error_aware_return_statement<'context>(
     )?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
-}
-
-fn collect_transferred_return_identifier_names(values: &[LabeledValue]) -> Vec<String> {
-    values
-        .iter()
-        .filter(|value| value.label != "err")
-        .filter_map(|value| match &value.value {
-            Expr::Identifier { name, .. } => Some(name.clone()),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-}
-
-fn current_error_return_type<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> Result<Option<StructType<'context>>, CodegenError> {
-    let function = current_function(codegen_context)?;
-    let Some(return_type) = function.get_type().get_return_type() else {
-        return Ok(None);
-    };
-    if !return_type.is_struct_type() {
-        return Ok(None);
-    }
-
-    let struct_type = return_type.into_struct_type();
-    if is_error_abi_struct_type(struct_type) {
-        Ok(Some(struct_type))
-    } else {
-        Ok(None)
-    }
-}
-
-fn extract_guard_wrapper_error_variant<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    expr: &Expr,
-) -> Result<Option<String>, CodegenError> {
-    let Expr::Constructor { callee, fields, .. } = expr else {
-        return Ok(None);
-    };
-
-    let Some(source_field) = fields.iter().find(|field| field.name == "source") else {
-        return Ok(None);
-    };
-
-    let Expr::Identifier { name, .. } = &source_field.value else {
-        return Ok(None);
-    };
-
-    let Some(active_guard_error_slot) = env.current_guard_error_slot() else {
-        return Ok(None);
-    };
-    let Some(source_binding) = env.variables.get(name) else {
-        return Ok(None);
-    };
-    if source_binding.alloca != active_guard_error_slot {
-        return Ok(None);
-    }
-
-    for field in fields {
-        if field.name == "source" {
-            continue;
-        }
-        let _unused: inkwell::values::BasicValueEnum<'_> =
-            codegen_expression(codegen_context, env, &field.value, None)?;
-    }
-
-    Ok(Some(extract_error_variant_name(callee.as_ref())?))
-}
-
-fn extract_error_variant_name(expr: &Expr) -> Result<String, CodegenError> {
-    match expr {
-        Expr::Identifier { name, .. } => Ok(name.clone()),
-        Expr::Member { member, .. } => Ok(member.clone()),
-        Expr::Constructor { fields, .. } if !fields.is_empty() => {
-            Err(CodegenError::new(String::from(
-                "payload-bearing error variants not yet supported in user-defined functions",
-            )))
-        }
-        Expr::Constructor { callee, .. } => extract_error_variant_name(callee.as_ref()),
-        _ => Err(CodegenError::new(String::from(
-            "error returns must use `return err: VariantName`",
-        ))),
-    }
 }
 
 #[doc = "Extract value form from statement for if-expression lowering."]

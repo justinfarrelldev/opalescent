@@ -4,6 +4,12 @@ use crate::ast::{Expr, StringPart};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression};
+use crate::codegen::expressions_array::infer_expression_core_type;
+use crate::codegen::scope_tracker::runtime_returns_owned_string;
+use crate::codegen::string_ownership::{
+    declare_or_get_opal_string_alloc, declare_or_get_opal_string_release,
+};
+use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
@@ -79,12 +85,12 @@ pub fn codegen_string_interpolation<'context>(
     )?;
 
     if !temporary_string_allocations.is_empty() {
-        let free_function = ensure_free_function(codegen_context);
+        let release_function = declare_or_get_opal_string_release(codegen_context);
         for temporary_string_ptr in temporary_string_allocations {
-            let _free_call = codegen_context.builder.build_call(
-                free_function,
+            let _release_call = codegen_context.builder.build_call(
+                release_function,
                 &[temporary_string_ptr.into()],
-                &env.next_name("interp.free"),
+                &env.next_name("interp.release"),
             )?;
         }
     }
@@ -147,17 +153,17 @@ fn allocate_interpolation_buffer<'context>(
         codegen_context.context.i64_type().const_int(1_u64, false),
         &env.next_name("interp.snprintf.size_plus_nul"),
     )?;
-    let malloc_fn = ensure_malloc_function(codegen_context);
+    let alloc_fn = declare_or_get_opal_string_alloc(codegen_context);
     let buffer_ptr: PointerValue<'context> = codegen_context
         .builder
         .build_call(
-            malloc_fn,
+            alloc_fn,
             &[buffer_size.into()],
             &env.next_name("interp.buf"),
         )?
         .try_as_basic_value()
         .basic()
-        .ok_or_else(|| CodegenError::new("malloc returned void".to_owned()))?
+        .ok_or_else(|| CodegenError::new("opal_string_alloc returned void".to_owned()))?
         .into_pointer_value();
     Ok((buffer_ptr, buffer_size))
 }
@@ -199,8 +205,8 @@ fn lower_interpolation_argument<'context>(
 ) -> Result<(BasicValueEnum<'context>, Option<PointerValue<'context>>), CodegenError> {
     if value.is_pointer_value() {
         format_text.push_str("%s");
-        let temporary_allocation =
-            should_free_interpolation_pointer_argument(expr).then(|| value.into_pointer_value());
+        let temporary_allocation = should_release_interpolation_pointer_argument(env, expr)
+            .then(|| value.into_pointer_value());
         return Ok((value, temporary_allocation));
     }
 
@@ -259,17 +265,64 @@ fn lower_interpolation_argument<'context>(
     )))
 }
 
-/// Returns whether a pointer interpolation argument is a temporary allocation
-/// that should be released with `free` immediately after `snprintf` use.
-fn should_free_interpolation_pointer_argument(expr: &Expr) -> bool {
+/// Returns whether a pointer interpolation argument is a temporary owned string
+/// that should be released immediately after `snprintf` use.
+fn should_release_interpolation_pointer_argument(env: &CodegenEnv<'_>, expr: &Expr) -> bool {
     match *expr {
         Expr::StringInterpolation { .. } => true,
-        Expr::Call { ref callee, .. } => {
-            if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
-                return name.ends_with("_to_string");
+        Expr::Call { .. } if expression_is_string(env, expr) => true,
+        Expr::Call { ref callee, .. } => match *callee.as_ref() {
+            Expr::Identifier { ref name, .. } => {
+                let runtime_name = env
+                    .imported_functions
+                    .get(name.as_str())
+                    .map_or(name.as_str(), String::as_str);
+                name.ends_with("_to_string")
+                    || runtime_returns_owned_string(runtime_name)
+                    || env
+                        .owned_string_functions
+                        .get(name)
+                        .copied()
+                        .unwrap_or(false)
             }
-            false
+            Expr::Member {
+                ref object,
+                ref member,
+                ..
+            } if member == "at" || member == "pop" => {
+                expression_yields_owned_string_value(env, object.as_ref())
+            }
+            _ => false,
+        },
+        Expr::Index { ref object, .. } => {
+            expression_yields_owned_string_value(env, object.as_ref())
         }
+        Expr::Propagate { ref call, .. } => {
+            should_release_interpolation_pointer_argument(env, call.as_ref())
+        }
+        Expr::Parenthesized { ref expr, .. } => {
+            should_release_interpolation_pointer_argument(env, expr.as_ref())
+        }
+        Expr::Constrain { ref value, .. } => {
+            should_release_interpolation_pointer_argument(env, value.as_ref())
+        }
+        _ => false,
+    }
+}
+
+/// Determine whether an interpolation argument has string type.
+fn expression_is_string(env: &CodegenEnv<'_>, expr: &Expr) -> bool {
+    matches!(
+        infer_expression_core_type(env, expr),
+        Some(CoreType::String)
+    )
+}
+
+/// Determine whether an expression produces an owned string or string container.
+fn expression_yields_owned_string_value(env: &CodegenEnv<'_>, expr: &Expr) -> bool {
+    match infer_expression_core_type(env, expr) {
+        Some(CoreType::String) => true,
+        Some(CoreType::Array(element_type)) => element_type.as_ref() == &CoreType::String,
         _ => false,
     }
 }
@@ -293,44 +346,6 @@ fn ensure_snprintf_function<'context>(
             codegen_context
                 .module
                 .add_function("snprintf", snprintf_type, None)
-        },
-        |existing| existing,
-    )
-}
-
-/// Declares or retrieves the `malloc` external function declaration from the LLVM module.
-fn ensure_malloc_function<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> FunctionValue<'context> {
-    let i8_ptr_type = codegen_context
-        .context
-        .i8_type()
-        .ptr_type(AddressSpace::default());
-    let i64_type = codegen_context.context.i64_type();
-    codegen_context.module.get_function("malloc").map_or_else(
-        || {
-            let malloc_type = i8_ptr_type.fn_type(&[i64_type.into()], false);
-            codegen_context
-                .module
-                .add_function("malloc", malloc_type, None)
-        },
-        |existing| existing,
-    )
-}
-
-/// Declares or retrieves the `free` external function declaration from the LLVM module.
-fn ensure_free_function<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> FunctionValue<'context> {
-    let i8_ptr_type = codegen_context
-        .context
-        .i8_type()
-        .ptr_type(AddressSpace::default());
-    let void_type = codegen_context.context.void_type();
-    codegen_context.module.get_function("free").map_or_else(
-        || {
-            let free_type = void_type.fn_type(&[i8_ptr_type.into()], false);
-            codegen_context.module.add_function("free", free_type, None)
         },
         |existing| existing,
     )

@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+
+extern char* opal_string_alloc(uint64_t size);
+
 #if !OPAL_WINDOWS
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -650,7 +653,7 @@ static char *duplicate_without_trailing_newline(const char *source) {
   }
 
   size_t trimmed_len = strlen(raw);
-  char *out = (char *)malloc(trimmed_len + 1);
+  char *out = opal_string_alloc(trimmed_len + 1);
   if (!out) {
     fprintf(stderr, "Runtime error: out of memory\n");
     exit(1);
@@ -1255,7 +1258,7 @@ static int opal_terminal_fake_backend_enabled(void) {
 static char *opal_terminal_duplicate_cstr(const char *text) {
   const char *safe_text = text ? text : "";
   size_t length = strlen(safe_text);
-  char *copy = (char *)malloc(length + 1u);
+  char *copy = opal_string_alloc(length + 1u);
   if (copy == NULL) {
     return NULL;
   }

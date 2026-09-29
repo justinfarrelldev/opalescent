@@ -179,6 +179,15 @@ let text = 'hello'
 print('length: {text.length}')
 ```
 
+Ordinary `string` values are owned by the compiler/runtime. Returning a literal, returning a parameter, storing text in a product field or variant payload, reading a string field, and putting strings in arrays do not require a defensive copy helper:
+
+```opal
+let echo = f(text: string): string =>
+    return text
+```
+
+Static string literals are safe to return and store; heap strings are retained or released at ownership boundaries.
+
 You can also read a string by zero-based Unicode scalar position with fallible `.at(...)`. The result is still a `string`, so there is no separate public `char` type:
 
 ```opal

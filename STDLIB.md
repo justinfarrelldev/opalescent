@@ -4,6 +4,7 @@ This is the user-facing reference for functions imported from `standard` plus th
 
 ## Compatibility notes
 
+- Ordinary `string` values are compiler-owned: returning, storing, reading fields, and using string arrays should not require defensive copy helpers for ownership safety.
 - Public string indexing and range-style string helpers use zero-based Unicode scalar positions, not byte offsets.
 - `string_is_blank` and `string_trim_whitespace` use the Unicode `White_Space` property for the Unicode version bundled with this Opalescent release.
 - `string_split_lines` recognizes `\n`, `\r\n`, and bare `\r` as line terminators and does not create an extra trailing empty line for a final terminator.

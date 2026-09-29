@@ -12,6 +12,7 @@ use crate::codegen::binding_store::{binding_requires_rc_cleanup, release_binding
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
+use crate::codegen::expressions_array::infer_expression_core_type;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
@@ -261,9 +262,6 @@ impl<'context> CodegenEnv<'context> {
         let _removed_indices = self.variable_field_indices.remove(name);
         let _removed_aliases = self.variable_field_aliases.remove(name);
 
-        if matches!(binding.core_type, CoreType::String) {
-            return Ok(());
-        }
         if !binding_requires_rc_cleanup(&binding.core_type) {
             return Ok(());
         }
@@ -489,6 +487,9 @@ pub(crate) fn expr_requires_malloc_string_cleanup<'context>(
         &Expr::Call { ref callee, .. } => {
             call_returns_owned_string(codegen_context, env, callee.as_ref())
         }
+        &Expr::Index { ref object, .. } => {
+            expression_yields_owned_string_value(env, object.as_ref())
+        }
         &Expr::BorrowArgument { ref target, .. } => expr_requires_malloc_string_cleanup(
             codegen_context,
             env,
@@ -552,31 +553,54 @@ fn call_returns_owned_string<'context>(
     env: &CodegenEnv<'context>,
     callee: &Expr,
 ) -> bool {
-    let &Expr::Identifier { ref name, .. } = callee else {
-        return false;
-    };
-
-    runtime_returns_owned_string(name)
-        || env
-            .imported_functions
-            .get(name)
-            .is_some_and(|runtime_name| runtime_returns_owned_string(runtime_name.as_str()))
-        || env
-            .owned_string_functions
-            .get(name)
-            .copied()
-            .unwrap_or(false)
+    match *callee {
+        Expr::Identifier { ref name, .. } => {
+            runtime_returns_owned_string(name)
+                || env
+                    .imported_functions
+                    .get(name)
+                    .is_some_and(|runtime_name| runtime_returns_owned_string(runtime_name.as_str()))
+                || env
+                    .owned_string_functions
+                    .get(name)
+                    .copied()
+                    .unwrap_or(false)
+        }
+        Expr::Member {
+            ref object,
+            ref member,
+            ..
+        } if member == "at" => expression_yields_owned_string_value(env, object.as_ref()),
+        _ => false,
+    }
 }
 
-fn runtime_returns_owned_string(name: &str) -> bool {
+fn expression_yields_owned_string_value(env: &CodegenEnv<'_>, expr: &Expr) -> bool {
+    match infer_expression_core_type(env, expr) {
+        Some(CoreType::String) => true,
+        Some(CoreType::Array(element_type)) => element_type.as_ref() == &CoreType::String,
+        _ => false,
+    }
+}
+
+pub(crate) fn runtime_returns_owned_string(name: &str) -> bool {
     matches!(
         name,
         "string_join"
+            | "string_trim_whitespace"
+            | "string_take_prefix"
+            | "string_take_suffix"
+            | "string_extract_range"
+            | "string_insert_at"
+            | "string_delete_range"
+            | "string_replace_range"
+            | "terminal_text_clip_to_cells"
             | "string_builder_finish"
             | "take_input"
             | "bytes_to_hex"
             | "path_file_name"
             | "path_file_extension"
+            | "path_to_string"
             | "read_text_sync"
             | "read_first_line_sync"
             | "get_environment_variable"
@@ -765,126 +789,13 @@ pub(crate) fn mark_binding_malloc_string_cleanup(env: &mut CodegenEnv<'_>, bindi
     );
 }
 
-fn collect_malloc_string_cleanup_bindings(
-    env: &CodegenEnv<'_>,
-    target_depth: usize,
-    transferred_names: &[String],
-) -> Vec<String> {
-    let mut bindings = Vec::new();
-    for scope_bindings in env.scope_stack.iter().skip(target_depth) {
-        for binding_name in scope_bindings {
-            if transferred_names.iter().any(|name| name == binding_name) {
-                continue;
-            }
-            if env
-                .variable_field_aliases
-                .get(binding_name)
-                .and_then(|metadata| metadata.get(MALLOC_STRING_CLEANUP_KEY))
-                .is_some_and(|value| value == MALLOC_STRING_CLEANUP_VALUE)
-            {
-                bindings.push(binding_name.clone());
-            }
-        }
-    }
-    bindings
-}
-
-fn release_malloc_string_binding_value<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    binding_name: &str,
-) -> Result<(), CodegenError> {
-    let Some(binding) = env.variables.get(binding_name).cloned() else {
-        return Ok(());
-    };
-    let loaded_value = codegen_context.builder.build_load(
-        binding.alloca,
-        env.next_name("scope.release.malloc_string").as_str(),
-    )?;
-    if !loaded_value.is_pointer_value() {
-        return Ok(());
-    }
-
-    let i32_type = codegen_context.context.i32_type();
-    let note_free_fn_type = codegen_context
-        .context
-        .void_type()
-        .fn_type(&[i32_type.into()], false);
-    let note_free_fn = codegen_context
-        .module
-        .get_function("opal_rc_debug_note_free")
-        .unwrap_or_else(|| {
-            codegen_context
-                .module
-                .add_function("opal_rc_debug_note_free", note_free_fn_type, None)
-        });
-    let _note_free = codegen_context.builder.build_call(
-        note_free_fn,
-        &[i32_type.const_int(1, false).into()],
-        env.next_name("scope.release.note_free").as_str(),
-    )?;
-
-    let i8_ptr = codegen_context
-        .context
-        .i8_type()
-        .ptr_type(inkwell::AddressSpace::default());
-    let free_fn_type = codegen_context
-        .context
-        .void_type()
-        .fn_type(&[i8_ptr.into()], false);
-    let free_fn = codegen_context
-        .module
-        .get_function("free")
-        .unwrap_or_else(|| {
-            codegen_context
-                .module
-                .add_function("free", free_fn_type, None)
-        });
-    let _free = codegen_context.builder.build_call(
-        free_fn,
-        &[loaded_value.into_pointer_value().into()],
-        env.next_name("scope.release.free").as_str(),
-    )?;
-    Ok(())
-}
-
-fn clear_binding_cleanup_metadata(env: &mut CodegenEnv<'_>, binding_name: &str) {
-    let remove_entry = env
-        .variable_field_aliases
-        .get_mut(binding_name)
-        .map_or(false, |metadata| {
-            metadata.remove(MALLOC_STRING_CLEANUP_KEY);
-            metadata.is_empty()
-        });
-    if remove_entry {
-        let _removed_aliases = env.variable_field_aliases.remove(binding_name);
-    }
-}
-
 pub(crate) fn cleanup_scopes_to_depth_with_malloc_string_release<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     target_depth: usize,
     transferred_names: &[String],
 ) -> Result<(), CodegenError> {
-    let malloc_string_bindings =
-        collect_malloc_string_cleanup_bindings(env, target_depth, transferred_names);
-    for binding_name in &malloc_string_bindings {
-        release_malloc_string_binding_value(codegen_context, env, binding_name.as_str())?;
-    }
-
-    let mut cleanup_skips = transferred_names.to_vec();
-    cleanup_skips.extend(malloc_string_bindings.iter().cloned());
-    let cleanup_result =
-        env.cleanup_scopes_to_depth(codegen_context, target_depth, cleanup_skips.as_slice());
-    if cleanup_result.is_ok() {
-        for binding_name in malloc_string_bindings {
-            clear_binding_cleanup_metadata(env, binding_name.as_str());
-            let _removed_binding = env.variables.remove(binding_name.as_str());
-            let _removed_indices = env.variable_field_indices.remove(binding_name.as_str());
-        }
-    }
-    cleanup_result
+    env.cleanup_scopes_to_depth(codegen_context, target_depth, transferred_names)
 }
 
 pub(crate) fn cleanup_scopes_to_depth_with_error_slot<'context>(
@@ -894,28 +805,12 @@ pub(crate) fn cleanup_scopes_to_depth_with_error_slot<'context>(
     transferred_names: &[String],
     primary_cleanup_error: Option<inkwell::values::PointerValue<'context>>,
 ) -> Result<(), CodegenError> {
-    let malloc_string_bindings =
-        collect_malloc_string_cleanup_bindings(env, target_depth, transferred_names);
-    for binding_name in &malloc_string_bindings {
-        release_malloc_string_binding_value(codegen_context, env, binding_name.as_str())?;
-    }
-
-    let mut cleanup_skips = transferred_names.to_vec();
-    cleanup_skips.extend(malloc_string_bindings.iter().cloned());
-    let cleanup_result = env.cleanup_scopes_to_depth_with_error_slot(
+    env.cleanup_scopes_to_depth_with_error_slot(
         codegen_context,
         target_depth,
-        cleanup_skips.as_slice(),
+        transferred_names,
         primary_cleanup_error,
-    );
-    if cleanup_result.is_ok() {
-        for binding_name in malloc_string_bindings {
-            clear_binding_cleanup_metadata(env, binding_name.as_str());
-            let _removed_binding = env.variables.remove(binding_name.as_str());
-            let _removed_indices = env.variable_field_indices.remove(binding_name.as_str());
-        }
-    }
-    cleanup_result
+    )
 }
 
 pub(crate) fn cleanup_scopes_to_depth_preserving_codegen_env<'context>(

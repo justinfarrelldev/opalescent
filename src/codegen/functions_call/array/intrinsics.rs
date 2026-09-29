@@ -25,6 +25,7 @@ use crate::codegen::expressions_array::{
     infer_expression_core_type, load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::emit_string_release;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
@@ -1231,7 +1232,9 @@ fn release_array_live_elements_if_needed<'context>(
     live_length: inkwell::values::IntValue<'context>,
     operation: &str,
 ) -> Result<(), CodegenError> {
-    if !requires_rc_runtime_hooks(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type)
+        && !matches!(element_core_type, CoreType::String)
+    {
         return Ok(());
     }
 
@@ -1291,8 +1294,17 @@ fn release_array_live_elements_if_needed<'context>(
         slot_ptr,
         &env.next_name(format!("{operation}.slot.load").as_str()),
     )?;
-    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
-    emitter.emit_dec(slot_value.into_pointer_value())?;
+    if matches!(element_core_type, CoreType::String) {
+        emit_string_release(
+            codegen_context,
+            slot_value,
+            env.next_name(format!("{operation}.string.release").as_str())
+                .as_str(),
+        )?;
+    } else {
+        let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+        emitter.emit_dec(slot_value.into_pointer_value())?;
+    }
     let next_index = codegen_context.builder.build_int_add(
         index_value,
         codegen_context.context.i64_type().const_int(1, false),

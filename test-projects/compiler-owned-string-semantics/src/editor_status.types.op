@@ -1,0 +1,15 @@
+##
+  Description: Status variants used by compiler-owned string ownership fixtures.
+##
+public type EditorStatus:
+    Ok
+    InvalidKey:
+        key: string
+    LiteralKey:
+        key: string
+
+##
+  Description: Product wrapper used to verify string field ownership.
+##
+public type StringBox:
+    value: string

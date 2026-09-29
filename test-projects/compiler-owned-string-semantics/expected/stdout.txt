@@ -1,0 +1,9 @@
+literal=ok
+original=dynamic
+echoed=dynamic
+invalid=dynamic
+literal_status=literal-key
+box=dynamic
+array=array,ok
+payload=payload
+product=product

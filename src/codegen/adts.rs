@@ -19,6 +19,7 @@ use crate::codegen::expressions_array::{
     load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::string_ownership::{emit_string_release, retain_string_for_expr_boundary};
 use crate::codegen::types::{core_type_to_llvm, integer_literal_bits};
 use crate::type_system::fallible_constructors::{
     CanonicalTypeIdentity, FallibleConstructorEntry, lookup_fallible_constructor,
@@ -696,7 +697,6 @@ fn codegen_registered_fallible_constructor<'context>(
     for field in fields {
         field_map.insert(field.name.as_str(), &field.value);
     }
-
     let mut ordered_args = Vec::with_capacity(entry.required_fields.len());
     for required_field in &entry.required_fields {
         let Some(field_expr) = field_map.get(required_field.name) else {
@@ -713,13 +713,11 @@ fn codegen_registered_fallible_constructor<'context>(
         )?;
         ordered_args.push(lowered_field_value.into());
     }
-
     let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
         codegen_context,
         entry.runtime_symbol,
     )
     .ok_or_else(|| CodegenError::new(format!("{} declaration missing", entry.runtime_symbol)))?;
-
     let call_site = codegen_context.builder.build_call(
         runtime_function,
         ordered_args.as_slice(),
@@ -731,10 +729,8 @@ fn codegen_registered_fallible_constructor<'context>(
             entry.runtime_symbol
         )));
     };
-
     Ok(fallible_constructor_value)
 }
-
 #[doc = "Lower product constructors to plain LLVM struct values or heap-backed nominal payloads."]
 #[expect(
     clippy::too_many_lines,
@@ -775,12 +771,12 @@ pub(crate) fn codegen_product_constructor<'context>(
                         "missing field '{field_name}' for constructor '{name}'"
                     ))
                 })?;
-                lowered_fields.push(codegen_expression(
-                    codegen_context,
-                    env,
-                    field_expr,
-                    Some(field_type),
-                )?);
+                let lowered =
+                    codegen_expression(codegen_context, env, field_expr, Some(field_type))?;
+                if field_type == &CoreType::String {
+                    retain_string_for_expr_boundary(codegen_context, env, field_expr, lowered)?;
+                }
+                lowered_fields.push(lowered);
             }
             let payload_size = struct_type.size_of().ok_or_else(|| {
                 CodegenError::new(format!(
@@ -789,10 +785,9 @@ pub(crate) fn codegen_product_constructor<'context>(
             })?;
             let nominal_core_type =
                 expected_type.expect("nominal constructor expected type should exist");
-            let drop_children_fn = if field_layout
-                .iter()
-                .any(|&(_, ref field_type)| requires_rc_runtime_hooks(field_type))
-            {
+            let drop_children_fn = if field_layout.iter().any(|&(_, ref field_type)| {
+                requires_rc_runtime_hooks(field_type) || field_type == &CoreType::String
+            }) {
                 let callback = declare_or_get_nominal_drop_children_fn(
                     codegen_context,
                     nominal_core_type,
@@ -840,7 +835,6 @@ pub(crate) fn codegen_product_constructor<'context>(
             return Ok(payload_ptr.as_basic_value_enum());
         }
     }
-
     let mut lowered_fields = Vec::new();
     for field in fields {
         lowered_fields.push(codegen_expression(
@@ -850,7 +844,6 @@ pub(crate) fn codegen_product_constructor<'context>(
             None,
         )?);
     }
-
     let field_types = lowered_fields
         .iter()
         .map(BasicValueEnum::get_type)
@@ -968,7 +961,7 @@ pub(crate) fn declare_or_get_nominal_drop_children_fn<'context>(
     )?;
     let drop_child_fn = declare_or_get_opal_rc_drop_child(codegen_context);
     for (index, &(_, ref field_type)) in field_layout.iter().enumerate() {
-        if !requires_rc_runtime_hooks(field_type) {
+        if !requires_rc_runtime_hooks(field_type) && field_type != &CoreType::String {
             continue;
         }
         let converted_index = u64::try_from(index)
@@ -988,6 +981,14 @@ pub(crate) fn declare_or_get_nominal_drop_children_fn<'context>(
             .builder
             .build_load(field_ptr, "nominal.drop.field.load")?
             .into_pointer_value();
+        if field_type == &CoreType::String {
+            emit_string_release(
+                codegen_context,
+                field_value.as_basic_value_enum(),
+                "nominal.drop.string.release",
+            )?;
+            continue;
+        }
         let child_ptr = codegen_context.builder.build_pointer_cast(
             field_value,
             i8_ptr_type,
