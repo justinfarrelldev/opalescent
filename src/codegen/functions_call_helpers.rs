@@ -13,8 +13,9 @@ use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::IntPredicate;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
-use inkwell::values::{FunctionValue, PointerValue};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 
 #[doc = "Emit early-return default for propagate error path."]
 pub(super) fn emit_function_default_return<'context>(
@@ -129,6 +130,39 @@ pub(super) fn caller_returns_error_aggregate(function: FunctionValue<'_>) -> boo
         })
 }
 
+pub(super) fn expected_argument_core_type<'context>(
+    env: &CodegenEnv<'context>,
+    callee: &Expr,
+    function: FunctionValue<'context>,
+    arg_index: usize,
+) -> Option<CoreType> {
+    if let Expr::Identifier { ref name, .. } = *callee {
+        if name == "print" {
+            return None;
+        }
+        if let Some(&CoreType::Function { ref parameters, .. }) = env.imported_signatures.get(name)
+        {
+            if let Some(parameter) = parameters.get(arg_index) {
+                return Some(parameter.clone());
+            }
+        }
+    }
+
+    let uses_sret =
+        uses_aggregate_result_dispatch(function) && function.get_type().get_return_type().is_none();
+    let llvm_arg_index = if uses_sret {
+        arg_index.saturating_add(1)
+    } else {
+        arg_index
+    };
+    function
+        .get_type()
+        .get_param_types()
+        .get(llvm_arg_index)
+        .copied()
+        .map(llvm_metadata_type_to_core_type)
+}
+
 #[doc = "Approximate core type mapping from LLVM basic value type."]
 pub(super) fn llvm_basic_type_to_core_type(
     llvm_type: inkwell::types::BasicTypeEnum<'_>,
@@ -182,6 +216,30 @@ pub(super) fn llvm_metadata_type_to_core_type(
         }
         BasicMetadataTypeEnum::MetadataType(_) => CoreType::Unit,
     }
+}
+
+#[doc = "Normalize guard expression success values to the semantic binding type."]
+pub(super) fn normalize_guard_success_value_for_core_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    value: BasicValueEnum<'context>,
+    core_type: &CoreType,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if matches!(core_type, CoreType::Boolean) && value.is_int_value() {
+        let int_value = value.into_int_value();
+        if int_value.get_type().get_bit_width() != 1_u32 {
+            return Ok(codegen_context
+                .builder
+                .build_int_compare(
+                    IntPredicate::NE,
+                    int_value,
+                    int_value.get_type().const_zero(),
+                    env.next_name("guard.expr.bool").as_str(),
+                )?
+                .as_basic_value_enum());
+        }
+    }
+    Ok(value)
 }
 
 #[doc = "Infer semantic core type for guard success binding from callee signature when possible."]

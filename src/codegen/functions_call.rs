@@ -56,8 +56,9 @@ use self::error_propagation::{
     propagate_error_value_return,
 };
 use self::functions_call_helpers::{
-    caller_returns_error_aggregate, current_function, infer_guard_binding_core_type,
-    llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
+    caller_returns_error_aggregate, current_function, expected_argument_core_type,
+    infer_guard_binding_core_type, normalize_guard_success_value_for_core_type,
+    uses_aggregate_result_dispatch,
 };
 use self::string_array_calls::{
     extract_error_abi_success_value, maybe_lower_specialized_string_array_call,
@@ -128,39 +129,6 @@ fn lower_array_argument<'context>(
         "call.arg",
     )?;
     Ok((data_ptr, length_value))
-}
-
-fn expected_argument_core_type<'context>(
-    env: &CodegenEnv<'context>,
-    callee: &Expr,
-    function: FunctionValue<'context>,
-    arg_index: usize,
-) -> Option<CoreType> {
-    if let Expr::Identifier { ref name, .. } = *callee {
-        if name == "print" {
-            return None;
-        }
-        if let Some(&CoreType::Function { ref parameters, .. }) = env.imported_signatures.get(name)
-        {
-            if let Some(parameter) = parameters.get(arg_index) {
-                return Some(parameter.clone());
-            }
-        }
-    }
-
-    let uses_sret =
-        uses_aggregate_result_dispatch(function) && function.get_type().get_return_type().is_none();
-    let llvm_arg_index = if uses_sret {
-        arg_index.saturating_add(1)
-    } else {
-        arg_index
-    };
-    function
-        .get_type()
-        .get_param_types()
-        .get(llvm_arg_index)
-        .copied()
-        .map(llvm_metadata_type_to_core_type)
 }
 
 #[doc = "Lower a function call expression."]
@@ -842,17 +810,24 @@ pub fn codegen_guard_expression<'context>(
                     )));
                 };
 
+                let binding_core_type = expected_type.cloned().unwrap_or_else(|| {
+                    infer_guard_binding_core_type(env, guarded_expr, success_value.get_type())
+                });
+                let normalized_success_value = normalize_guard_success_value_for_core_type(
+                    codegen_context,
+                    env,
+                    success_value,
+                    &binding_core_type,
+                )?;
                 let binding_alloca = codegen_context.builder.build_alloca(
-                    success_value.get_type(),
+                    normalized_success_value.get_type(),
                     env.next_name("guard.bind").as_str(),
                 )?;
-                let binding_core_type =
-                    infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
                 env.variables.insert(
                     binding_name.to_owned(),
                     VariableBinding {
                         alloca: binding_alloca,
-                        core_type: binding_core_type,
+                        core_type: binding_core_type.clone(),
                         length: None,
                         capacity: None,
                         is_mutable: false,
@@ -906,7 +881,7 @@ pub fn codegen_guard_expression<'context>(
                 }
                 codegen_context
                     .builder
-                    .build_store(binding_alloca, success_value)?;
+                    .build_store(binding_alloca, normalized_success_value)?;
                 let success_end = codegen_context.builder.get_insert_block().ok_or_else(|| {
                     CodegenError::new(String::from("guard expression success block missing"))
                 })?;
@@ -927,7 +902,13 @@ pub fn codegen_guard_expression<'context>(
                         transfer_variant.as_str(),
                     )?;
                 }
-                let else_value = codegen_expression(codegen_context, env, expr, expected_type)?;
+                let raw_else_value = codegen_expression(codegen_context, env, expr, expected_type)?;
+                let else_value = normalize_guard_success_value_for_core_type(
+                    codegen_context,
+                    env,
+                    raw_else_value,
+                    &binding_core_type,
+                )?;
                 let else_end = codegen_context.builder.get_insert_block().ok_or_else(|| {
                     CodegenError::new(String::from("guard expression else block missing"))
                 })?;
@@ -937,10 +918,13 @@ pub fn codegen_guard_expression<'context>(
 
                 codegen_context.builder.position_at_end(merge_block);
                 let phi = codegen_context.builder.build_phi(
-                    success_value.get_type(),
+                    normalized_success_value.get_type(),
                     env.next_name("guard.expr.phi").as_str(),
                 )?;
-                phi.add_incoming(&[(&success_value, success_end), (&else_value, else_end)]);
+                phi.add_incoming(&[
+                    (&normalized_success_value, success_end),
+                    (&else_value, else_end),
+                ]);
                 return Ok(phi.as_basic_value());
             }
         }

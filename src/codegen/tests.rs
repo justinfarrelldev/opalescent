@@ -2253,6 +2253,57 @@ entry main = f(): void =>
 }
 
 #[test]
+fn test_guard_expression_coerces_runtime_boolean_success_to_i1() {
+    let source = "
+import environment_variable_exists from process
+
+##
+    Description: Entry function validates process boolean guard expression lowering
+##
+let guard_boolean_expression_worker = f(): boolean =>
+    let exists: boolean = guard environment_variable_exists('PATH') into value: boolean else false
+    return exists
+
+##
+    Description: Entry function keeps the module runnable
+##
+entry main = f(): void =>
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "guard expression over environment_variable_exists should compile successfully"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "module containing process boolean guard expression should verify: {verification:?}"
+    );
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("guard.expr.phi") && ir.contains("phi i1"),
+        "guard expression boolean merge should use an i1 phi, got IR: {ir}"
+    );
+    assert!(
+        ir.contains("icmp ne i8"),
+        "guard expression should coerce runtime i8 boolean success field to i1, got IR: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8, i8* } @environment_variable_exists"),
+        "environment_variable_exists should keep the runtime i8 boolean result ABI: {ir}"
+    );
+}
+
+#[test]
 fn test_builtin_calls_emit_runtime_declarations_without_imports() {
     let source = "
 ##
