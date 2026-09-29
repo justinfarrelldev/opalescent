@@ -8,6 +8,7 @@ extern crate alloc;
 
 use crate::ast::Expr;
 use crate::codegen::expressions::CodegenEnv;
+use crate::numeric_conversions::numeric_conversion_spec;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -38,8 +39,33 @@ pub(super) fn infer_guard_success_core_type<'context>(
     llvm_return_type_to_core_type(Some(success_value_type)).unwrap_or(CoreType::Int64)
 }
 
+fn numeric_conversion_destination_core_type(name: &str) -> Option<CoreType> {
+    let spec = numeric_conversion_spec(name)?;
+    numeric_type_name_to_core_type(spec.destination)
+}
+
+fn numeric_type_name_to_core_type(name: &str) -> Option<CoreType> {
+    match name {
+        "int8" => Some(CoreType::Int8),
+        "int16" => Some(CoreType::Int16),
+        "int32" => Some(CoreType::Int32),
+        "int64" => Some(CoreType::Int64),
+        "uint8" => Some(CoreType::UInt8),
+        "uint16" => Some(CoreType::UInt16),
+        "uint32" => Some(CoreType::UInt32),
+        "uint64" => Some(CoreType::UInt64),
+        "float32" => Some(CoreType::Float32),
+        "float64" => Some(CoreType::Float64),
+        _ => None,
+    }
+}
+
 /// Map known runtime functions to language-level return `CoreType`.
 pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
+    if let Some(destination_type) = numeric_conversion_destination_core_type(name) {
+        return Some(destination_type);
+    }
+
     match name {
         "take_input"
         | "bytes_to_hex"
@@ -324,6 +350,10 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
 
 /// Map known runtime result wrappers to the success type produced by `guard`.
 pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
+    if let Some(destination_type) = numeric_conversion_destination_core_type(name) {
+        return Some(destination_type);
+    }
+
     match name {
         "string_find_last_index_of_text"
         | "string_find_index_or"

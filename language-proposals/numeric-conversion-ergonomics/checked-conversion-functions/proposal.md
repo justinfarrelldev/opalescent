@@ -92,7 +92,8 @@ public let move_to_status_row = f(
     InvalidCursorPositionError
 =>
     let row = propagate int64_to_int32(visible_rows + 1)
-    propagate terminal_session_move_cursor_sync(mutable ref session, row, 1 as int32)
+    let first_column = propagate int64_to_int32(1)
+    propagate terminal_session_move_cursor_sync(mutable ref session, row, first_column)
     return void
 ```
 

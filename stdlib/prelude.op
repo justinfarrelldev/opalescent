@@ -12,6 +12,15 @@
 # Parses decimal text into int32; may fail with ParseError.
 # string_to_int32(s: string): int32 errors ParseError
 
+# Checked, value-preserving numeric conversions live in standard.numeric and
+# are re-exported from standard. They fail with IntegerRangeError instead of
+# silently wrapping, saturating, or narrowing.
+# int64_to_int32(value: int64): int32 errors IntegerRangeError
+# int32_to_int16(value: int32): int16 errors IntegerRangeError
+# int32_to_uint16(value: int32): uint16 errors IntegerRangeError
+# float64_to_int32(value: float64): int32 errors IntegerRangeError
+# float64_to_float32(value: float64): float32 errors IntegerRangeError
+
 # Returns a pseudo-random int32 in the inclusive [min, max] range.
 # random_int32(min: int32, max: int32): int32
 # stdout_writer(): StdoutWriter errors StandardOutputHandleError

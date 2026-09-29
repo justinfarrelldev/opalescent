@@ -3,6 +3,7 @@ import terminal_session_clear_screen_sync, terminal_session_move_cursor_sync fro
 import terminal_session_draw_rows_sync, terminal_session_bell_sync from standard.terminal
 import terminal_session_flush_sync, terminal_session_close_sync from standard.terminal
 import trusted_terminal_output_from_application_text from standard.terminal
+import int64_to_int32 from standard.numeric
 import type TerminalSessionOpenError, TerminalSessionWriteError from standard.terminal
 import type TerminalSessionStateError, TerminalSessionRestoreError from standard.terminal
 import type TrustedTerminalOutput from standard.terminal
@@ -16,6 +17,7 @@ entry main = f(args: string[]): void errors
     TerminalSessionStateError,
     TerminalSessionRestoreError,
     InvalidCursorPositionError,
+    IntegerRangeError,
     AllocationFailureError
 =>
     let options = terminal_session_options_default()
@@ -24,7 +26,11 @@ entry main = f(args: string[]): void errors
     let row_b = propagate trusted_terminal_output_from_application_text('beta')
     let rows: TrustedTerminalOutput[] = [row_a, row_b]
     propagate terminal_session_clear_screen_sync(mutable ref session)
-    propagate terminal_session_move_cursor_sync(mutable ref session, 2 as int32, 3 as int32)
+    propagate terminal_session_move_cursor_sync(
+        mutable ref session,
+        propagate int64_to_int32(2),
+        propagate int64_to_int32(3)
+    )
     propagate terminal_session_draw_rows_sync(mutable ref session, rows)
     propagate terminal_session_bell_sync(mutable ref session)
     propagate terminal_session_flush_sync(ref session)

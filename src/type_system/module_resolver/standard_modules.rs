@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use self::standard_symbols_numeric::standard_symbols_numeric_conversions;
 use super::ModuleErrorSetDeclaration;
 use super::ModuleInterface;
 use super::ModuleResolver;
@@ -14,12 +15,16 @@ use crate::token::{Position, Span};
 use crate::type_system::error_families::stdlib_error_families;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
+#[path = "standard_symbols_numeric.rs"]
+#[doc = "Checked numeric conversion symbol declarations."]
+mod standard_symbols_numeric;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::{string::String, vec::Vec};
 
 /// Register built-in module interfaces used by imports.
 pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_math_module(resolver);
+    register_numeric_module(resolver);
     register_process_module(resolver);
     register_core_prerequisite_module(resolver);
     register_terminal_proposal_modules(resolver);
@@ -31,6 +36,7 @@ pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
 fn register_standard_module(resolver: &mut ModuleResolver) {
     let mut interface = ModuleInterface::new(String::from("standard"));
     let mut standard_symbols = standard_symbols_core_io_and_bytes();
+    standard_symbols.extend(standard_symbols_numeric_conversions());
     standard_symbols.extend(standard_symbols_filesystem_operations());
     standard_symbols.extend(standard_symbols_filesystem_types_and_errors());
 
@@ -117,6 +123,23 @@ fn register_standard_errors_module(resolver: &mut ModuleResolver) {
         });
     }
 
+    resolver.register_module_interface(interface);
+}
+
+/// Register `standard.numeric` built-in module symbols.
+fn register_numeric_module(resolver: &mut ModuleResolver) {
+    let mut interface = ModuleInterface::new(String::from("standard.numeric"));
+    for (name, core_type, symbol_type) in standard_symbols_numeric_conversions() {
+        let register_result = interface.register_symbol(ModuleResolver::module_symbol(
+            name,
+            symbol_type,
+            core_type,
+            Visibility::Public,
+        ));
+        if register_result.is_err() {
+            return;
+        }
+    }
     resolver.register_module_interface(interface);
 }
 

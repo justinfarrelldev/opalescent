@@ -6,6 +6,7 @@ import terminal_session_bell_sync from standard.terminal
 import cancellation_source_new, cancellation_token from standard.system
 import environment_variable_exists from process
 import path_from, read_lines_sync, string_length from standard
+import int64_to_int32 from standard.numeric
 import command_text_for, status_text_for, termination_text_for from ./labels
 import ensure_nonempty_lines, clamp_cursor_to_line, update_viewport from ./buffer
 import build_render_rows, cursor_display_column from ./render
@@ -28,6 +29,7 @@ entry main = f(args: string[]): void errors
     IndexOutOfBoundsError,
     InvalidCursorPositionError,
     InvalidEnvironmentVariableNameError,
+    IntegerRangeError,
     InvalidPathError,
     InvalidUtf8Error,
     IsADirectoryError,
@@ -85,8 +87,8 @@ entry main = f(args: string[]): void errors
                 let row_output = propagate rows.at(render_row_index)
                 propagate terminal_session_move_cursor_sync(
                     mutable ref session,
-                    (render_row_index + 1) as int32,
-                    1 as int32
+                    propagate int64_to_int32(render_row_index + 1),
+                    propagate int64_to_int32(1)
                 )
                 propagate terminal_session_write_sync(ref session, row_output)
                 render_row_index = render_row_index + 1
@@ -94,16 +96,16 @@ entry main = f(args: string[]): void errors
             if mode is EditorMode.Command:
                 propagate terminal_session_move_cursor_sync(
                     mutable ref session,
-                    (visible_rows + 1) as int32,
-                    (string_length(command_text) + 2) as int32
+                    propagate int64_to_int32(visible_rows + 1),
+                    propagate int64_to_int32(string_length(command_text) + 2)
                 )
             else:
                 let display_column = propagate cursor_display_column(lines, state)
                 let cursor: CursorPosition = state.cursor
                 propagate terminal_session_move_cursor_sync(
                     mutable ref session,
-                    (cursor.line - state.viewport_top + 1) as int32,
-                    (display_column + 1) as int32
+                    propagate int64_to_int32(cursor.line - state.viewport_top + 1),
+                    propagate int64_to_int32(display_column + 1)
                 )
             propagate terminal_session_flush_sync(ref session)
             redraws = redraws + 1
@@ -152,8 +154,8 @@ entry main = f(args: string[]): void errors
                 )
         propagate terminal_session_move_cursor_sync(
             mutable ref session,
-            (visible_rows + 3) as int32,
-            1 as int32
+            propagate int64_to_int32(visible_rows + 3),
+            propagate int64_to_int32(1)
         )
         propagate terminal_session_flush_sync(ref session)
     let final_status = status_text_for(state.status)

@@ -8,6 +8,7 @@ pub(super) const STDLIB_ERROR_FAMILIES: &[StdlibErrorFamily] = &[
     StdlibErrorFamily { name: "AllocationErrors", members: &["AllocationFailureError"], warning_eligible: false, specificity_rank: 0 },
     StdlibErrorFamily { name: "IndexAccessErrors", members: &["IndexOutOfBoundsError"], warning_eligible: false, specificity_rank: 0 },
     StdlibErrorFamily { name: "ConstraintErrors", members: &["ConstraintViolationError"], warning_eligible: false, specificity_rank: 0 },
+    StdlibErrorFamily { name: "NumericConversionErrors", members: &["IntegerRangeError"], warning_eligible: false, specificity_rank: 0 },
     StdlibErrorFamily { name: "BytesDecodeErrors", members: &["HexDecodeError"], warning_eligible: false, specificity_rank: 0 },
     StdlibErrorFamily { name: "BytesSliceErrors", members: &["SliceRangeError"], warning_eligible: false, specificity_rank: 0 },
     StdlibErrorFamily { name: "BytesErrors", members: &["HexDecodeError", "SliceRangeError"], warning_eligible: true, specificity_rank: 0 },
@@ -97,6 +98,7 @@ pub(super) const STDLIB_ERROR_FAMILIES: &[StdlibErrorFamily] = &[
     StdlibErrorFamily { name: "ErrorInspectionErrors", members: &["ErrorAttachmentAbsentError", "IndexOutOfBoundsError"], warning_eligible: true, specificity_rank: 0 },
     // Singular compatibility aliases retained for existing source.
     StdlibErrorFamily { name: "ParseError", members: &["ParseError"], warning_eligible: false, specificity_rank: 50 },
+    StdlibErrorFamily { name: "IntegerRangeError", members: &["IntegerRangeError"], warning_eligible: false, specificity_rank: 50 },
     StdlibErrorFamily { name: "BytesError", members: &["HexDecodeError", "SliceRangeError"], warning_eligible: false, specificity_rank: 50 },
     StdlibErrorFamily { name: "StringSearchError", members: &["StringEmptySearchTextError", "StringPatternNotFoundError"], warning_eligible: false, specificity_rank: 50 },
     StdlibErrorFamily { name: "StringRangeError", members: &["StringNegativeCountError", "StringRangeOutOfBoundsError", "StringRangeOrderError",], warning_eligible: false, specificity_rank: 50 },

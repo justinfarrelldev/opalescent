@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 /// Supported forms:
 /// - `./path` -> `<from_dir>/path.op`
 /// - `./path.types` -> `<from_dir>/path.types.op`
-/// - registered stdlib modules such as `standard`, `math`, `process`, and terminal proposal modules
+/// - registered stdlib modules such as `standard`, `math`, `process`, `standard.numeric`, and terminal proposal modules
 ///   -> `__stdlib__/<name>` sentinel path
 /// - `@scope/name` -> `TypeError::PackageImportNotSupported`
 ///
@@ -88,6 +88,7 @@ fn is_stdlib_import_source(import_source: &str) -> bool {
         "standard"
             | "math"
             | "process"
+            | "standard.numeric"
             | "standard.system"
             | "standard.terminal"
             | "standard.terminal.chords"
@@ -551,6 +552,14 @@ mod tests {
         let from_file = PathBuf::from("/tmp/main.op");
         let resolved = resolve_import_path(&from_file, "process").expect("process stdlib resolves");
         assert_eq!(resolved, PathBuf::from("__stdlib__/process"));
+    }
+
+    #[test]
+    fn resolve_import_path_numeric_stdlib_sentinel() {
+        let from_file = PathBuf::from("src/main.op");
+        let resolved =
+            resolve_import_path(&from_file, "standard.numeric").expect("numeric stdlib resolves");
+        assert_eq!(resolved, PathBuf::from("__stdlib__/standard.numeric"));
     }
 
     #[test]

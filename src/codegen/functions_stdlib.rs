@@ -11,6 +11,9 @@ use inkwell::values::FunctionValue;
 #[path = "functions_stdlib_error_inspectors.rs"]
 #[doc = "Task 16 error inspector declaration helpers extracted to satisfy line-count limits."]
 mod error_inspectors;
+#[path = "functions_stdlib_numeric.rs"]
+#[doc = "Numeric conversion stdlib declaration helpers."]
+mod numeric;
 #[path = "functions_stdlib_string.rs"]
 #[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
 mod string;
@@ -21,6 +24,7 @@ mod terminal_core;
 #[doc = "Terminal session declarations."]
 mod terminal_session;
 use self::error_inspectors::{ERROR_ATTACHMENT_STDLIB_NAMES, declare_error_inspector_function};
+use self::numeric::{declare_numeric_conversion_function, is_numeric_conversion_runtime_name};
 use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
 use self::terminal_core::{
     declare_terminal_core_prerequisite_function, is_terminal_core_prerequisite_runtime_name,
@@ -46,6 +50,7 @@ pub fn declare_stdlib_function<'context>(
     let is_test_fallible_constructor = false;
 
     if !STDLIB_NAMES.contains(&name)
+        && !is_numeric_conversion_runtime_name(name)
         && !STRING_STDLIB_NAMES.contains(&name)
         && !ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
         && !is_terminal_core_prerequisite_runtime_name(name)
@@ -106,6 +111,11 @@ pub fn declare_stdlib_function<'context>(
             })
         };
     }
+
+    if let Some(function) = declare_numeric_conversion_function(codegen_context, name) {
+        return Some(function);
+    }
+
     match name {
         "print" => module.get_function("puts").or_else(|| {
             let ft = i32_type.fn_type(&[i8_ptr.into()], false);
@@ -858,7 +868,9 @@ pub fn resolve_imported_runtime_name(
     }
 
     match (module_name, symbol_name) {
-        ("standard" | "math" | "process", name) if is_stdlib_runtime_name(name) => {
+        ("standard" | "math" | "process" | "standard.numeric", name)
+            if is_stdlib_runtime_name(name) =>
+        {
             Ok(name.to_owned())
         }
         ("standard.system", name)
@@ -902,6 +914,7 @@ fn terminal_proposal_gate_error(module_name: Option<&str>, symbol_name: &str) ->
 #[must_use]
 pub fn is_stdlib_runtime_name(name: &str) -> bool {
     STDLIB_NAMES.contains(&name)
+        || is_numeric_conversion_runtime_name(name)
         || STRING_STDLIB_NAMES.contains(&name)
         || ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
         || is_terminal_core_prerequisite_runtime_name(name)
@@ -1029,22 +1042,5 @@ pub const STDLIB_NAMES: &[&str] = &[
 ];
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stdlib_names_registry_exists_and_has_correct_count() {
-        assert_eq!(
-            STDLIB_NAMES.len()
-                + STRING_STDLIB_NAMES.len()
-                + terminal_session::TERMINAL_SESSION_RUNTIME_NAMES.len(),
-            195
-        );
-        assert!(is_stdlib_runtime_name("opal_runtime_error"));
-        assert!(is_stdlib_runtime_name("print"));
-        assert!(is_stdlib_runtime_name("random_int32"));
-        assert!(is_stdlib_runtime_name("current_working_directory_sync"));
-        assert!(is_stdlib_runtime_name("exit_process"));
-        assert!(is_stdlib_runtime_name("string_builder_push"));
-    }
-}
+#[path = "functions_stdlib_tests.rs"]
+mod tests;

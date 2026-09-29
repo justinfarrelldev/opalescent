@@ -37,6 +37,8 @@ pub mod hot_reload;
 pub mod lexer;
 pub mod lsp;
 pub mod module_loader;
+/// Shared registry for checked numeric conversion functions.
+pub(crate) mod numeric_conversions;
 pub mod package_manager;
 pub mod parser;
 pub mod runtime;

@@ -2,13 +2,13 @@
 
 ## Status and scope
 
-Draft language/stdlib proposal package. This concern responds to frequent casts in terminal/editor code such as:
+Accepted stdlib direction with alternatives recorded. This concern responds to frequent casts in terminal/editor code such as:
 
 ```opal
 (visible_rows + 1) as int32
 ```
 
-Opalescent should keep explicit numeric conversion as a safety principle. The goal is not to add implicit narrowing. The goal is to reduce unnecessary casts by aligning API types, adding safe conversion helpers, and using domain-specific coordinate types where appropriate.
+Opalescent should keep explicit numeric conversion as a safety principle. The goal is not to add implicit narrowing. The selected general-purpose solution is explicit checked conversion helpers; API widening or domain-specific coordinate types remain separate design choices for specific modules.
 
 ## Is this addressable?
 
@@ -17,8 +17,8 @@ Partly. Cast noise is addressable when it is caused by mismatched API choices, e
 ## Reading order
 
 1. This comparison.
-2. [`int64-terminal-apis`](./int64-terminal-apis/proposal.md) — recommended for terminal/editor coordinate noise: widen public terminal coordinate APIs to `int64`.
-3. [`checked-conversion-functions`](./checked-conversion-functions/proposal.md) — general-purpose explicit checked conversion helpers.
+2. [`checked-conversion-functions`](./checked-conversion-functions/proposal.md) — selected general-purpose explicit checked conversion helpers.
+3. [`int64-terminal-apis`](./int64-terminal-apis/proposal.md) — alternative for terminal/editor coordinate noise: widen public terminal coordinate APIs to `int64`.
 4. [`terminal-coordinate-types`](./terminal-coordinate-types/proposal.md) — domain-specific row/column wrapper types.
 5. [`target-typed-integer-literals`](./target-typed-integer-literals/proposal.md) — reduce literal casts, not runtime narrowing.
 
@@ -35,7 +35,7 @@ Terminal APIs currently accept `int32` rows and columns. That forces casts at ca
 
 ## Comparison matrix
 
-| Axis | Int64 terminal APIs — recommended | Checked conversion functions | Terminal coordinate types | Target-typed integer literals |
+| Axis | Int64 terminal APIs | Checked conversion functions — selected | Terminal coordinate types | Target-typed integer literals |
 |---|---:|---:|---:|---:|
 | **Removes editor casts** | ★★★★★ | ★★☆☆☆ | ★★★★☆ | ★★☆☆☆ |
 | **Preserves numeric safety** | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★☆ |
@@ -47,7 +47,7 @@ Terminal APIs currently accept `int32` rows and columns. That forces casts at ca
 
 ## Alternatives summary
 
-### Int64 terminal APIs — recommended for #10
+### Int64 terminal APIs
 
 Change public terminal coordinate APIs to accept `int64` rows/columns while preserving runtime validation. The runtime can downcast internally after checking host/backend limits.
 
@@ -55,17 +55,17 @@ Change public terminal coordinate APIs to accept `int64` rows/columns while pres
 propagate terminal_session_move_cursor_sync(mutable ref session, visible_rows + 1, 1)
 ```
 
-This best addresses the editor's actual cast noise because it removes the mismatch at the API boundary.
+This directly addresses the editor's actual cast noise because it removes the mismatch at the API boundary, but it is terminal-specific rather than a general numeric conversion mechanism.
 
 ### Checked conversion functions
 
-Add explicit helpers such as:
+Add explicit value-preserving helpers such as:
 
 ```opal
-int64_to_int32_checked(value: int64): int32 errors IntegerRangeError
+int64_to_int32(value: int64): int32 errors IntegerRangeError
 ```
 
-This is the right general-purpose answer when narrowing is truly required. It does not remove ceremony, but it turns casts into checked, reusable operations.
+The plain `A_to_B` helper is checked; there is no unchecked ordinary variant and no `_checked` suffix. This is the right general-purpose answer when narrowing is truly required. It does not remove ceremony, but it turns casts into checked, reusable operations.
 
 ### Terminal coordinate types
 
@@ -97,15 +97,13 @@ This helps literal-only casts but cannot safely convert `(visible_rows + 1)` fro
 
 ## Recommendation
 
-For the editor/terminal concern, select **int64 terminal APIs** as the primary fix. Terminal rows/columns are not inherently `int32` in Opalescent source; using `int64` aligns with lengths, indexes, and default integer literals.
+Select **checked conversion functions** as the primary general-purpose numeric safety surface. Plain `A_to_B` helpers are checked and fallible through `IntegerRangeError`; arbitrary runtime narrowing remains explicit.
 
-Also add **checked conversion functions** as a general-purpose numeric safety surface. Even if terminal APIs widen, other FFI and platform APIs will still require explicit checked narrowing.
-
-Consider **terminal coordinate types** only if the terminal API grows enough domain-specific invariants to justify wrapper values.
+For terminal/editor APIs specifically, keep **int64 terminal APIs** and **terminal coordinate types** as separate API-design alternatives. They may still be appropriate if the terminal surface grows enough domain-specific invariants or if public coordinate types are revisited, but they are not the general numeric conversion mechanism.
 
 Implement **target-typed integer literals** narrowly, if at all. It is useful for literal casts but should not become implicit runtime narrowing.
 
-## Required fixture ladder if selected later
+## Additional fixture ladder for terminal API alternatives
 
 1. Call terminal cursor functions with `int64` literals.
 2. Call terminal cursor functions with `int64` expressions derived from array/string lengths.
@@ -122,4 +120,4 @@ Implement **target-typed integer literals** narrowly, if at all. It is useful fo
 - Constants that are out of range for their target type must remain compile-time errors.
 - Terminal APIs must still reject invalid positions.
 - FFI-facing functions that truly require fixed-width integers must say so.
-- Checked conversion helpers must not silently wrap, saturate, or clamp unless their names explicitly say so.
+- Checked conversion helpers must not silently wrap, saturate, clamp, or expose unchecked ordinary variants.

@@ -1,0 +1,30 @@
+import uint16_to_string, float32_to_string, float64_to_string, int16_to_int8 from standard
+import int64_to_int32, int32_to_int16, int32_to_uint16, uint64_to_int64, float64_to_int32, float64_to_float32, int32_to_float32, int64_to_float64 from standard.numeric
+
+##
+  Description: Verifies value-preserving numeric conversions succeed and range failures are handleable.
+##
+entry main = f(args: string[]): void errors IntegerRangeError =>
+    let narrowed_i32 = propagate int64_to_int32(2147483647)
+    let narrowed_i16 = propagate int32_to_int16(-32768)
+    let narrowed_i8 = propagate int16_to_int8(127)
+    let unsigned_16 = propagate int32_to_uint16(65535)
+    let signed_64 = propagate uint64_to_int64(9223372036854775807)
+    let float_to_int = propagate float64_to_int32(42.0)
+    let float32_value = propagate float64_to_float32(1.5)
+    let int_to_float = propagate int32_to_float32(1024)
+    let fallback_negative = propagate int64_to_int32(-1)
+    let unsigned_16_text = uint16_to_string(unsigned_16)
+    let float32_text = float32_to_string(float32_value)
+    let int_to_float_text = float32_to_string(int_to_float)
+
+    print('ok:{narrowed_i32}:{narrowed_i16}:{narrowed_i8}:{unsigned_16_text}:{signed_64}:{float_to_int}:{float32_text}:{int_to_float_text}')
+
+    let range_fallback: int32 = guard int64_to_int32(2147483648) into value: int32 else fallback_negative
+    let fractional_fallback: int32 = guard float64_to_int32(1.25) into value: int32 else fallback_negative
+    let imprecise_float: float64 = guard int64_to_float64(9223372036854775807) into value: float64 else 0.0
+    let imprecise_float_text = float64_to_string(imprecise_float)
+    print('range:{range_fallback}')
+    print('fractional:{fractional_fallback}')
+    print('imprecise:{imprecise_float_text}')
+    return void

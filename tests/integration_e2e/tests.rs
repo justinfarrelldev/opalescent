@@ -69,6 +69,7 @@ mod interactive_io;
 mod memory_model_counters;
 mod module_interface_layout_manifests;
 mod multiple_returns_projects;
+mod numeric_conversions;
 mod op_cat;
 mod process_api_smoke;
 mod process_cwd;

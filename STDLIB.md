@@ -34,7 +34,7 @@ entry main = f(args: string[]): void errors FilesystemTextReadErrors =>
 
 `standard.errors` exports compile-time named error sets for common standard-library failure groups. Import them with `import type ... from standard.errors` and use them in `errors` clauses. They are aliases only: `propagate` and `guard` still check the expanded leaf errors.
 
-Examples include `ParseErrors`, `BytesErrors`, `StringSliceErrors`, `StdoutWriterErrors`, `RenderErrors`, `TimeErrors`, `FilesystemReadErrors`, `FilesystemWriteErrors`, `ProcessPathErrors`, and `ConsoleIoErrors`. Singular legacy aliases such as `BytesError`, `OutputError`, and `FilesystemReadError` remain accepted for compatibility, but new code should prefer plural `*Errors` names.
+Examples include `ParseErrors`, `NumericConversionErrors`, `BytesErrors`, `StringSliceErrors`, `StdoutWriterErrors`, `RenderErrors`, `TimeErrors`, `FilesystemReadErrors`, `FilesystemWriteErrors`, `ProcessPathErrors`, and `ConsoleIoErrors`. Singular legacy aliases such as `BytesError`, `OutputError`, and `FilesystemReadError` remain accepted for compatibility, but new code should prefer plural `*Errors` names.
 
 ```opal
 import print_text_sync, flush_standard_output_sync from standard
@@ -106,6 +106,24 @@ These parse decimal text into the requested numeric type. They skip leading Unic
 ```opal
 let n = propagate string_to_int32('123')
 ```
+
+## Checked numeric conversions
+
+```opal
+import int64_to_int32, int32_to_uint16, float64_to_int32 from standard.numeric
+```
+
+Plain `A_to_B` numeric conversion helpers are checked, value-preserving conversions. They return the destination type on success and fail with `IntegerRangeError` when the value cannot be represented exactly by the destination type. There is intentionally no unchecked public variant and no saturating/wrapping/fallback variant in this surface.
+
+Examples:
+
+```opal
+let row = propagate int64_to_int32(visible_rows + 1)
+let port = propagate int32_to_uint16(configured_port)
+let count = propagate float64_to_int32(42.0)
+```
+
+Use these helpers when runtime narrowing or signedness/float conversion could fail. Statically safe widening casts can still use `as`.
 
 ## Converting values to strings
 
