@@ -6,9 +6,7 @@ import path_parent_directory, int64_to_string from standard
 ##
     Description: Returns the saferm trash directory using HOME when available.
 ##
-public let trash_directory = f(): FilesystemPath errors
-    InvalidEnvironmentVariableNameError,
-    InvalidUtf8Error
+public let trash_directory = f(): FilesystemPath errors EnvironmentOptionalLookupErrors
 =>
     let home = propagate get_environment_variable_or('HOME', '.')
     return join_path_components(path_from(home), ['.local', 'share', 'op-trash'])

@@ -26,203 +26,234 @@ struct SafermWarning {
 const REMEDIATED_FIXTURES: &[Fixture] = &[
     Fixture {
         source: "test-projects/_absolute_path_sync/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/_fs_append_log/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/_fs_dir_inventory/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/_fs_read_text_lines/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/_fs_write_text_atomic/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/bytes-hex-roundtrip/src/main.op",
-        family: "BytesError",
+        family: "BytesErrors",
         leaves: "HexDecodeError, SliceRangeError",
     },
     Fixture {
         source: "test-projects/delete-downloads/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/delete-downloads-strict/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/fs-directory-operations/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/fs-markdown-roundtrip/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/fs-path-manipulation/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/game-of-life/src/main.op",
-        family: "StringBuilderError",
+        family: "StringBuilderErrors",
         leaves: "BuilderFinishedError, AllocationFailureError",
     },
     Fixture {
         source: "test-projects/game-of-life/src/main.op",
-        family: "OutputError",
+        family: "StdoutWriterErrors",
         leaves: "WriteFailureError, FlushFailureError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/op-cat/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/print-text-flush-without-newline/src/main.op",
-        family: "OutputError",
+        family: "StdoutWriterErrors",
         leaves: "WriteFailureError, FlushFailureError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/process-api-smoke/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/process-api-smoke/src/main.op",
-        family: "ProcessEnvError",
+        family: "ProcessEnvErrors",
         leaves: "EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error",
     },
     Fixture {
         source: "test-projects/process-cwd/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/process-env/src/main.op",
-        family: "ProcessEnvError",
+        family: "ProcessEnvErrors",
         leaves: "EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error",
     },
     Fixture {
         source: "test-projects/process-paths/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/saferm/src/main_backup.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     Fixture {
         source: "test-projects/stdout-writer-interleaves-with-print-text/src/main.op",
-        family: "OutputError",
+        family: "StdoutWriterErrors",
         leaves: "WriteFailureError, FlushFailureError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/stdout-writer-write-flush/src/main.op",
-        family: "OutputError",
+        family: "StdoutWriterErrors",
         leaves: "WriteFailureError, FlushFailureError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/string-builder-push-finish/src/main.op",
-        family: "StringBuilderError",
+        family: "StringBuilderErrors",
         leaves: "BuilderFinishedError, AllocationFailureError",
     },
     Fixture {
         source: "test-projects/string-builder-use-after-finish-errors/src/main.op",
-        family: "StringBuilderError",
+        family: "StringBuilderErrors",
         leaves: "BuilderFinishedError, AllocationFailureError",
     },
     Fixture {
         source: "test-projects/string-ranges-stdlib/src/main.op",
-        family: "StringRangeError",
+        family: "StringRangeErrors",
         leaves: "StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError",
     },
     Fixture {
         source: "test-projects/string-search-stdlib/src/main.op",
-        family: "StringSearchError",
+        family: "StringSearchErrors",
         leaves: "StringEmptySearchTextError, StringPatternNotFoundError",
     },
     Fixture {
         source: "test-projects/terminal-move-cursor-rejects-negative-column/src/main.op",
-        family: "TerminalError",
+        family: "TerminalControlErrors",
         leaves: "TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/terminal-move-cursor-rejects-negative-row/src/main.op",
-        family: "TerminalError",
+        family: "TerminalControlErrors",
         leaves: "TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/terminal-move-cursor-zero-based-ansi-bytes/src/main.op",
-        family: "TerminalError",
+        family: "TerminalControlErrors",
         leaves: "TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
     },
     Fixture {
         source: "test-projects/windows-file-ops/src/main.op",
-        family: "FilesystemPathError",
+        family: "FilesystemPathErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
+    },
+];
+
+const PRE_REMEDIATION_WARNING_FIXTURES: &[Fixture] = &[
+    Fixture {
+        source: "test-projects/bytes-hex-roundtrip/src/main.op",
+        family: "BytesErrors",
+        leaves: "HexDecodeError, SliceRangeError",
+    },
+    Fixture {
+        source: "test-projects/print-text-flush-without-newline/src/main.op",
+        family: "StdoutWriterErrors",
+        leaves: "WriteFailureError, FlushFailureError, SinkClosedError",
+    },
+    Fixture {
+        source: "test-projects/string-builder-push-finish/src/main.op",
+        family: "StringBuilderErrors",
+        leaves: "BuilderFinishedError, AllocationFailureError",
+    },
+    Fixture {
+        source: "test-projects/string-builder-use-after-finish-errors/src/main.op",
+        family: "StringBuilderErrors",
+        leaves: "BuilderFinishedError, AllocationFailureError",
+    },
+    Fixture {
+        source: "test-projects/string-search-stdlib/src/main.op",
+        family: "StringSearchErrors",
+        leaves: "StringEmptySearchTextError, StringPatternNotFoundError",
+    },
+    Fixture {
+        source: "test-projects/terminal-move-cursor-rejects-negative-column/src/main.op",
+        family: "TerminalControlErrors",
+        leaves: "TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
+    },
+    Fixture {
+        source: "test-projects/terminal-move-cursor-rejects-negative-row/src/main.op",
+        family: "TerminalControlErrors",
+        leaves: "TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError",
     },
 ];
 
 const SAFERM_PRE_REMEDIATION_WARNINGS: &[SafermWarning] = &[
     SafermWarning {
-        source: "src/main.op",
-        line: 23,
-        label: "entry main = f(args: string[]): void errors",
-        family: "FilesystemPathError",
+        source: "src/trash.op",
+        line: 29,
+        label: "public let unique_destination_for = f(",
+        family: "FilesystemExistenceErrors",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
     SafermWarning {
         source: "src/trash.op",
-        line: 28,
-        label: "public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors",
-        family: "FilesystemPathError",
-        leaves: "InvalidPathError, PermissionDeniedError",
+        line: 45,
+        label: "public let trash_entry_exists = f(",
+        family: "FilesystemListErrors",
+        leaves: "DirectoryNotFoundError, InvalidPathError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError",
     },
     SafermWarning {
         source: "src/trash.op",
-        line: 43,
-        label: "public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors",
-        family: "FilesystemPathError",
-        leaves: "InvalidPathError, PermissionDeniedError",
+        line: 80,
+        label: "public let move_to_destination = f(",
+        family: "FilesystemMoveErrors",
+        leaves: "InvalidPathError, PermissionDeniedError, FileAlreadyExistsError, FileNotFoundError, MoveFailureError",
     },
     SafermWarning {
         source: "src/trash.op",
-        line: 70,
-        label: "public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors",
-        family: "FilesystemPathError",
-        leaves: "InvalidPathError, PermissionDeniedError",
-    },
-    SafermWarning {
-        source: "src/trash.op",
-        line: 95,
+        line: 111,
         label: "public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors",
-        family: "FilesystemPathError",
-        leaves: "InvalidPathError, PermissionDeniedError",
+        family: "FilesystemRecursiveDirectoryCreateErrors",
+        leaves: "InvalidPathError, PermissionDeniedError, CreateFailureError, FilesystemFullError",
     },
     SafermWarning {
         source: "src/trash.op",
-        line: 110,
+        line: 128,
         label: "public let get_trash_entries = f(dest: FilesystemPath): string[] errors",
-        family: "FilesystemPathError",
-        leaves: "InvalidPathError, PermissionDeniedError",
+        family: "FilesystemListErrors",
+        leaves: "DirectoryNotFoundError, InvalidPathError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError",
     },
 ];
 
@@ -240,13 +271,13 @@ const INTENTIONALLY_EXACT_CLAUSES: &[&str] = &[
 ];
 
 const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
-    ("BytesError", &["HexDecodeError", "SliceRangeError"]),
+    ("BytesErrors", &["HexDecodeError", "SliceRangeError"]),
     (
-        "StringSearchError",
+        "StringSearchErrors",
         &["StringEmptySearchTextError", "StringPatternNotFoundError"],
     ),
     (
-        "StringRangeError",
+        "StringRangeErrors",
         &[
             "StringNegativeCountError",
             "StringRangeOutOfBoundsError",
@@ -254,15 +285,15 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "StringBuilderError",
+        "StringBuilderErrors",
         &["BuilderFinishedError", "AllocationFailureError"],
     ),
     (
-        "OutputError",
+        "StdoutWriterErrors",
         &["WriteFailureError", "FlushFailureError", "SinkClosedError"],
     ),
     (
-        "TerminalError",
+        "TerminalControlErrors",
         &[
             "TerminalWriteFailureError",
             "InvalidCursorPositionError",
@@ -270,11 +301,11 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "TimeError",
+        "TimeErrors",
         &["InvalidDurationError", "InvalidFrameRateError"],
     ),
     (
-        "ProcessPathError",
+        "ProcessPathErrors",
         &[
             "PermissionDeniedError",
             "InvalidPathError",
@@ -285,7 +316,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "ProcessEnvError",
+        "ProcessEnvErrors",
         &[
             "EnvironmentVariableNotFoundError",
             "InvalidEnvironmentVariableNameError",
@@ -293,11 +324,11 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemPathError",
+        "FilesystemPathErrors",
         &["InvalidPathError", "PermissionDeniedError"],
     ),
     (
-        "FilesystemReadError",
+        "FilesystemReadErrors",
         &[
             "FileNotFoundError",
             "PermissionDeniedError",
@@ -309,7 +340,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemWriteError",
+        "FilesystemWriteErrors",
         &[
             "FileNotFoundError",
             "PermissionDeniedError",
@@ -321,7 +352,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemCreateError",
+        "FilesystemCreateErrors",
         &[
             "FileAlreadyExistsError",
             "PermissionDeniedError",
@@ -331,7 +362,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemDeleteError",
+        "FilesystemDeleteErrors",
         &[
             "FileNotFoundError",
             "PermissionDeniedError",
@@ -341,7 +372,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemDirectoryDeleteError",
+        "FilesystemDirectoryDeleteErrors",
         &[
             "DirectoryNotFoundError",
             "PermissionDeniedError",
@@ -352,7 +383,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemCopyMoveError",
+        "FilesystemCopyMoveErrors",
         &[
             "FileNotFoundError",
             "PermissionDeniedError",
@@ -365,7 +396,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemMetadataError",
+        "FilesystemMetadataErrors",
         &[
             "FileNotFoundError",
             "PermissionDeniedError",
@@ -374,7 +405,7 @@ const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "FilesystemListError",
+        "FilesystemListErrors",
         &[
             "DirectoryNotFoundError",
             "PermissionDeniedError",
@@ -480,8 +511,8 @@ fn restore_saferm_pre_remediation_sources(project_dir: &Path) -> Result<(), Stri
         let source_text = fs::read_to_string(&source_path)
             .map_err(|error| format!("{} should be readable: {error}", source_path.display()))?;
         let restored = source_text.replace(
-            "FilesystemPathError",
-            "PermissionDeniedError, InvalidPathError",
+            "FilesystemPathErrors",
+            "InvalidPathError, PermissionDeniedError",
         );
         fs::write(&source_path, restored)
             .map_err(|error| format!("{} should be writable: {error}", source_path.display()))?;
@@ -573,7 +604,7 @@ fn restored_pre_remediation_source(fixture: &Fixture) -> Result<String, String> 
 
 #[test]
 fn stdlib_error_family_test_projects_pre_remediation_warnings() -> Result<(), String> {
-    for fixture in REMEDIATED_FIXTURES {
+    for fixture in PRE_REMEDIATION_WARNING_FIXTURES {
         let original = restored_pre_remediation_source(fixture)?;
         let temp_dir = unique_probe_target_dir("stdlib-error-family-pre-remediation");
         prepare_dir(&temp_dir)
@@ -584,7 +615,7 @@ fn stdlib_error_family_test_projects_pre_remediation_warnings() -> Result<(), St
         let result = assert_check(&source_path, Some(fixture));
         cleanup_dir(&temp_dir)
             .map_err(|error| format!("temporary directory should be removed: {error}"))?;
-        result?;
+        result.map_err(|error| format!("{} pre-remediation: {error}", fixture.source))?;
     }
     Ok(())
 }

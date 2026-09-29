@@ -10,7 +10,7 @@ const REPLACEABLE_ERROR_LIST_CODE: &str =
     "opalescent::type_system::warning::replaceable_error_list";
 const REPLACEABLE_ERROR_LIST_LABEL: &str = "complete replaceable error list";
 const BYTES_ERROR_HELP: &str =
-    "Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.";
+    "Replace `errors HexDecodeError, SliceRangeError` with `errors BytesErrors`.";
 
 fn opalescent_binary_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -58,7 +58,7 @@ fn assert_replaceable_error_list_warning_renders(
             REPLACEABLE_ERROR_LIST_CODE,
             REPLACEABLE_ERROR_LIST_LABEL,
             BYTES_ERROR_HELP,
-            "BytesError",
+            "BytesErrors",
             "HexDecodeError",
             "SliceRangeError",
             "main.op",

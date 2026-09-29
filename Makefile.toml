@@ -75,6 +75,13 @@ description = "Run the test suite"
 command = "cargo"
 args = ["test"]
 
+[tasks.test-all]
+description = "Run unit/doc tests and the integration E2E suite"
+script = [
+    "CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-1} cargo test -j ${CARGO_BUILD_JOBS:-1} -- --test-threads=1",
+    "CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-1} cargo test -j ${CARGO_BUILD_JOBS:-1} --features integration --test integration_e2e -- --test-threads=1",
+]
+
 [tasks.test-verbose]
 description = "Run the test suite with verbose output"
 command = "cargo"
