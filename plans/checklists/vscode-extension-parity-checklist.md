@@ -17,13 +17,13 @@
 
 ## Phase 2: Extension TypeScript foundation
 
-- [ ] Add TypeScript/npm scaffolding and tests.
-- [ ] Add failing extension helper tests.
-- [ ] Implement project/file detection helpers.
-- [ ] Implement compiler JSON parser helpers.
-- [ ] Implement command argument helpers.
-- [ ] Implement conservative symbol index helpers.
-- [ ] Run extension unit tests.
+- [x] Add TypeScript/npm scaffolding and tests.
+- [x] Add failing extension helper tests.
+- [x] Implement project/file detection helpers.
+- [x] Implement compiler JSON parser helpers.
+- [x] Implement command argument helpers.
+- [x] Implement conservative symbol index helpers.
+- [x] Run extension unit tests (`npm test` in `vscode-extension`).
 
 ## Phase 3: VS Code integration
 
