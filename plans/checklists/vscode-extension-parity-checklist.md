@@ -27,17 +27,17 @@
 
 ## Phase 3: VS Code integration
 
-- [ ] Implement activation entry point.
-- [ ] Implement Opalescent binary resolution and prompt fallback.
-- [ ] Implement diagnostics collection with compiler-backed lint/check.
-- [ ] Implement formatting provider and command via `opal fmt`.
-- [ ] Implement command-palette lint/check command.
-- [ ] Implement command-palette build command.
-- [ ] Implement command-palette run command.
-- [ ] Implement code lenses above entry functions for Build and Run.
-- [ ] Implement go-to-definition provider.
-- [ ] Implement find-implementation provider.
-- [ ] Run TypeScript compilation.
+- [x] Implement activation entry point.
+- [x] Implement Opalescent binary resolution and prompt fallback.
+- [x] Implement diagnostics collection with compiler-backed lint/check.
+- [x] Implement formatting provider and command via `opal fmt`.
+- [x] Implement command-palette lint/check command.
+- [x] Implement command-palette build command.
+- [x] Implement command-palette run command.
+- [x] Implement code lenses above entry functions for Build and Run.
+- [x] Implement go-to-definition provider.
+- [x] Implement find-implementation provider.
+- [x] Run TypeScript compilation (`npm test` in `vscode-extension`).
 
 ## Phase 4: Packaging and grammar parity
 
