@@ -1,0 +1,55 @@
+# VS Code Extension Parity Checklist
+
+## Planning
+
+- [x] Read README.md, STDLIB.md, OPALESCENT_CRASH_COURSE.md, and language-spec files before implementation.
+- [x] Create implementation plan.
+- [x] Create live checklist.
+
+## Phase 1: Compiler-backed machine diagnostics
+
+- [ ] Add failing Rust tests for JSON diagnostic conversion and project-aware check behavior.
+- [ ] Implement machine-readable diagnostic data model.
+- [ ] Add `opal check --json` for single-file checks.
+- [ ] Add `opal check --project [path] --json` for project-aware checks.
+- [ ] Preserve existing human-readable `opal check` behavior.
+- [ ] Run Rust tests for touched compiler/app code.
+
+## Phase 2: Extension TypeScript foundation
+
+- [ ] Add TypeScript/npm scaffolding and tests.
+- [ ] Add failing extension helper tests.
+- [ ] Implement project/file detection helpers.
+- [ ] Implement compiler JSON parser helpers.
+- [ ] Implement command argument helpers.
+- [ ] Implement conservative symbol index helpers.
+- [ ] Run extension unit tests.
+
+## Phase 3: VS Code integration
+
+- [ ] Implement activation entry point.
+- [ ] Implement Opalescent binary resolution and prompt fallback.
+- [ ] Implement diagnostics collection with compiler-backed lint/check.
+- [ ] Implement formatting provider and command via `opal fmt`.
+- [ ] Implement command-palette lint/check command.
+- [ ] Implement command-palette build command.
+- [ ] Implement command-palette run command.
+- [ ] Implement code lenses above entry functions for Build and Run.
+- [ ] Implement go-to-definition provider.
+- [ ] Implement find-implementation provider.
+- [ ] Run TypeScript compilation.
+
+## Phase 4: Packaging and grammar parity
+
+- [ ] Refresh package contributions and extension settings.
+- [ ] Update TextMate grammar for current public syntax.
+- [ ] Update language configuration for current indentation/comment behavior.
+- [ ] Add `.vscodeignore`.
+- [ ] Add cargo-make tasks to build/test/package VSIX.
+- [ ] Run `cargo make vscode-extension-vsix`.
+
+## Review and commits
+
+- [ ] Perform code review of implemented work.
+- [ ] Run relevant regression tests.
+- [ ] Make atomic commits without modifying/skipping pre-commit hook.
