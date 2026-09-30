@@ -1,12 +1,11 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
 import path from 'node:path';
+import { expect, test } from 'vitest';
 import { findProjectRoot, isOpalescentFile } from '../project.js';
 
 test('detects .op and .types.op files as Opalescent files', () => {
-  assert.equal(isOpalescentFile('/workspace/src/main.op'), true);
-  assert.equal(isOpalescentFile('/workspace/src/life.types.op'), true);
-  assert.equal(isOpalescentFile('/workspace/src/main.rs'), false);
+  expect(isOpalescentFile('/workspace/src/main.op')).toBe(true);
+  expect(isOpalescentFile('/workspace/src/life.types.op')).toBe(true);
+  expect(isOpalescentFile('/workspace/src/main.rs')).toBe(false);
 });
 
 test('finds nearest opal.toml project root by walking upward', () => {
@@ -16,5 +15,5 @@ test('finds nearest opal.toml project root by walking upward', () => {
 
   const found = findProjectRoot(nested, (candidate) => seen.has(candidate));
 
-  assert.equal(found, root);
+  expect(found).toBe(root);
 });

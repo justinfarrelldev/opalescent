@@ -1,9 +1,8 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { expect, test } from 'vitest';
 import { buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from '../cli.js';
 
 test('check args use project-aware JSON diagnostics when project root is known', () => {
-  assert.deepEqual(checkArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' }), [
+  expect(checkArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' })).toEqual([
     'check',
     '--json',
     '--project',
@@ -12,7 +11,7 @@ test('check args use project-aware JSON diagnostics when project root is known',
 });
 
 test('check args fall back to single-file JSON diagnostics outside projects', () => {
-  assert.deepEqual(checkArgsForContext({ filePath: '/tmp/scratch.op' }), [
+  expect(checkArgsForContext({ filePath: '/tmp/scratch.op' })).toEqual([
     'check',
     '--json',
     '/tmp/scratch.op'
@@ -20,14 +19,14 @@ test('check args fall back to single-file JSON diagnostics outside projects', ()
 });
 
 test('build and run args mirror compiler project ergonomics', () => {
-  assert.deepEqual(buildArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' }), ['build']);
-  assert.deepEqual(runArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' }), ['run']);
-  assert.deepEqual(buildArgsForContext({ filePath: '/tmp/main.op' }), ['/tmp/main.op']);
-  assert.deepEqual(runArgsForContext({ filePath: '/tmp/main.op' }), ['run', '/tmp/main.op']);
+  expect(buildArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' })).toEqual(['build']);
+  expect(runArgsForContext({ filePath: '/p/src/main.op', projectRoot: '/p' })).toEqual(['run']);
+  expect(buildArgsForContext({ filePath: '/tmp/main.op' })).toEqual(['/tmp/main.op']);
+  expect(runArgsForContext({ filePath: '/tmp/main.op' })).toEqual(['run', '/tmp/main.op']);
 });
 
 test('format args write compiler formatter output to a caller-provided file', () => {
-  assert.deepEqual(formatArgs('/tmp/main.op', '/tmp/formatted.op'), [
+  expect(formatArgs('/tmp/main.op', '/tmp/formatted.op')).toEqual([
     'fmt',
     '--output',
     '/tmp/formatted.op',

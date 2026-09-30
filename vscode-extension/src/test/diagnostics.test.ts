@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { expect, test } from 'vitest';
 import { diagnosticsByFile, parseOpalescentDiagnosticReport } from '../diagnostics.js';
 
 test('parses compiler JSON diagnostics and groups them by source path', () => {
@@ -27,11 +26,11 @@ test('parses compiler JSON diagnostics and groups them by source path', () => {
 
   const grouped = diagnosticsByFile(report);
 
-  assert.equal(report.success, false);
-  assert.equal(grouped.get('/p/src/main.op')?.[0]?.severity, 'error');
-  assert.equal(grouped.get('/p/src/helper.op')?.[0]?.severity, 'warning');
+  expect(report.success).toBe(false);
+  expect(grouped.get('/p/src/main.op')?.[0]?.severity).toBe('error');
+  expect(grouped.get('/p/src/helper.op')?.[0]?.severity).toBe('warning');
 });
 
 test('rejects malformed compiler diagnostic JSON', () => {
-  assert.throws(() => parseOpalescentDiagnosticReport('{"success": true}'), /diagnostics/);
+  expect(() => parseOpalescentDiagnosticReport('{"success": true}')).toThrow(/diagnostics/);
 });

@@ -1,12 +1,11 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
 import path from 'node:path';
+import { expect, test } from 'vitest';
 import { candidateBinaryPaths, shellQuote } from '../binary.js';
 
 test('binary candidates prefer configured path then workspace build outputs then PATH names', () => {
   const root = path.resolve('/workspace/opalescent');
 
-  assert.deepEqual(candidateBinaryPaths([root], '/custom/opal'), [
+  expect(candidateBinaryPaths([root], '/custom/opal')).toEqual([
     '/custom/opal',
     path.join(root, 'target', 'debug', process.platform === 'win32' ? 'opalescent.exe' : 'opalescent'),
     path.join(root, 'target', 'release', process.platform === 'win32' ? 'opalescent.exe' : 'opalescent'),
@@ -16,6 +15,6 @@ test('binary candidates prefer configured path then workspace build outputs then
 });
 
 test('shellQuote quotes paths safely for VS Code terminals', () => {
-  assert.equal(shellQuote('/tmp/opal binary'), "'/tmp/opal binary'");
-  assert.equal(shellQuote("/tmp/it's-opal"), "'/tmp/it'\\''s-opal'");
+  expect(shellQuote('/tmp/opal binary')).toBe("'/tmp/opal binary'");
+  expect(shellQuote("/tmp/it's-opal")).toBe("'/tmp/it'\\''s-opal'");
 });

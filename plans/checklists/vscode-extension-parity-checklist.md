@@ -17,13 +17,13 @@
 
 ## Phase 2: Extension TypeScript foundation
 
-- [x] Add TypeScript/npm scaffolding and tests.
+- [x] Add TypeScript/pnpm scaffolding and tests.
 - [x] Add failing extension helper tests.
 - [x] Implement project/file detection helpers.
 - [x] Implement compiler JSON parser helpers.
 - [x] Implement command argument helpers.
 - [x] Implement conservative symbol index helpers.
-- [x] Run extension unit tests (`npm test` in `vscode-extension`).
+- [x] Run extension unit tests (`pnpm test` in `vscode-extension`).
 
 ## Phase 3: VS Code integration
 
@@ -37,7 +37,7 @@
 - [x] Implement code lenses above entry functions for Build and Run.
 - [x] Implement go-to-definition provider.
 - [x] Implement find-implementation provider.
-- [x] Run TypeScript compilation (`npm test` in `vscode-extension`).
+- [x] Run TypeScript compilation (`pnpm test` in `vscode-extension`).
 
 ## Phase 4: Packaging and grammar parity
 

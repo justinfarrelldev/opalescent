@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "opalescent",
   "license": "Apache-2.0",
+  "packageManager": "pnpm@10.30.0",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -25,8 +26,8 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node --test out/test/**/*.test.js",
-    "package": "npm run compile && vsce package --out opalescent-language-support-${npm_package_version}.vsix"
+    "test": "pnpm compile && vitest run",
+    "package": "pnpm compile && vsce package --out opalescent-language-support-${npm_package_version}.vsix"
   },
   "contributes": {
     "configuration": {
@@ -97,6 +98,7 @@
     "@types/node": "^24.0.0",
     "@types/vscode": "^1.80.0",
     "@vscode/vsce": "^3.6.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
   }
 }
