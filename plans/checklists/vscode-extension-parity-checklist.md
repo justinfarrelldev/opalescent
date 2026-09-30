@@ -50,6 +50,6 @@
 
 ## Review and commits
 
-- [ ] Perform code review of implemented work.
-- [ ] Run relevant regression tests.
-- [ ] Make atomic commits without modifying/skipping pre-commit hook.
+- [x] Perform code review of implemented work.
+- [x] Run relevant regression tests (`cargo test --lib`, `pnpm test`, `cargo make vscode-extension-vsix`, plus pre-commit test/build hooks).
+- [x] Make atomic commits without modifying/skipping pre-commit hook.
