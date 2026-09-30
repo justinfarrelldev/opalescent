@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+
 import { collectSymbolsFromSource, findEntryLines, wordAtPosition } from '../symbols.js';
 
 const source = `import helper from ./helper

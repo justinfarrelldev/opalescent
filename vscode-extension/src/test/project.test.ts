@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, test } from 'vitest';
+
 import { findProjectRoot, isOpalescentFile } from '../project.js';
 
 test('detects .op and .types.op files as Opalescent files', () => {

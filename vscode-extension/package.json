@@ -35,6 +35,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.cjs,.mjs,.mts --max-warnings=0",
     "test": "pnpm compile && vitest run",
     "package": "pnpm compile && vsce package --allow-missing-repository --out opalescent-language-support-${npm_package_version}.vsix"
   },
@@ -111,7 +112,22 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
     "@vscode/vsce": "^3.6.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-functional": "^6.6.3",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^50.8.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-no-unsanitized": "^4.0.2",
+    "eslint-plugin-perfectionist": "^2.11.0",
+    "eslint-plugin-playwright": "^2.0.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.9",
     "typescript": "^5.9.0",
     "vitest": "^5.0.3"
   }

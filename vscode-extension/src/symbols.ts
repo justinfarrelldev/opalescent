@@ -1,12 +1,12 @@
-export type OpalescentSymbolKind = 'entry' | 'function' | 'type' | 'error_set' | 'let';
+export type OpalescentSymbolKind = 'entry' | 'error_set' | 'function' | 'let' | 'type';
 
 export interface OpalescentSymbol {
-  name: string;
-  kind: OpalescentSymbolKind;
-  filePath: string;
-  line: number;
   character: number;
   exported: boolean;
+  filePath: string;
+  kind: OpalescentSymbolKind;
+  line: number;
+  name: string;
 }
 
 const identifierPattern = '[A-Za-z_][A-Za-z0-9_]*';
@@ -16,6 +16,12 @@ const entryPattern = new RegExp(`^\\s*(public\\s+)?entry\\s+(${identifierPattern
 const typePattern = new RegExp(`^\\s*(public\\s+)?type\\s+([A-Z][A-Za-z0-9_]*)\\b`);
 const errorSetPattern = new RegExp(`^\\s*(public\\s+)?error\\s+set\\s+([A-Z][A-Za-z0-9_]*)\\b`);
 
+/**
+ * Collects top-level declarations that are useful for editor navigation.
+ * @param source Opalescent source text to scan.
+ * @param filePath Path associated with the source text.
+ * @returns Symbols discovered in source order.
+ */
 export function collectSymbolsFromSource(source: string, filePath: string): OpalescentSymbol[] {
   const symbols: OpalescentSymbol[] = [];
   const lines = source.split('\n');
@@ -54,6 +60,11 @@ export function collectSymbolsFromSource(source: string, filePath: string): Opal
   return symbols;
 }
 
+/**
+ * Finds source lines containing entry declarations.
+ * @param source Opalescent source text to scan.
+ * @returns Zero-based line numbers for entry declarations.
+ */
 export function findEntryLines(source: string): number[] {
   const lines = source.split('\n');
   const entries: number[] = [];
@@ -65,6 +76,13 @@ export function findEntryLines(source: string): number[] {
   return entries;
 }
 
+/**
+ * Extracts an identifier near a zero-based editor position.
+ * @param source Source text to inspect.
+ * @param line Zero-based line index.
+ * @param character Zero-based character index.
+ * @returns The identifier at or before the position, or undefined.
+ */
 export function wordAtPosition(source: string, line: number, character: number): string | undefined {
   const lines = source.split('\n');
   const lineText = lines[line];
@@ -93,6 +111,16 @@ export function wordAtPosition(source: string, line: number, character: number):
   return lineText.slice(start, end);
 }
 
+/**
+ * Builds a symbol value from a declaration regex match.
+ * @param line Complete source line containing the declaration.
+ * @param lineIndex Zero-based declaration line index.
+ * @param filePath File containing the declaration.
+ * @param name Symbol name.
+ * @param kind Symbol kind.
+ * @param exported Whether the declaration is public.
+ * @returns A navigation symbol for the declaration.
+ */
 function symbolFromMatch(
   line: string,
   lineIndex: number,
@@ -102,15 +130,20 @@ function symbolFromMatch(
   exported: boolean
 ): OpalescentSymbol {
   return {
-    name,
-    kind,
-    filePath,
-    line: lineIndex,
     character: line.indexOf(name),
-    exported
+    exported,
+    filePath,
+    kind,
+    line: lineIndex,
+    name
   };
 }
 
+/**
+ * Checks whether a character can be part of an Opalescent identifier.
+ * @param character Single character to inspect.
+ * @returns Whether the character is alphanumeric or an underscore.
+ */
 function isWordCharacter(character: string): boolean {
   return /[A-Za-z0-9_]/.test(character);
 }

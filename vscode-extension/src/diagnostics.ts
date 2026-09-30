@@ -1,32 +1,37 @@
-export type OpalescentDiagnosticSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type OpalescentDiagnosticSeverity = 'error' | 'hint' | 'information' | 'warning';
 
 export interface OpalescentDiagnosticPosition {
-  line: number;
   character: number;
+  line: number;
 }
 
 export interface OpalescentDiagnosticRange {
-  start: OpalescentDiagnosticPosition;
   end: OpalescentDiagnosticPosition;
+  start: OpalescentDiagnosticPosition;
 }
 
 export interface OpalescentDiagnostic {
-  source_path: string;
-  severity: OpalescentDiagnosticSeverity;
-  phase: string;
   code?: string;
-  message: string;
   help?: string;
+  message: string;
+  phase: string;
   range: OpalescentDiagnosticRange;
+  severity: OpalescentDiagnosticSeverity;
+  source_path: string;
 }
 
 export interface OpalescentDiagnosticReport {
-  success: boolean;
   diagnostics: OpalescentDiagnostic[];
+  success: boolean;
 }
 
 const severities = new Set(['error', 'warning', 'information', 'hint']);
 
+/**
+ * Parses and validates the compiler's JSON diagnostic report.
+ * @param jsonText Raw JSON emitted by the compiler.
+ * @returns A validated diagnostic report.
+ */
 export function parseOpalescentDiagnosticReport(jsonText: string): OpalescentDiagnosticReport {
   const parsed: unknown = JSON.parse(jsonText);
   if (!isRecord(parsed)) {
@@ -40,9 +45,14 @@ export function parseOpalescentDiagnosticReport(jsonText: string): OpalescentDia
   }
 
   const diagnostics = parsed.diagnostics.map((diagnostic, index) => validateDiagnostic(diagnostic, index));
-  return { success: parsed.success, diagnostics };
+  return { diagnostics, success: parsed.success };
 }
 
+/**
+ * Groups diagnostics by source file path.
+ * @param report Validated compiler diagnostic report.
+ * @returns Diagnostics keyed by source path.
+ */
 export function diagnosticsByFile(report: OpalescentDiagnosticReport): Map<string, OpalescentDiagnostic[]> {
   const grouped = new Map<string, OpalescentDiagnostic[]>();
   for (const diagnostic of report.diagnostics) {
@@ -53,6 +63,12 @@ export function diagnosticsByFile(report: OpalescentDiagnosticReport): Map<strin
   return grouped;
 }
 
+/**
+ * Validates one diagnostic object from the compiler payload.
+ * @param value Candidate diagnostic value.
+ * @param index Index of the diagnostic in the report.
+ * @returns A validated diagnostic object.
+ */
 function validateDiagnostic(value: unknown, index: number): OpalescentDiagnostic {
   if (!isRecord(value)) {
     throw new Error(`diagnostics[${index}] must be an object`);
@@ -77,35 +93,52 @@ function validateDiagnostic(value: unknown, index: number): OpalescentDiagnostic
   }
   const range = validateRange(value.range, index);
   return {
-    source_path: value.source_path,
-    severity: value.severity as OpalescentDiagnosticSeverity,
-    phase: value.phase,
     code: value.code,
-    message: value.message,
     help: value.help,
-    range
+    message: value.message,
+    phase: value.phase,
+    range,
+    severity: value.severity as OpalescentDiagnosticSeverity,
+    source_path: value.source_path
   };
 }
 
+/**
+ * Validates a diagnostic source range.
+ * @param value Candidate range value.
+ * @param index Index of the owning diagnostic in the report.
+ * @returns A validated source range.
+ */
 function validateRange(value: unknown, index: number): OpalescentDiagnosticRange {
   if (!isRecord(value)) {
     throw new Error(`diagnostics[${index}].range must be an object`);
   }
   return {
-    start: validatePosition(value.start, `diagnostics[${index}].range.start`),
-    end: validatePosition(value.end, `diagnostics[${index}].range.end`)
+    end: validatePosition(value.end, `diagnostics[${index}].range.end`),
+    start: validatePosition(value.start, `diagnostics[${index}].range.start`)
   };
 }
 
+/**
+ * Validates a zero-based editor position.
+ * @param value Candidate position value.
+ * @param label Human-readable path used in validation errors.
+ * @returns A validated source position.
+ */
 function validatePosition(value: unknown, label: string): OpalescentDiagnosticPosition {
   if (!isRecord(value) || !Number.isInteger(value.line) || !Number.isInteger(value.character)) {
     throw new Error(`${label} must contain integer line and character`);
   }
   const line = value.line as number;
   const character = value.character as number;
-  return { line, character };
+  return { character, line };
 }
 
+/**
+ * Checks whether a value can be inspected as an object record.
+ * @param value Value to inspect.
+ * @returns Whether the value is a non-null object.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

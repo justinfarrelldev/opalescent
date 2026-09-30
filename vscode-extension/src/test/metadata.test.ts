@@ -5,15 +5,20 @@ import { expect, test } from 'vitest';
 const extensionRoot = path.resolve(__dirname, '..', '..');
 const repoRoot = path.resolve(extensionRoot, '..');
 
+/**
+ * Reads a JSON file from the extension root for metadata assertions.
+ * @param relativePath Path to the JSON file relative to the extension root.
+ * @returns Parsed JSON content.
+ */
 function readJson<T>(relativePath: string): T {
   return JSON.parse(fs.readFileSync(path.join(extensionRoot, relativePath), 'utf8')) as T;
 }
 
 test('extension package uses pnpm/Vitest and command categories for palette ergonomics', () => {
   const manifest = readJson<{
+    contributes?: { commands?: Array<{ category?: string; command: string }> };
     packageManager?: string;
     scripts?: Record<string, string>;
-    contributes?: { commands?: Array<{ command: string; category?: string }> };
   }>('package.json');
 
   expect(manifest.packageManager).toMatch(/^pnpm@/);
@@ -24,11 +29,11 @@ test('extension package uses pnpm/Vitest and command categories for palette ergo
 
 test('language configuration avoids brace-body affordances and indents block-introducing syntax', () => {
   const config = readJson<{
-    autoClosingPairs?: Array<string[] | { open: string; close: string }>;
+    autoClosingPairs?: Array<{ close: string; open: string } | string[]>;
     indentationRules?: { increaseIndentPattern?: string };
   }>('language-configuration.json');
 
-  expect(config.autoClosingPairs).not.toContainEqual({ open: '{', close: '}' });
+  expect(config.autoClosingPairs).not.toContainEqual({ close: '}', open: '{' });
   expect(config.indentationRules?.increaseIndentPattern).toContain('=>');
   expect(config.indentationRules?.increaseIndentPattern).toContain(':');
 });

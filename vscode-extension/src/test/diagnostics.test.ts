@@ -1,27 +1,28 @@
 import { expect, test } from 'vitest';
+
 import { diagnosticsByFile, parseOpalescentDiagnosticReport } from '../diagnostics.js';
 
 test('parses compiler JSON diagnostics and groups them by source path', () => {
   const report = parseOpalescentDiagnosticReport(JSON.stringify({
-    success: false,
     diagnostics: [
       {
-        source_path: '/p/src/main.op',
-        severity: 'error',
-        phase: 'type checker',
         code: 'opalescent::type_system::type_mismatch',
-        message: 'Type mismatch',
         help: 'Change one type',
-        range: { start: { line: 4, character: 10 }, end: { line: 4, character: 16 } }
+        message: 'Type mismatch',
+        phase: 'type checker',
+        range: { end: { character: 16, line: 4 }, start: { character: 10, line: 4 } },
+        severity: 'error',
+        source_path: '/p/src/main.op'
       },
       {
-        source_path: '/p/src/helper.op',
-        severity: 'warning',
-        phase: 'type checker',
         message: 'Variable is never used',
-        range: { start: { line: 1, character: 8 }, end: { line: 1, character: 13 } }
+        phase: 'type checker',
+        range: { end: { character: 13, line: 1 }, start: { character: 8, line: 1 } },
+        severity: 'warning',
+        source_path: '/p/src/helper.op'
       }
-    ]
+    ],
+    success: false
   }));
 
   const grouped = diagnosticsByFile(report);

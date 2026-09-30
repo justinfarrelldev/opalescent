@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+
 import { buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from '../cli.js';
 
 test('check args use project-aware JSON diagnostics when project root is known', () => {

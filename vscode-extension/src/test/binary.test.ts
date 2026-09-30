@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, test } from 'vitest';
+
 import { candidateBinaryPaths, shellQuote } from '../binary.js';
 
 test('binary candidates prefer configured path then workspace build outputs then PATH names', () => {

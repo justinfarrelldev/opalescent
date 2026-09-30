@@ -4,11 +4,12 @@ import * as fsp from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+
 import { candidateBinaryPaths, shellQuote } from './binary.js';
-import { buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext, type OpalescentCommandContext } from './cli.js';
-import { diagnosticsByFile, parseOpalescentDiagnosticReport, type OpalescentDiagnostic } from './diagnostics.js';
+import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
+import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
 import { findProjectRoot, isOpalescentFile } from './project.js';
-import { collectSymbolsFromSource, findEntryLines, wordAtPosition, type OpalescentSymbol } from './symbols.js';
+import { type OpalescentSymbol, collectSymbolsFromSource, findEntryLines, wordAtPosition } from './symbols.js';
 
 const languageId = 'opalescent';
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('opalescent');
@@ -18,10 +19,14 @@ let resolvedBinary: string | undefined;
 
 interface CompilerResult {
   code: number;
-  stdout: string;
   stderr: string;
+  stdout: string;
 }
 
+/**
+ * Registers extension commands, editor providers, and diagnostic hooks.
+ * @param context VS Code extension context used to manage subscriptions.
+ */
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(diagnosticCollection, outputChannel);
   context.subscriptions.push(
@@ -85,6 +90,9 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 }
 
+/**
+ * Clears pending diagnostic timers during extension shutdown.
+ */
 export function deactivate(): void {
   for (const timer of diagnosticTimers.values()) {
     clearTimeout(timer);
@@ -92,11 +100,20 @@ export function deactivate(): void {
   diagnosticTimers.clear();
 }
 
+/**
+ * Reads the Opalescent workspace configuration section.
+ * @returns Current Opalescent workspace configuration.
+ */
 function config(): vscode.WorkspaceConfiguration {
   return vscode.workspace.getConfiguration('opalescent');
 }
 
-async function documentFromCommand(uri?: vscode.Uri): Promise<vscode.TextDocument | undefined> {
+/**
+ * Resolves a command argument or active editor into an Opalescent document.
+ * @param uri Optional URI supplied by a VS Code command invocation.
+ * @returns The requested document, or undefined when no Opalescent file is active.
+ */
+async function documentFromCommand(uri?: vscode.Uri): Promise<undefined | vscode.TextDocument> {
   if (uri) {
     return vscode.workspace.openTextDocument(uri);
   }
@@ -108,20 +125,39 @@ async function documentFromCommand(uri?: vscode.Uri): Promise<vscode.TextDocumen
   return document;
 }
 
+/**
+ * Checks whether a VS Code document should be treated as Opalescent source.
+ * @param document Document to inspect.
+ * @returns Whether the document uses the Opalescent language or file extension.
+ */
 function isOpalescentDocument(document: vscode.TextDocument): boolean {
   return document.languageId === languageId || isOpalescentFile(document.uri.fsPath);
 }
 
+/**
+ * Builds compiler command context for a document.
+ * @param document Document that a compiler command will target.
+ * @returns File path and nearest project root for command generation.
+ */
 function commandContextForDocument(document: vscode.TextDocument): OpalescentCommandContext {
   const filePath = document.uri.fsPath;
   const projectRoot = findProjectRoot(filePath, fs.existsSync);
   return { filePath, projectRoot };
 }
 
+/**
+ * Gets workspace folder paths currently open in VS Code.
+ * @returns Workspace root paths.
+ */
 function workspaceRoots(): string[] {
   return vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) ?? [];
 }
 
+/**
+ * Finds a usable Opalescent compiler binary.
+ * @param promptUser Whether to prompt the user when auto-detection fails.
+ * @returns A compiler path, or undefined when none is available.
+ */
 async function resolveBinary(promptUser: boolean): Promise<string | undefined> {
   if (resolvedBinary && (await binaryWorks(resolvedBinary))) {
     return resolvedBinary;
@@ -149,6 +185,10 @@ async function resolveBinary(promptUser: boolean): Promise<string | undefined> {
   return selectBinary();
 }
 
+/**
+ * Prompts the user to choose and persist a compiler binary path.
+ * @returns The selected compiler path, or undefined when cancelled.
+ */
 async function selectBinary(): Promise<string | undefined> {
   const selected = await vscode.window.showOpenDialog({
     canSelectFiles: true,
@@ -165,6 +205,11 @@ async function selectBinary(): Promise<string | undefined> {
   return picked;
 }
 
+/**
+ * Checks whether a candidate binary responds to the compiler help command.
+ * @param binary Candidate compiler path or command name.
+ * @returns Whether the candidate can be executed successfully.
+ */
 async function binaryWorks(binary: string): Promise<boolean> {
   return new Promise((resolve) => {
     childProcess.execFile(binary, ['help'], { timeout: 5000 }, (error) => {
@@ -173,6 +218,13 @@ async function binaryWorks(binary: string): Promise<boolean> {
   });
 }
 
+/**
+ * Executes the compiler and captures its process output.
+ * @param binary Compiler binary path or command name.
+ * @param args Arguments passed to the compiler.
+ * @param cwd Optional working directory for the process.
+ * @returns Compiler exit code, stdout, and stderr.
+ */
 async function runCompiler(binary: string, args: string[], cwd?: string): Promise<CompilerResult> {
   outputChannel.appendLine(`$ ${binary} ${args.join(' ')}`);
   return new Promise((resolve) => {
@@ -183,11 +235,16 @@ async function runCompiler(binary: string, args: string[], cwd?: string): Promis
       if (stderr) {
         outputChannel.appendLine(stderr);
       }
-      resolve({ code, stdout, stderr });
+      resolve({ code, stderr, stdout });
     });
   });
 }
 
+/**
+ * Debounces compiler-backed diagnostics for a document.
+ * @param document Document to diagnose.
+ * @param promptUser Whether diagnostics may prompt for a compiler binary.
+ */
 function scheduleDiagnostics(document: vscode.TextDocument, promptUser: boolean): void {
   const key = document.uri.toString();
   const existing = diagnosticTimers.get(key);
@@ -201,6 +258,11 @@ function scheduleDiagnostics(document: vscode.TextDocument, promptUser: boolean)
   diagnosticTimers.set(key, timer);
 }
 
+/**
+ * Runs compiler diagnostics and applies parsed VS Code diagnostics.
+ * @param document Document to diagnose.
+ * @param promptUser Whether diagnostics may prompt for a compiler binary.
+ */
 async function runDiagnostics(document: vscode.TextDocument, promptUser: boolean): Promise<void> {
   const binary = await resolveBinary(promptUser);
   if (!binary) {
@@ -227,6 +289,10 @@ async function runDiagnostics(document: vscode.TextDocument, promptUser: boolean
   }
 }
 
+/**
+ * Replaces the extension diagnostic collection with compiler report contents.
+ * @param report Parsed compiler diagnostic report.
+ */
 function applyDiagnostics(report: ReturnType<typeof parseOpalescentDiagnosticReport>): void {
   diagnosticCollection.clear();
   for (const [filePath, diagnostics] of diagnosticsByFile(report)) {
@@ -234,6 +300,11 @@ function applyDiagnostics(report: ReturnType<typeof parseOpalescentDiagnosticRep
   }
 }
 
+/**
+ * Converts a compiler diagnostic into a VS Code diagnostic.
+ * @param diagnostic Compiler diagnostic to convert.
+ * @returns VS Code diagnostic for display in the editor.
+ */
 function toVsCodeDiagnostic(diagnostic: OpalescentDiagnostic): vscode.Diagnostic {
   const range = new vscode.Range(
     diagnostic.range.start.line,
@@ -247,6 +318,11 @@ function toVsCodeDiagnostic(diagnostic: OpalescentDiagnostic): vscode.Diagnostic
   return item;
 }
 
+/**
+ * Maps compiler severity labels to VS Code severity values.
+ * @param severity Compiler severity label.
+ * @returns Matching VS Code diagnostic severity.
+ */
 function toSeverity(severity: OpalescentDiagnostic['severity']): vscode.DiagnosticSeverity {
   switch (severity) {
     case 'error':
@@ -260,6 +336,11 @@ function toSeverity(severity: OpalescentDiagnostic['severity']): vscode.Diagnost
   }
 }
 
+/**
+ * Formats a document through the Opalescent compiler formatter.
+ * @param document Document to format.
+ * @returns Replacement edits containing formatted text, or an empty list on failure.
+ */
 async function formatDocument(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
   const binary = await resolveBinary(true);
   if (!binary) {
@@ -283,15 +364,25 @@ async function formatDocument(document: vscode.TextDocument): Promise<vscode.Tex
     const formatted = await fsp.readFile(outputPath, 'utf8');
     return [vscode.TextEdit.replace(fullDocumentRange(document), formatted)];
   } finally {
-    await fsp.rm(tempDir, { recursive: true, force: true });
+    await fsp.rm(tempDir, { force: true, recursive: true });
   }
 }
 
+/**
+ * Builds a range covering the full contents of a document.
+ * @param document Document whose full range is needed.
+ * @returns Range from the first character through the final line ending position.
+ */
 function fullDocumentRange(document: vscode.TextDocument): vscode.Range {
   const lastLine = document.lineAt(Math.max(document.lineCount - 1, 0));
   return new vscode.Range(new vscode.Position(0, 0), lastLine.range.end);
 }
 
+/**
+ * Opens a VS Code terminal and starts a build or run command.
+ * @param document Document used to determine project context.
+ * @param mode Command mode to execute.
+ */
 async function runBuildOrRun(document: vscode.TextDocument, mode: 'build' | 'run'): Promise<void> {
   const binary = await resolveBinary(true);
   if (!binary) {
@@ -300,25 +391,30 @@ async function runBuildOrRun(document: vscode.TextDocument, mode: 'build' | 'run
   const context = commandContextForDocument(document);
   const args = mode === 'build' ? buildArgsForContext(context) : runArgsForContext(context);
   const cwd = context.projectRoot ?? path.dirname(context.filePath);
-  const terminal = vscode.window.createTerminal({ name: mode === 'build' ? 'Opalescent Build' : 'Opalescent Run', cwd });
+  const terminal = vscode.window.createTerminal({ cwd, name: mode === 'build' ? 'Opalescent Build' : 'Opalescent Run' });
   terminal.show();
   terminal.sendText([shellQuote(binary), ...args.map(shellQuote)].join(' '));
 }
 
 class OpalescentCodeLensProvider implements vscode.CodeLensProvider {
+  /**
+   * Creates build and run code lenses for Opalescent entry declarations.
+   * @param document Document to inspect for entry declarations.
+   * @returns Code lenses for each entry declaration.
+   */
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     return findEntryLines(document.getText()).flatMap((line) => {
       const range = new vscode.Range(line, 0, line, 0);
       return [
         new vscode.CodeLens(range, {
-          title: 'Build Opalescent Project',
+          arguments: [document.uri],
           command: 'opalescent.buildProject',
-          arguments: [document.uri]
+          title: 'Build Opalescent Project'
         }),
         new vscode.CodeLens(range, {
-          title: 'Run Opalescent Program',
+          arguments: [document.uri],
           command: 'opalescent.runProject',
-          arguments: [document.uri]
+          title: 'Run Opalescent Program'
         })
       ];
     });
@@ -326,7 +422,13 @@ class OpalescentCodeLensProvider implements vscode.CodeLensProvider {
 }
 
 class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
-  async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location | undefined> {
+  /**
+   * Resolves a symbol definition location for the word under the cursor.
+   * @param document Document containing the lookup position.
+   * @param position Position whose word should be resolved.
+   * @returns Definition location, or undefined when no symbol matches.
+   */
+  async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<undefined | vscode.Location> {
     const word = wordAtPosition(document.getText(), position.line, position.character);
     if (!word) {
       return undefined;
@@ -338,6 +440,12 @@ class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
 }
 
 class OpalescentImplementationProvider implements vscode.ImplementationProvider {
+  /**
+   * Resolves implementation locations for the word under the cursor.
+   * @param document Document containing the lookup position.
+   * @param position Position whose word should be resolved.
+   * @returns Matching implementation locations.
+   */
   async provideImplementation(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location[]> {
     const word = wordAtPosition(document.getText(), position.line, position.character);
     if (!word) {
@@ -350,6 +458,11 @@ class OpalescentImplementationProvider implements vscode.ImplementationProvider 
   }
 }
 
+/**
+ * Collects navigation symbols from the current project or current file.
+ * @param document Current document whose project should be scanned.
+ * @returns Symbols available for navigation.
+ */
 async function collectProjectSymbols(document: vscode.TextDocument): Promise<OpalescentSymbol[]> {
   const currentFile = document.uri.fsPath;
   const projectRoot = findProjectRoot(currentFile, fs.existsSync);
@@ -362,8 +475,17 @@ async function collectProjectSymbols(document: vscode.TextDocument): Promise<Opa
   return symbols;
 }
 
+/**
+ * Recursively collects Opalescent files under a project root.
+ * @param root Project root to scan.
+ * @returns Sorted Opalescent source file paths.
+ */
 async function collectOpalescentFiles(root: string): Promise<string[]> {
   const files: string[] = [];
+  /**
+   * Walks a directory tree, appending Opalescent files to the outer list.
+   * @param directory Directory to scan.
+   */
   async function walk(directory: string): Promise<void> {
     const entries = await fsp.readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
@@ -382,6 +504,11 @@ async function collectOpalescentFiles(root: string): Promise<string[]> {
   return files.sort();
 }
 
+/**
+ * Converts a symbol into a VS Code location.
+ * @param symbol Symbol to convert.
+ * @returns Location spanning the symbol name.
+ */
 function symbolLocation(symbol: OpalescentSymbol): vscode.Location {
   return new vscode.Location(
     vscode.Uri.file(symbol.filePath),
