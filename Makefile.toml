@@ -75,6 +75,20 @@ description = "Run the test suite"
 command = "cargo"
 args = ["test"]
 
+[tasks.vscode-extension-install]
+description = "Install VS Code extension dependencies with pnpm"
+script = ["cd vscode-extension && pnpm install --frozen-lockfile"]
+
+[tasks.vscode-extension-test]
+description = "Run VS Code extension unit tests"
+dependencies = ["vscode-extension-install"]
+script = ["cd vscode-extension && pnpm test"]
+
+[tasks.vscode-extension-vsix]
+description = "Package the VS Code extension as a VSIX"
+dependencies = ["vscode-extension-install"]
+script = ["cd vscode-extension && pnpm package"]
+
 [tasks.test-all]
 description = "Run unit/doc tests and the integration E2E suite"
 script = [

@@ -41,12 +41,12 @@
 
 ## Phase 4: Packaging and grammar parity
 
-- [ ] Refresh package contributions and extension settings.
-- [ ] Update TextMate grammar for current public syntax.
-- [ ] Update language configuration for current indentation/comment behavior.
-- [ ] Add `.vscodeignore`.
-- [ ] Add cargo-make tasks to build/test/package VSIX.
-- [ ] Run `cargo make vscode-extension-vsix`.
+- [x] Refresh package contributions and extension settings.
+- [x] Update TextMate grammar for current public syntax.
+- [x] Update language configuration for current indentation/comment behavior.
+- [x] Add `.vscodeignore`.
+- [x] Add cargo-make tasks to build/test/package VSIX.
+- [x] Run `cargo make vscode-extension-vsix`.
 
 ## Review and commits
 

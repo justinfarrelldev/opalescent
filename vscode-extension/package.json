@@ -23,11 +23,20 @@
     "onCommand:opalescent.runProject"
   ],
   "main": "./out/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Opalescent language support invokes a user-selected or workspace compiler binary for diagnostics, formatting, build, and run commands."
+    }
+  },
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "pnpm compile && vitest run",
-    "package": "pnpm compile && vsce package --out opalescent-language-support-${npm_package_version}.vsix"
+    "package": "pnpm compile && vsce package --allow-missing-repository --out opalescent-language-support-${npm_package_version}.vsix"
   },
   "contributes": {
     "configuration": {
@@ -53,23 +62,28 @@
     "commands": [
       {
         "command": "opalescent.selectBinary",
-        "title": "Opalescent: Select Compiler Binary"
+        "title": "Opalescent: Select Compiler Binary",
+        "category": "Opalescent"
       },
       {
         "command": "opalescent.lintCurrentFile",
-        "title": "Opalescent: Lint Current File"
+        "title": "Opalescent: Lint Current File",
+        "category": "Opalescent"
       },
       {
         "command": "opalescent.formatDocument",
-        "title": "Opalescent: Format Document"
+        "title": "Opalescent: Format Document",
+        "category": "Opalescent"
       },
       {
         "command": "opalescent.buildProject",
-        "title": "Opalescent: Build Project"
+        "title": "Opalescent: Build Project",
+        "category": "Opalescent"
       },
       {
         "command": "opalescent.runProject",
-        "title": "Opalescent: Run Project"
+        "title": "Opalescent: Run Project",
+        "category": "Opalescent"
       }
     ],
     "languages": [

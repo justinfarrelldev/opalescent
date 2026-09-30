@@ -7,6 +7,7 @@
     { "include": "#line-comment" },
     { "include": "#string" },
     { "include": "#number" },
+    { "include": "#declarations" },
     { "include": "#keyword" },
     { "include": "#type-name" },
     { "include": "#function-call" },
@@ -14,16 +15,16 @@
   ],
   "repository": {
     "block-comment": {
-      "name": "comment.block.opalescent",
+      "name": "comment.block.documentation.opalescent",
       "begin": "##",
       "end": "##",
       "patterns": [
-        { "name": "comment.block.opalescent", "match": "." }
+        { "name": "comment.block.documentation.opalescent", "match": "." }
       ]
     },
     "line-comment": {
       "name": "comment.line.number-sign.opalescent",
-      "match": "#[^#].*$|#$"
+      "match": "#(?!#).*$"
     },
     "string": {
       "name": "string.quoted.single.opalescent",
@@ -35,10 +36,16 @@
           "match": "\\\\."
         },
         {
-          "name": "meta.embedded.opalescent",
+          "name": "meta.interpolation.opalescent",
           "begin": "\\{",
           "end": "\\}",
-          "contentName": "source.opalescent.embedded"
+          "contentName": "source.opalescent.embedded",
+          "patterns": [
+            { "include": "#number" },
+            { "include": "#keyword" },
+            { "include": "#function-call" },
+            { "include": "#identifier" }
+          ]
         }
       ]
     },
@@ -62,19 +69,59 @@
         }
       ]
     },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.function.declaration.opalescent",
+          "match": "\\b(public\\s+)?let\\s+([a-z_][A-Za-z0-9_]*)\\s*(?==\\s*f\\b)",
+          "captures": {
+            "1": { "name": "keyword.declaration.visibility.opalescent" },
+            "2": { "name": "entity.name.function.opalescent" }
+          }
+        },
+        {
+          "name": "meta.entry.declaration.opalescent",
+          "match": "\\b(entry)\\s+([a-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.entry.opalescent" },
+            "2": { "name": "entity.name.function.entry.opalescent" }
+          }
+        },
+        {
+          "name": "meta.type.declaration.opalescent",
+          "match": "\\b(public\\s+)?type\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.visibility.opalescent" },
+            "2": { "name": "entity.name.type.opalescent" }
+          }
+        },
+        {
+          "name": "meta.error-set.declaration.opalescent",
+          "match": "\\b(public\\s+)?error\\s+set\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.visibility.opalescent" },
+            "2": { "name": "entity.name.type.error-set.opalescent" }
+          }
+        }
+      ]
+    },
     "keyword": {
       "patterns": [
         {
           "name": "keyword.declaration.opalescent",
-          "match": "\\b(f|type|module|import|export|entry|public|pure)\\b"
+          "match": "\\b(f|type|error|set|import|from|entry|public|pure|untested)\\b"
         },
         {
           "name": "keyword.control.opalescent",
-          "match": "\\b(if|else|while|for|in|loop|match|break|continue|return|guard|propagate|from|into)\\b"
+          "match": "\\b(if|else|while|for|in|loop|break|continue|return|guard|propagate|into)\\b"
+        },
+        {
+          "name": "keyword.operator.word.opalescent",
+          "match": "\\b(and|or|not|xor|band|bor|bxor|bnot|bshl|bshr|bushr|div_euclid|mod_euclid|is|as|type_of)\\b"
         },
         {
           "name": "keyword.other.opalescent",
-          "match": "\\b(let|mutable|new|as|is|with|errors)\\b"
+          "match": "\\b(let|mutable|new|with|errors)\\b"
         },
         {
           "name": "constant.language.boolean.opalescent",
@@ -82,21 +129,21 @@
         },
         {
           "name": "support.type.primitive.opalescent",
-          "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|char|void)\\b"
+          "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|void)\\b"
         }
       ]
     },
     "type-name": {
       "name": "entity.name.type.opalescent",
-      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+      "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
     },
     "function-call": {
       "name": "entity.name.function.opalescent",
-      "match": "\\b([a-z_][a-zA-Z0-9_]*)(?=\\s*\\()"
+      "match": "\\b([a-z_][A-Za-z0-9_]*)(?=\\s*\\()"
     },
     "identifier": {
       "name": "variable.other.opalescent",
-      "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
+      "match": "\\b[a-z_][A-Za-z0-9_]*\\b"
     }
   }
 }
