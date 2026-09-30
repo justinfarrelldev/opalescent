@@ -206,7 +206,7 @@ fn byte_offset_to_position(source: &str, offset: usize) -> EditorPosition {
             line = line.saturating_add(1_usize);
             character = 0;
         } else {
-            character = character.saturating_add(1_usize);
+            character = character.saturating_add(ch.len_utf16());
         }
     }
 
@@ -224,7 +224,7 @@ pub fn to_json(report: &EditorDiagnosticReport) -> Result<String, serde_json::Er
 #[cfg(test)]
 mod tests {
     use super::{
-        EditorDiagnosticReport, EditorDiagnosticSeverity, EditorPosition,
+        EditorDiagnosticReport, EditorDiagnosticSeverity, EditorPosition, byte_offset_to_position,
         report_to_editor_diagnostics, to_json, warning_to_editor_diagnostic,
     };
     use crate::errors::reporter::CompilationErrorReport;
@@ -317,5 +317,16 @@ mod tests {
 
         assert!(json.contains("\"success\": true"));
         assert!(json.contains("\"diagnostics\": []"));
+    }
+
+    #[test]
+    fn byte_offsets_use_utf16_code_units_for_editor_positions() {
+        let source = "let emoji = '🙂x'";
+        let x_offset = source.find('x').expect("fixture should contain x");
+
+        let position = byte_offset_to_position(source, x_offset);
+
+        assert_eq!(position.line, 0);
+        assert_eq!(position.character, 15);
     }
 }
