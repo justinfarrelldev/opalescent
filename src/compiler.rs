@@ -1,12 +1,12 @@
 //! Compiler orchestration helpers for front-end to LLVM module flow.
-//!
 //! This module provides a single pipeline entry that lexes, parses,
 //! type-checks, and lowers Opalescent source into an LLVM module.
-
 extern crate alloc;
 
 /// Helper functions for compiler pipeline orchestration.
 mod compiler_helpers;
+/// Project check pipeline used by editor integrations.
+pub mod project_check;
 
 use crate::ast::{Decl, Expr, NodeId, Program};
 use crate::bounded_proc::{RunError, RunPolicy, run_command};

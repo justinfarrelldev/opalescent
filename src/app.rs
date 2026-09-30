@@ -15,8 +15,12 @@
 use crate::build_system::BuildError;
 use crate::build_system::config::{ProjectConfig, Version, parse_config};
 use crate::build_system::targets::{BuildTarget, parse_target_triple};
+use crate::compiler::project_check::{CheckFileDiagnostics, check_project_frontend};
 use crate::compiler::{CompileError, compile_program, compile_project};
 use crate::doc_gen::generate_markdown_for_program;
+use crate::editor_diagnostics::{
+    EditorDiagnosticReport, report_to_editor_diagnostics, to_json, warning_to_editor_diagnostic,
+};
 use crate::errors::renderer::{render_diagnostic, render_report};
 use crate::errors::reporter::CompilationErrorReport;
 use crate::formatter::command::FormatCommand;
@@ -67,7 +71,7 @@ fn help_text(topic: Option<&str>) -> String {
             out.push_str("opal run <file.op> [-- args...]\n\nCompile and execute an Opalescent source file.\n  -- args...    Arguments forwarded to the compiled binary\nAlias: opal <file.op> --run\n");
         }
         Some("check") => {
-            out.push_str("opal check <file.op>\n\nRun lex, parse, and typecheck pipeline without code generation.\n");
+            out.push_str("opal check [--json] <file.op>\nopal check [--json] --project [path]\n\nRun lex, parse, and typecheck pipeline without code generation.\n  --json       Emit machine-readable diagnostics for editor integrations\n  --project    Check every imported module reachable from path/src/main.op (default: .)\n");
         }
         Some("build") => {
             out.push_str(
@@ -718,15 +722,78 @@ fn run_bench_command(_args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
-/// Dispatch `opal check` — lex → parse → [`TypeChecker`] pipeline on `args[2]`.
+/// Parsed options for `opal check`.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct CheckCommandOptions {
+    /// Emit JSON diagnostics instead of human-rendered diagnostics.
+    json: bool,
+    /// Optional project root for project-aware checking.
+    project_root: Option<String>,
+    /// Optional single source file for standalone checking.
+    source_path: Option<String>,
+    /// Optional target triple accepted for compatibility with other commands.
+    target: Option<String>,
+}
+
+/// Parse `opal check` command-line flags.
+fn parse_check_command_options(args: &[String]) -> Result<CheckCommandOptions, i32> {
+    let mut options = CheckCommandOptions::default();
+    let mut index = 2_usize;
+    while let Some(arg) = args.get(index).map(String::as_str) {
+        match arg {
+            "--json" => {
+                options.json = true;
+                index = index.saturating_add(1);
+            }
+            "--project" => {
+                if args
+                    .get(index.saturating_add(1))
+                    .is_some_and(|next| !next.starts_with("--"))
+                {
+                    options.project_root = args.get(index.saturating_add(1)).cloned();
+                    index = index.saturating_add(2);
+                } else {
+                    options.project_root = Some(String::from("."));
+                    index = index.saturating_add(1);
+                }
+            }
+            "--target" => {
+                let Some(target) = args.get(index.saturating_add(1)) else {
+                    eprintln!("error: --target requires a triple");
+                    return Err(1);
+                };
+                options.target = Some(target.clone());
+                index = index.saturating_add(2);
+            }
+            unknown if unknown.starts_with("--") => {
+                eprintln!("error: unknown check option '{unknown}'");
+                return Err(1);
+            }
+            path => {
+                if options.source_path.is_some() {
+                    eprintln!("error: opal check accepts only one source file");
+                    return Err(1);
+                }
+                options.source_path = Some(path.to_owned());
+                index = index.saturating_add(1);
+            }
+        }
+    }
+
+    if options.project_root.is_some() && options.source_path.is_some() {
+        eprintln!("error: --project cannot be combined with a source file");
+        return Err(1);
+    }
+
+    Ok(options)
+}
+
+/// Dispatch `opal check` — lex → parse → [`TypeChecker`] pipeline.
 /// Prints `check passed` on success; prints to stderr and returns `Err(1)` on any error.
 fn run_check_command(args: &[String]) -> Result<(), i32> {
-    let target_str = args
-        .iter()
-        .position(|a| a == "--target")
-        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
+    let options = parse_check_command_options(args)?;
 
-    if let Some(triple_str) = target_str {
+    if let Some(triple_str) = options.target.as_deref() {
         if parse_target_triple(triple_str).is_err() {
             eprintln!(
                 "error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin"
@@ -735,11 +802,34 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
         }
     }
 
-    let Some(source_path) = args.get(2).map(String::as_str) else {
+    if let Some(project_root) = options.project_root.as_deref() {
+        return run_check_project_command(project_root, options.json);
+    }
+
+    let Some(source_path) = options.source_path.as_deref() else {
         eprintln!("error: no source file specified");
-        eprintln!("Usage: opal check <file.op>");
+        eprintln!("Usage: opal check [--json] <file.op>");
         return Err(1);
     };
+
+    let file_diagnostics = check_single_file_for_cli(source_path)?;
+    emit_check_results(&[file_diagnostics], options.json)
+}
+
+/// Run project-aware check mode from a project root.
+fn run_check_project_command(project_root: &str, json: bool) -> Result<(), i32> {
+    let output = match check_project_frontend(Path::new(project_root)) {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("error: project check failed: {error}");
+            return Err(1);
+        }
+    };
+    emit_check_results(output.files.as_slice(), json)
+}
+
+/// Check one file and return compiler diagnostics without printing them.
+fn check_single_file_for_cli(source_path: &str) -> Result<CheckFileDiagnostics, i32> {
     let file_path = Path::new(source_path);
     let source = match fs::read_to_string(source_path) {
         Ok(content) => content,
@@ -748,37 +838,131 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
             return Err(1);
         }
     };
-    let source = source.replace('\t', "    ");
+    let normalized_source = source.replace('\t', "    ");
     let mut report = CompilationErrorReport::new();
-    let (tokens, lex_errors) = Lexer::new(&source).tokenize();
+    let (tokens, lex_errors) = Lexer::new(&normalized_source).tokenize();
     report.extend_lex_errors(lex_errors.errors);
     if !report.is_empty() {
-        eprintln!("{}", render_report(source_path, &source, &report));
-        return Err(1);
+        return Ok(CheckFileDiagnostics {
+            source_path: source_path.to_owned(),
+            normalized_source,
+            report,
+            warnings: Vec::new(),
+        });
     }
     let (program_opt, parse_errors) = Parser::new(tokens).parse();
     report.extend_parse_errors(parse_errors.errors);
     if !report.is_empty() {
-        eprintln!("{}", render_report(source_path, &source, &report));
-        return Err(1);
+        return Ok(CheckFileDiagnostics {
+            source_path: source_path.to_owned(),
+            normalized_source,
+            report,
+            warnings: Vec::new(),
+        });
     }
     let Some(program) = program_opt else {
-        eprintln!("error: parse errors in source");
-        return Err(1);
+        report.push_parse_error(crate::parser::errors::ParseError::InvalidSyntax {
+            message: String::from("parser returned no program after successful parse"),
+            span: crate::error::LexError::span_from_position(crate::token::Position::start(), 1),
+        });
+        return Ok(CheckFileDiagnostics {
+            source_path: source_path.to_owned(),
+            normalized_source,
+            report,
+            warnings: Vec::new(),
+        });
     };
     if let Err(role_error) = validate_module_file_role(file_path, &program) {
         report.extend_type_errors(vec![role_error]);
-        eprintln!("{}", render_report(source_path, &source, &report));
-        return Err(1);
+        return Ok(CheckFileDiagnostics {
+            source_path: source_path.to_owned(),
+            normalized_source,
+            report,
+            warnings: Vec::new(),
+        });
     }
     let mut checker = TypeChecker::new();
+    checker.set_current_module_path(file_path.display().to_string());
     if let Err(errors) = checker.type_check_program(&program) {
         report.extend_type_errors(errors);
-        eprintln!("{}", render_report(source_path, &source, &report));
+    }
+    Ok(CheckFileDiagnostics {
+        source_path: source_path.to_owned(),
+        normalized_source,
+        report,
+        warnings: checker.warnings().to_vec(),
+    })
+}
+
+/// Emit check diagnostics in human or JSON format.
+fn emit_check_results(files: &[CheckFileDiagnostics], json: bool) -> Result<(), i32> {
+    if json {
+        return emit_check_results_json(files);
+    }
+    emit_check_results_human(files)
+}
+
+/// Emit check diagnostics in JSON format.
+fn emit_check_results_json(files: &[CheckFileDiagnostics]) -> Result<(), i32> {
+    let mut diagnostics = Vec::new();
+    for file in files {
+        diagnostics.extend(report_to_editor_diagnostics(
+            file.source_path.as_str(),
+            file.normalized_source.as_str(),
+            &file.report,
+        ));
+        for warning in &file.warnings {
+            diagnostics.push(warning_to_editor_diagnostic(
+                file.source_path.as_str(),
+                file.normalized_source.as_str(),
+                warning,
+            ));
+        }
+    }
+    let success = files.iter().all(|file| file.report.is_empty());
+    let report = EditorDiagnosticReport {
+        success,
+        diagnostics,
+    };
+    let json = to_json(&report).map_err(|error| {
+        eprintln!("error: failed to serialize diagnostics: {error}");
+        1_i32
+    })?;
+    println!("{json}");
+    if success { Ok(()) } else { Err(1) }
+}
+
+/// Emit check diagnostics in human-readable miette format.
+fn emit_check_results_human(files: &[CheckFileDiagnostics]) -> Result<(), i32> {
+    let mut success = true;
+    for file in files {
+        if file.report.is_empty() {
+            continue;
+        }
+        success = false;
+        eprintln!(
+            "{}",
+            render_report(
+                file.source_path.as_str(),
+                file.normalized_source.as_str(),
+                &file.report,
+            )
+        );
+    }
+    if !success {
         return Err(1);
     }
-    for warning in checker.warnings() {
-        eprintln!("{}", render_diagnostic(source_path, &source, warning));
+    for file in files {
+        for warning in &file.warnings {
+            eprintln!(
+                "{}",
+                render_diagnostic(
+                    file.source_path.as_str(),
+                    file.normalized_source.as_str(),
+                    warning,
+                )
+            );
+        }
     }
     println!("check passed");
     Ok(())

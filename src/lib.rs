@@ -29,6 +29,7 @@ pub mod build_system;
 pub mod codegen;
 pub mod compiler;
 pub mod doc_gen;
+pub mod editor_diagnostics;
 pub mod error;
 /// Compiler-wide error reporting infrastructure modules.
 pub mod errors;

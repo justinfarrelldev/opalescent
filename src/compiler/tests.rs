@@ -4,6 +4,7 @@
 )]
 extern crate alloc;
 
+use super::project_check::check_project_frontend;
 use super::{
     CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command, compile_program,
     compile_runtime_c_to_obj_with_policy, compile_to_module, compile_to_module_for_target,
@@ -107,6 +108,52 @@ fn compile_to_module_type_error() {
             .iter()
             .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
         "semantic mismatches should surface as type-checker entries in CompilationErrorReport"
+    );
+}
+
+#[test]
+fn check_project_frontend_reports_dependency_diagnostic_without_codegen() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"editor_check\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write manifest");
+    std::fs::write(
+        src_dir.join("helper.op"),
+        "public let broken = f(): int32 =>\n    return 'wrong'\n",
+    )
+    .expect("write helper");
+    std::fs::write(
+        src_dir.join("main.op"),
+        "import broken from ./helper\n\n##\n  Description: Entry point for project diagnostics.\n##\nentry main = f(): void =>\n    return void\n",
+    )
+    .expect("write main");
+
+    let output = check_project_frontend(temp_dir.path()).expect("project check should run");
+
+    assert!(
+        !output.success(),
+        "dependency type error should fail project check"
+    );
+    let helper_file = output
+        .files
+        .iter()
+        .find(|file| file.source_path.ends_with("helper.op"))
+        .expect("helper diagnostics should be reported against helper.op");
+    assert!(
+        helper_file.report.entries().iter().any(|entry| matches!(
+            entry,
+            &(
+                _,
+                CompilerError::TypeChecker(
+                    crate::type_system::errors::TypeError::TypeMismatch { .. }
+                )
+            )
+        )),
+        "helper diagnostics should include type mismatch"
     );
 }
 

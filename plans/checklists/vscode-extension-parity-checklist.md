@@ -8,12 +8,12 @@
 
 ## Phase 1: Compiler-backed machine diagnostics
 
-- [ ] Add failing Rust tests for JSON diagnostic conversion and project-aware check behavior.
-- [ ] Implement machine-readable diagnostic data model.
-- [ ] Add `opal check --json` for single-file checks.
-- [ ] Add `opal check --project [path] --json` for project-aware checks.
-- [ ] Preserve existing human-readable `opal check` behavior.
-- [ ] Run Rust tests for touched compiler/app code.
+- [x] Add failing Rust tests for JSON diagnostic conversion and project-aware check behavior.
+- [x] Implement machine-readable diagnostic data model.
+- [x] Add `opal check --json` for single-file checks.
+- [x] Add `opal check --project [path] --json` for project-aware checks.
+- [x] Preserve existing human-readable `opal check` behavior.
+- [x] Run Rust tests for touched compiler/app code (`cargo test --lib`).
 
 ## Phase 2: Extension TypeScript foundation
 
