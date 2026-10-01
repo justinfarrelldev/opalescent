@@ -14,7 +14,15 @@ import {
   completionItemsForSymbols,
   staticHoverInfoForWord
 } from './completion.js';
-import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
+import {
+  type OpalescentDiagnostic,
+  type OpalescentDiagnosticRange,
+  type OpalescentTextEdit,
+  PROPAGATE_ERROR_MISMATCH_CODE,
+  diagnosticsByFile,
+  parseOpalescentDiagnosticReport,
+  propagateErrorMismatchQuickFixEdit
+} from './diagnostics.js';
 import { collectLocalLintDiagnostics } from './lint.js';
 import { findProjectRoot, isOpalescentFile, resolveLocalImportPath } from './project.js';
 import {
@@ -84,6 +92,9 @@ export function activate(context: vscode.ExtensionContext): void {
       provideDocumentFormattingEdits: async (document) => formatDocument(document)
     }),
     vscode.languages.registerCompletionItemProvider(languageId, new OpalescentCompletionProvider()),
+    vscode.languages.registerCodeActionsProvider(languageId, new OpalescentCodeActionProvider(), {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+    }),
     vscode.languages.registerCodeLensProvider(languageId, new OpalescentCodeLensProvider()),
     vscode.languages.registerDefinitionProvider(languageId, new OpalescentDefinitionProvider()),
     vscode.languages.registerImplementationProvider(languageId, new OpalescentImplementationProvider()),
@@ -458,6 +469,104 @@ async function runBuildOrRun(document: vscode.TextDocument, mode: 'build' | 'run
   const terminal = vscode.window.createTerminal({ cwd, name: mode === 'build' ? 'Opalescent Build' : 'Opalescent Run' });
   terminal.show();
   terminal.sendText([shellQuote(binary), ...args.map(shellQuote)].join(' '));
+}
+
+class OpalescentCodeActionProvider implements vscode.CodeActionProvider {
+  /**
+   * Provides quick fixes for compiler-backed diagnostics.
+   * @param document Document containing diagnostics.
+   * @param _range Requested editor range, unused because diagnostics carry exact ranges.
+   * @param context Code action context with visible diagnostics.
+   * @returns Quick-fix code actions for supported diagnostics.
+   */
+  provideCodeActions(
+    document: vscode.TextDocument,
+    _range: vscode.Range,
+    context: vscode.CodeActionContext
+  ): vscode.CodeAction[] {
+    return context.diagnostics.flatMap((diagnostic) => propagateErrorMismatchCodeAction(document, diagnostic));
+  }
+}
+
+/**
+ * Builds a quick fix for propagated-error mismatch diagnostics.
+ * @param document Document containing the diagnostic.
+ * @param diagnostic VS Code diagnostic to inspect.
+ * @returns A quick-fix code action, or an empty list when unsupported.
+ */
+function propagateErrorMismatchCodeAction(
+  document: vscode.TextDocument,
+  diagnostic: vscode.Diagnostic
+): vscode.CodeAction[] {
+  const code = diagnosticCodeValue(diagnostic);
+  if (code !== PROPAGATE_ERROR_MISMATCH_CODE) {
+    return [];
+  }
+
+  const edit = propagateErrorMismatchQuickFixEdit(document.getText(), {
+    code,
+    help: diagnostic.message,
+    message: diagnostic.message,
+    phase: 'type checker',
+    range: opalescentRangeFromVsCode(diagnostic.range),
+    severity: 'error',
+    source_path: document.uri.fsPath
+  });
+  if (!edit) {
+    return [];
+  }
+
+  const action = new vscode.CodeAction(
+    `Add ${edit.addedErrorNames.join(', ')} to errors list`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(document.uri, rangeFromOpalescentTextEdit(edit), edit.newText);
+  action.isPreferred = true;
+  return [action];
+}
+
+/**
+ * Reads the stable diagnostic code value from a VS Code diagnostic.
+ * @param diagnostic VS Code diagnostic to inspect.
+ * @returns String code, when present.
+ */
+function diagnosticCodeValue(diagnostic: vscode.Diagnostic): string | undefined {
+  const { code } = diagnostic;
+  if (typeof code === 'string') {
+    return code;
+  }
+  if (typeof code === 'number') {
+    return code.toString();
+  }
+  return code ? code.value.toString() : undefined;
+}
+
+/**
+ * Converts a VS Code range to the extension's pure diagnostic range shape.
+ * @param range VS Code range to convert.
+ * @returns Pure diagnostic range.
+ */
+function opalescentRangeFromVsCode(range: vscode.Range): OpalescentDiagnosticRange {
+  return {
+    end: { character: range.end.character, line: range.end.line },
+    start: { character: range.start.character, line: range.start.line }
+  };
+}
+
+/**
+ * Converts a pure Opalescent edit range to a VS Code range.
+ * @param edit Pure text edit to convert.
+ * @returns VS Code range covering the replacement.
+ */
+function rangeFromOpalescentTextEdit(edit: OpalescentTextEdit): vscode.Range {
+  return new vscode.Range(
+    edit.range.start.line,
+    edit.range.start.character,
+    edit.range.end.line,
+    edit.range.end.character
+  );
 }
 
 class OpalescentCodeLensProvider implements vscode.CodeLensProvider {

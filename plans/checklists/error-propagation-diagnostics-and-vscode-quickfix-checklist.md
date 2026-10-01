@@ -7,10 +7,11 @@
 - [x] Red: add compiler diagnostic test coverage for a propagated-error mismatch suggested fix that lists missing errors.
 - [x] Green: implement the propagated-error mismatch suggestion in compiler diagnostics.
 - [x] Refactor/review the compiler diagnostic implementation for clarity and stable output.
-- [ ] Commit the compiler diagnostic suggestion atomically.
-- [ ] Red: add VS Code extension test coverage for a quick fix on propagated-error mismatch diagnostics.
-- [ ] Green: implement the VS Code quick fix for adding missing errors to any function errors list.
-- [ ] Refactor/review the VS Code quick-fix implementation for generality and maintainability.
-- [ ] Run targeted Rust and VS Code extension tests.
-- [ ] Run pre-commit without modifying or bypassing hooks.
-- [ ] Perform final code review of all changes.
+- [x] Commit the compiler diagnostic suggestion atomically.
+- [x] Red: add VS Code extension test coverage for a quick fix on propagated-error mismatch diagnostics.
+- [x] Green: implement the VS Code quick fix for adding missing errors to any function errors list.
+- [x] Refactor/review the VS Code quick-fix implementation for generality and maintainability.
+- [x] Run targeted Rust and VS Code extension tests.
+- [x] Commit the VS Code quick fix atomically.
+- [x] Run pre-commit without modifying or bypassing hooks.
+- [x] Perform final code review of all changes.
