@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 
 import { candidateBinaryPaths, shellQuote } from './binary.js';
 import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
-import { type OpalescentCompletionImportEdit, type OpalescentCompletionItem, completionItemsForSymbols } from './completion.js';
+import { type OpalescentCompletionImportEdit, type OpalescentCompletionItem, type OpalescentCompletionKind, completionItemsForSymbols } from './completion.js';
 import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
 import { collectLocalLintDiagnostics } from './lint.js';
 import { findProjectRoot, isOpalescentFile, resolveLocalImportPath } from './project.js';
@@ -581,10 +581,10 @@ class OpalescentHoverProvider implements vscode.HoverProvider {
  */
 function toVsCodeCompletionItem(completion: OpalescentCompletionItem, range: undefined | vscode.Range): vscode.CompletionItem {
   const item = new vscode.CompletionItem(completion.name, toCompletionItemKind(completion.kind));
-  item.insertText = completion.insertText;
+  item.insertText = completion.isSnippet ? new vscode.SnippetString(completion.insertText) : completion.insertText;
   item.filterText = completion.name;
   item.sortText = `${completion.autoImportEdit ? '1' : '0'}_${completion.name}`;
-  item.detail = completion.sourceModule ? `Auto import from ${completion.sourceModule}` : completion.kind;
+  item.detail = completion.detail ?? (completion.sourceModule ? `Auto import from ${completion.sourceModule}` : completion.kind);
   if (range) {
     item.range = range;
   }
@@ -613,7 +613,7 @@ function toVsCodeTextEdit(edit: OpalescentCompletionImportEdit): vscode.TextEdit
  * @param kind Opalescent symbol kind.
  * @returns VS Code completion item kind.
  */
-function toCompletionItemKind(kind: OpalescentSymbol['kind']): vscode.CompletionItemKind {
+function toCompletionItemKind(kind: OpalescentCompletionKind): vscode.CompletionItemKind {
   switch (kind) {
     case 'entry':
     case 'function':
@@ -630,6 +630,10 @@ function toCompletionItemKind(kind: OpalescentSymbol['kind']): vscode.Completion
       return vscode.CompletionItemKind.EnumMember;
     case 'error_set':
       return vscode.CompletionItemKind.Enum;
+    case 'keyword':
+      return vscode.CompletionItemKind.Keyword;
+    case 'snippet':
+      return vscode.CompletionItemKind.Snippet;
   }
 }
 

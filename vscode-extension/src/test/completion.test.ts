@@ -111,3 +111,85 @@ test('uses import type for public types from type modules', () => {
     'import type LifeConfig from ./model/life.types'
   );
 });
+
+test('includes core language keyword completions', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+
+  expect(completions).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ insertText: 'let', kind: 'keyword', name: 'let' }),
+      expect.objectContaining({ insertText: 'while', kind: 'keyword', name: 'while' }),
+      expect.objectContaining({ insertText: 'propagate', kind: 'keyword', name: 'propagate' })
+    ])
+  );
+  expect(completions.some((completion) => completion.name === 'match')).toBe(false);
+});
+
+test('includes tab-stop snippets for common Opalescent structures', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const guardSnippet = completions.find((completion) => completion.name === 'guard into else');
+  const whileSnippet = completions.find((completion) => completion.name === 'while block');
+
+  expect(guardSnippet).toMatchObject({
+    insertText: 'guard ${1:fallible_call()} into ${2:value} else ${3:err} =>\n    ${0}',
+    isSnippet: true,
+    kind: 'snippet'
+  });
+  expect(whileSnippet).toMatchObject({
+    insertText: 'while ${1:condition}:\n    ${0}',
+    isSnippet: true,
+    kind: 'snippet'
+  });
+});
+
+test('documents primitive type completions for user-facing IntelliSense', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const int64Completion = completions.find((completion) => completion.name === 'int64');
+
+  expect(int64Completion).toMatchObject({
+    detail: 'Primitive type',
+    documentation: expect.stringContaining('64-bit signed integer'),
+    kind: 'keyword'
+  });
+  expect(int64Completion?.documentation).toContain('-9,223,372,036,854,775,808');
+});
+
+test('suggests standard-library functions with docs and auto-import edits', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const pathFrom = completions.find((completion) => completion.name === 'path_from');
+  const readText = completions.find((completion) => completion.name === 'read_text_sync');
+
+  expect(pathFrom).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import path_from from standard\n' },
+    detail: 'standard: path_from(raw: string): FilesystemPath',
+    documentation: expect.stringContaining('Wraps a raw string as a filesystem path.'),
+    insertText: 'path_from',
+    sourceModule: 'standard'
+  });
+  expect(readText).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import read_text_sync from standard\n' },
+    documentation: expect.stringContaining('Reads the whole file as UTF-8 text.'),
+    sourceModule: 'standard'
+  });
+  expect(readText?.documentation).toContain('InvalidUtf8Error');
+});
+
+test('does not auto-import already imported standard-library completions', () => {
+  const source = `import path_from from standard\n\nentry main = f(args: string[]): void =>\n    return void\n`;
+  const pathFrom = completionItemsForSymbols({ currentFilePath: currentFile, source, symbols: [] }).find(
+    (completion) => completion.name === 'path_from'
+  );
+
+  expect(pathFrom?.autoImportEdit).toBeUndefined();
+});
+
+test('suggests standard error sets with import type edits and docs', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const filesystemReadErrors = completions.find((completion) => completion.name === 'FilesystemReadErrors');
+
+  expect(filesystemReadErrors).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import type FilesystemReadErrors from standard.errors\n' },
+    documentation: expect.stringContaining('FileNotFoundError'),
+    sourceModule: 'standard.errors'
+  });
+});
