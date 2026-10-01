@@ -925,7 +925,8 @@ impl TypeChecker {
             span,
         )?;
         let core_errors = self.resolve_error_types(error_types, span)?;
-        self.symbol_table.enter_function(core_errors.clone(), span);
+        self.symbol_table
+            .enter_function(None, error_types.to_vec(), core_errors.clone(), span);
         self.begin_return_context(return_labels);
         self.begin_escaping_error_collection();
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {

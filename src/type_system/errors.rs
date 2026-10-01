@@ -599,15 +599,15 @@ pub enum TypeError {
     #[error("Propagated error types are not compatible with the function's declared errors")]
     #[diagnostic(
         code(opalescent::type_system::propagate_error_mismatch),
-        help(
-            "The errors from the called function must be a subset of the errors declared by the current function."
-        )
+        help("{help}")
     )]
     PropagateErrorMismatch {
         /// The error types declared by the current function.
         expected: String,
         /// The error types returned by the propagated function call.
         found: String,
+        /// Suggested remediation for adding the missing propagated errors.
+        help: String,
         #[label("this function declares errors: {expected}")]
         /// The source span of the current function's error declaration.
         span: SourceSpan,

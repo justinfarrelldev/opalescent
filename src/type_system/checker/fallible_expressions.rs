@@ -213,14 +213,12 @@ impl TypeChecker {
         });
 
         if !is_subset {
-            return Err(TypeError::PropagateErrorMismatch {
-                expected: Self::format_error_type_list(&current_fn_error_types),
-                found: Self::format_error_type_list(error_types),
-                span: TypeError::span_from_span(
-                    self.symbol_table.current_function_span().unwrap_or(span),
-                ),
-                callee_span: TypeError::span_from_span(call.span()),
-            });
+            return Err(self.propagate_error_mismatch(
+                &current_fn_error_types,
+                error_types,
+                span,
+                call.span(),
+            ));
         }
 
         self.record_escaping_error_types(error_types);

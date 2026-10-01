@@ -25,6 +25,8 @@ const MIN_FUNCTION_DOC_COMMENT_LENGTH: usize = 30;
 
 /// Parameters for type checking a function declaration
 struct FunctionCheckParams<'params> {
+    /// Function name, used in diagnostics.
+    name: &'params str,
     /// Generic type parameter constraints
     generic_constraints: Option<&'params [TypeParameter]>,
     /// Function parameters
@@ -704,6 +706,7 @@ impl TypeChecker {
     fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
         match *decl {
             Decl::Function {
+                ref name,
                 ref generic_constraints,
                 ref parameters,
                 ref return_types,
@@ -715,6 +718,7 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_function_declaration(&FunctionCheckParams {
+                name,
                 generic_constraints: generic_constraints.as_deref(),
                 parameters: parameters.as_slice(),
                 return_types: return_types.as_deref(),
@@ -804,8 +808,12 @@ impl TypeChecker {
             effective_modifiers.push(FunctionModifier::Untested);
         }
 
-        self.symbol_table
-            .enter_function(core_errors.clone(), params.span);
+        self.symbol_table.enter_function(
+            Some(params.name.to_owned()),
+            params.error_types.to_vec(),
+            core_errors.clone(),
+            params.span,
+        );
         self.enter_function_modifier_context(effective_modifiers);
         self.begin_return_context(params.return_labels);
         self.begin_escaping_error_collection();

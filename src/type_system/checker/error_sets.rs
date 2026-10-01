@@ -223,6 +223,132 @@ impl TypeChecker {
         }
     }
 
+    /// Build a propagated-error mismatch diagnostic with missing-error fix guidance.
+    pub(super) fn propagate_error_mismatch(
+        &self,
+        current_fn_error_types: &[CoreType],
+        found_error_types: &[CoreType],
+        span: Span,
+        callee_span: Span,
+    ) -> TypeError {
+        TypeError::PropagateErrorMismatch {
+            expected: Self::format_error_type_list(current_fn_error_types),
+            found: Self::format_error_type_list(found_error_types),
+            help: self.propagate_error_mismatch_help(
+                current_fn_error_types,
+                found_error_types,
+                span,
+            ),
+            span: TypeError::span_from_span(
+                self.symbol_table.current_function_span().unwrap_or(span),
+            ),
+            callee_span: TypeError::span_from_span(callee_span),
+        }
+    }
+
+    /// Format diagnostic help explaining which missing errors to add.
+    fn propagate_error_mismatch_help(
+        &self,
+        current_fn_error_types: &[CoreType],
+        found_error_types: &[CoreType],
+        span: Span,
+    ) -> String {
+        let mut missing_error_names =
+            Self::missing_error_names(current_fn_error_types, found_error_types);
+        if missing_error_names.is_empty() {
+            return String::from(
+                "The errors from the called function must be a subset of the errors declared by the current function.",
+            );
+        }
+
+        let suggested_group_name =
+            self.suggested_error_group_for_missing_errors(missing_error_names.as_slice(), span);
+        if let Some(family) = suggested_group_name
+            .as_deref()
+            .and_then(stdlib_error_family)
+        {
+            let missing_members = missing_error_names.iter().cloned().collect::<BTreeSet<_>>();
+            missing_error_names = family
+                .members
+                .iter()
+                .filter(|member| missing_members.contains(**member))
+                .map(ToString::to_string)
+                .collect();
+        }
+
+        let mut suggested_errors = self.current_function_source_error_names(current_fn_error_types);
+        suggested_errors.extend(missing_error_names.iter().cloned());
+
+        let target = self.symbol_table().current_function_name().map_or_else(
+            || String::from("the errors list of the current function"),
+            |name| format!("the errors list of {name}"),
+        );
+        let missing_list = missing_error_names.join(", ");
+        let suggested_list = suggested_errors.join(", ");
+        let group_suggestion = suggested_group_name
+            .map(|group_name| {
+                format!(" You can also add a covering error group such as {group_name} instead of the individual missing errors.")
+            })
+            .unwrap_or_default();
+
+        format!(
+            "The errors from the called function must be a subset of the errors declared by the current function. Suggested fix: Add {missing_list} to {target} like this: `errors {suggested_list}`.{group_suggestion}"
+        )
+    }
+
+    /// Return emitted error names not covered by the current function declaration.
+    fn missing_error_names(
+        current_fn_error_types: &[CoreType],
+        found_error_types: &[CoreType],
+    ) -> Vec<String> {
+        let mut seen = BTreeSet::new();
+        let mut missing = Vec::new();
+        for error_type in found_error_types {
+            if current_fn_error_types
+                .iter()
+                .any(|declared_error| Self::declared_error_type_covers(error_type, declared_error))
+            {
+                continue;
+            }
+            let name = error_type.to_string();
+            if seen.insert(name.clone()) {
+                missing.push(name);
+            }
+        }
+        missing
+    }
+
+    /// Return source-spelled current error names, falling back to expanded core names.
+    fn current_function_source_error_names(
+        &self,
+        current_fn_error_types: &[CoreType],
+    ) -> Vec<String> {
+        let source_names = self
+            .symbol_table()
+            .current_function_source_error_names()
+            .unwrap_or(&[]);
+        if !source_names.is_empty() {
+            return source_names.to_vec();
+        }
+        current_fn_error_types
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    /// Return an exact named error group covering all missing errors, when available.
+    fn suggested_error_group_for_missing_errors(
+        &self,
+        missing_error_names: &[String],
+        span: Span,
+    ) -> Option<String> {
+        if missing_error_names.len() <= 1 {
+            return None;
+        }
+        let missing_members = missing_error_names.iter().cloned().collect::<BTreeSet<_>>();
+        self.preferred_exact_error_set_name_for_members(&missing_members, span)
+    }
+
     /// Resolve one AST error annotation, expanding named sets while preserving generic error vars.
     pub(super) fn resolve_error_annotation_type_with_generics(
         &self,

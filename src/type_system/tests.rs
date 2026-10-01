@@ -2059,6 +2059,58 @@ fn test_propagate_error_mismatch_reports_readable_types() {
     }
 }
 
+/// Propagate mismatch diagnostics should suggest the exact missing errors to add.
+#[test]
+fn test_propagate_error_mismatch_suggests_missing_errors() {
+    const SOURCE: &str = "
+type ParseError:
+    Generic
+
+type IoError:
+    Generic
+
+type NetworkError:
+    Generic
+
+let read_remote_config = f(): void errors IoError, NetworkError =>
+    return void
+
+##
+  Description: Entry point with intentionally incomplete propagated errors.
+##
+entry main = f(args: string[]): void errors ParseError =>
+    propagate read_remote_config()
+    return void
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate mismatch should emit suggested fix diagnostic");
+
+    let mismatch = errors
+        .into_iter()
+        .find_map(|error| match error {
+            TypeError::PropagateErrorMismatch { .. } => Some(error),
+            _ => None,
+        })
+        .expect("expected PropagateErrorMismatch diagnostic");
+
+    if let TypeError::PropagateErrorMismatch { help, .. } = mismatch {
+        assert!(
+            help.contains(
+                "Suggested fix: Add IoError, NetworkError to the errors list of main like this:"
+            ),
+            "diagnostic help should name missing errors and current function: {help}"
+        );
+        assert!(
+            help.contains("errors ParseError, IoError, NetworkError"),
+            "diagnostic help should show the updated errors list: {help}"
+        );
+    }
+}
+
 /// Guard must operate on fallible call expressions; guarding identifiers should be rejected.
 #[test]
 fn test_guard_requires_call_expression() {

@@ -721,14 +721,12 @@ impl TypeChecker {
                 .any(|declared_error| Self::declared_error_type_covers(error_type, declared_error))
         });
         if !is_subset {
-            return Err(TypeError::PropagateErrorMismatch {
-                expected: Self::format_error_type_list(&current_fn_error_types),
-                found: Self::format_error_type_list(&active_guard_errors),
-                span: TypeError::span_from_span(
-                    self.symbol_table.current_function_span().unwrap_or(span),
-                ),
-                callee_span: TypeError::span_from_span(span),
-            });
+            return Err(self.propagate_error_mismatch(
+                &current_fn_error_types,
+                &active_guard_errors,
+                span,
+                span,
+            ));
         }
 
         self.record_escaping_error_types(active_guard_errors.as_slice());
@@ -831,14 +829,12 @@ impl TypeChecker {
             self.record_escaping_error_types(core::slice::from_ref(&wrapper_type));
             Ok(())
         } else {
-            Err(TypeError::PropagateErrorMismatch {
-                expected: Self::format_error_type_list(&current_fn_error_types),
-                found: wrapper_type.to_string(),
-                span: TypeError::span_from_span(
-                    self.symbol_table.current_function_span().unwrap_or(span),
-                ),
-                callee_span: TypeError::span_from_span(span),
-            })
+            Err(self.propagate_error_mismatch(
+                &current_fn_error_types,
+                core::slice::from_ref(&wrapper_type),
+                span,
+                span,
+            ))
         }
     }
 

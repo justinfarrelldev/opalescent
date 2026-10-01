@@ -244,14 +244,12 @@ impl TypeChecker {
         if cleanup_errors_are_allowed {
             return Ok(());
         }
-        Err(TypeError::PropagateErrorMismatch {
-            expected: Self::format_error_type_list(&current_fn_error_types),
-            found: Self::format_error_type_list(cleanup_errors.as_slice()),
-            span: TypeError::span_from_span(
-                self.symbol_table.current_function_span().unwrap_or(span),
-            ),
-            callee_span: TypeError::span_from_span(span),
-        })
+        Err(self.propagate_error_mismatch(
+            &current_fn_error_types,
+            cleanup_errors.as_slice(),
+            span,
+            span,
+        ))
     }
 
     /// Push one active cleanup obligation for a `using` binding.

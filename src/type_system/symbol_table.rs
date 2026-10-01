@@ -10,6 +10,10 @@ use alloc::{string::String, vec, vec::Vec};
 /// Information about the current function context for error handling checks.
 #[derive(Debug, Clone)]
 struct FunctionContext {
+    /// Name of the function currently being checked, when available.
+    name: Option<String>,
+    /// Source-level error names declared by the function before named-set expansion.
+    source_error_names: Vec<String>,
     /// The error types declared by the function.
     error_types: Vec<CoreType>,
     /// The span of the function's signature, for error reporting.
@@ -118,9 +122,19 @@ impl SymbolTable {
     }
 
     /// Pushes a new function context onto the stack when entering a function body.
-    pub fn enter_function(&mut self, error_types: Vec<CoreType>, span: Span) {
-        self.function_context_stack
-            .push(FunctionContext { error_types, span });
+    pub fn enter_function(
+        &mut self,
+        name: Option<String>,
+        source_error_names: Vec<String>,
+        error_types: Vec<CoreType>,
+        span: Span,
+    ) {
+        self.function_context_stack.push(FunctionContext {
+            name,
+            source_error_names,
+            error_types,
+            span,
+        });
     }
 
     /// Pops the current function context from the stack when leaving a function body.
@@ -133,6 +147,20 @@ impl SymbolTable {
         self.function_context_stack
             .last()
             .map(|ctx| ctx.error_types.as_slice())
+    }
+
+    /// Returns the source-level names declared by the current function, if available.
+    pub fn current_function_source_error_names(&self) -> Option<&[String]> {
+        self.function_context_stack
+            .last()
+            .map(|ctx| ctx.source_error_names.as_slice())
+    }
+
+    /// Returns the name of the current function, if available.
+    pub fn current_function_name(&self) -> Option<&str> {
+        self.function_context_stack
+            .last()
+            .and_then(|ctx| ctx.name.as_deref())
     }
 
     /// Returns the span of the current function's signature, if available.
