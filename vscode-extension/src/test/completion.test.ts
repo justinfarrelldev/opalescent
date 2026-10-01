@@ -142,6 +142,39 @@ test('includes tab-stop snippets for common Opalescent structures', () => {
   });
 });
 
+test('keeps a small curated snippet set for common Opalescent templates', () => {
+  const snippets = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] }).filter(
+    (completion) => completion.kind === 'snippet'
+  );
+
+  expect(snippets.length).toBeLessThanOrEqual(16);
+  expect(snippets).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        insertText: '##\n  Description: ${1:description}\n##',
+        name: 'doc comment'
+      }),
+      expect.objectContaining({
+        insertText: 'import type ${1:TypeName} from ${0:./module.types}',
+        name: 'import type'
+      }),
+      expect.objectContaining({
+        insertText: 'let ${1:name} = f(${2:args}): ${3:return_type} errors ${4:ErrorType} =>\n    ${0:return propagate fallible_call()}',
+        name: 'fallible function'
+      }),
+      expect.objectContaining({
+        insertText: 'loop =>\n    ${1}\n    break ${0:result: value}',
+        name: 'loop break'
+      }),
+      expect.objectContaining({
+        insertText: 'new ${1:TypeName}:\n    ${2:field}: ${0:value}',
+        name: 'new value'
+      })
+    ])
+  );
+  expect(snippets.some((completion) => completion.name === 'match block')).toBe(false);
+});
+
 test('documents primitive type completions for user-facing IntelliSense', () => {
   const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
   const int64Completion = completions.find((completion) => completion.name === 'int64');

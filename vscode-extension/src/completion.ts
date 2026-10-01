@@ -191,6 +191,14 @@ const snippetCompletions: readonly OpalescentCompletionItem[] = [
     name: 'function'
   },
   {
+    detail: 'Snippet: fallible function declaration',
+    documentation: 'Creates a function with an `errors` clause for fallible Opalescent code.',
+    insertText: 'let ${1:name} = f(${2:args}): ${3:return_type} errors ${4:ErrorType} =>\n    ${0:return propagate fallible_call()}',
+    isSnippet: true,
+    kind: 'snippet',
+    name: 'fallible function'
+  },
+  {
     detail: 'Snippet: let binding',
     documentation: 'Creates an immutable let binding.',
     insertText: 'let ${1:name} = ${0:value}',
@@ -205,6 +213,22 @@ const snippetCompletions: readonly OpalescentCompletionItem[] = [
     isSnippet: true,
     kind: 'snippet',
     name: 'import from'
+  },
+  {
+    detail: 'Snippet: import type',
+    documentation: 'Creates a type import declaration for `.types.op` modules or named standard error sets.',
+    insertText: 'import type ${1:TypeName} from ${0:./module.types}',
+    isSnippet: true,
+    kind: 'snippet',
+    name: 'import type'
+  },
+  {
+    detail: 'Snippet: documentation comment',
+    documentation: 'Creates the documentation block shape expected before public declarations and examples.',
+    insertText: '##\n  Description: ${1:description}\n##',
+    isSnippet: true,
+    kind: 'snippet',
+    name: 'doc comment'
   },
   {
     detail: 'Snippet: if block',
@@ -255,12 +279,28 @@ const snippetCompletions: readonly OpalescentCompletionItem[] = [
     name: 'guard into else'
   },
   {
+    detail: 'Snippet: loop expression with break value',
+    documentation: 'Creates the fixture-backed `loop =>` expression shape with a labeled break result.',
+    insertText: 'loop =>\n    ${1}\n    break ${0:result: value}',
+    isSnippet: true,
+    kind: 'snippet',
+    name: 'loop break'
+  },
+  {
     detail: 'Snippet: public product type',
     documentation: 'Creates a public product type declaration for `.types.op` files.',
     insertText: 'public type ${1:TypeName}:\n    ${2:field}: ${0:string}',
     isSnippet: true,
     kind: 'snippet',
     name: 'public type'
+  },
+  {
+    detail: 'Snippet: product value construction',
+    documentation: 'Creates an indented `new Type:` product value construction block.',
+    insertText: 'new ${1:TypeName}:\n    ${2:field}: ${0:value}',
+    isSnippet: true,
+    kind: 'snippet',
+    name: 'new value'
   }
 ];
 
