@@ -217,15 +217,58 @@ test('does not auto-import already imported standard-library completions', () =>
   expect(pathFrom?.autoImportEdit).toBeUndefined();
 });
 
-test('suggests standard error sets with import type edits and docs', () => {
+test('suggests standard error sets with import type edits and purpose-oriented docs', () => {
   const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
   const filesystemReadErrors = completions.find((completion) => completion.name === 'FilesystemReadErrors');
+  const processEnvErrors = completions.find((completion) => completion.name === 'ProcessEnvErrors');
 
   expect(filesystemReadErrors).toMatchObject({
     autoImportEdit: { character: 0, line: 0, text: 'import type FilesystemReadErrors from standard.errors\n' },
-    documentation: expect.stringContaining('FileNotFoundError'),
+    documentation: expect.stringContaining('Groups failures from reading filesystem data'),
     sourceModule: 'standard.errors'
   });
+  expect(filesystemReadErrors?.documentation).toContain('FileNotFoundError');
+  expect(processEnvErrors?.documentation).toContain('environment variables');
+});
+
+test('documents all standard-library errors with practical guidance', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const fileNotFound = completions.find((completion) => completion.name === 'FileNotFoundError' && completion.sourceModule === 'standard');
+  const permissionDenied = completions.find((completion) => completion.name === 'PermissionDeniedError' && completion.sourceModule === 'standard');
+  const processEnvName = completions.find((completion) => completion.name === 'InvalidEnvironmentVariableNameError' && completion.sourceModule === 'process');
+  const waitSetError = completions.find((completion) => completion.name === 'SystemWaitSetError' && completion.sourceModule === 'standard.system');
+  const processControlUnavailable = completions.find(
+    (completion) => completion.name === 'ProcessControlUnavailableError' && completion.sourceModule === 'standard.system'
+  );
+  const attachmentAbsent = completions.find((completion) => completion.name === 'ErrorAttachmentAbsentError' && completion.sourceModule === 'standard.system');
+  const terminalOpen = completions.find((completion) => completion.name === 'TerminalSessionOpenError' && completion.sourceModule === 'standard.terminal');
+  const chordValidation = completions.find((completion) => completion.name === 'TerminalChordValidationError' && completion.sourceModule === 'standard.terminal.chords');
+  const testFactory = completions.find((completion) => completion.name === 'TerminalTestFactoryError' && completion.sourceModule === 'standard.testing.terminal');
+
+  expect(fileNotFound?.documentation).toContain('named path does not exist');
+  expect(permissionDenied?.documentation).toContain('permissions');
+  expect(processEnvName?.documentation).toContain('environment variable name');
+  expect(waitSetError).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import type SystemWaitSetError from standard.system\n' },
+    kind: 'type'
+  });
+  expect(waitSetError?.documentation).toContain('wait-set registration');
+  expect(processControlUnavailable?.documentation).toContain('host does not support process-control notifications');
+  expect(attachmentAbsent?.documentation).toContain('requested attachment is not present');
+  expect(terminalOpen?.documentation).toContain('terminal-session open failures');
+  expect(chordValidation?.documentation).toContain('chord construction');
+  expect(testFactory?.documentation).toContain('test-only factory');
+
+  const stdlibErrorCompletions = completions.filter(
+    (completion) => completion.kind === 'type'
+      && ['process', 'standard', 'standard.errors', 'standard.system', 'standard.terminal', 'standard.terminal.chords', 'standard.testing.terminal'].includes(completion.sourceModule ?? '')
+      && /Errors?$/.test(completion.name)
+  );
+
+  expect(stdlibErrorCompletions.length).toBeGreaterThan(0);
+  expect(stdlibErrorCompletions.every((completion) => !completion.documentation?.includes('nominal type or error leaf'))).toBe(true);
+  expect(stdlibErrorCompletions.every((completion) => !completion.documentation?.includes('Process-module error type'))).toBe(true);
+  expect(stdlibErrorCompletions.every((completion) => !completion.documentation?.startsWith('Covers '))).toBe(true);
 });
 
 test('suggests every standard library surface including importable types and numeric submodule items', () => {

@@ -1,4 +1,10 @@
 /* eslint-disable */
+import {
+  stdlibErrorDocumentation,
+  stdlibErrorSetDocumentation,
+  stdlibSystemTypeDocumentation
+} from './stdlib_error_docs.js';
+
 export interface StdlibExternalCompletionDefinition {
   detail: string;
   documentation: string;
@@ -147,6 +153,31 @@ const processTypeNames: readonly string[] = [
   "CurrentExecutablePathUnavailableError",
   "EnvironmentVariableNotFoundError",
   "InvalidEnvironmentVariableNameError",
+] as const;
+const systemTypeNames: readonly string[] = [
+  "SystemWaitSet",
+  "SystemReadinessSource",
+  "SystemWaitRegistration",
+  "SystemOwnedWaitRegistration",
+  "SystemWaitWake",
+  "SystemWaitSetError",
+  "CancellationSource",
+  "CancellationToken",
+  "MonotonicTimer",
+  "MonotonicDeadline",
+  "MonotonicTimerError",
+  "MonotonicTimerNotArmedError",
+  "ProcessControlSource",
+  "ProcessControlPollResult",
+  "ProcessControlUnavailableError",
+  "ProcessControlError",
+  "ProcessControlAcknowledgementError",
+  "ProcessControlResumeError",
+  "Error",
+  "ErrorAttachmentAbsentError",
+  "ErrorAttachmentTruncation",
+  "AllocationFailureError",
+  "IndexOutOfBoundsError",
 ] as const;
 const standardErrorFamilies = [
   {"name": "ParseErrors", "members": ["ParseError"]},
@@ -554,6 +585,8 @@ export const additionalStdlibExternalCompletions: readonly StdlibExternalComplet
   ...standardAdditionalTypeCompletions(),
   ...mathAdditionalCompletions(),
   ...processTypeCompletions(),
+  ...systemTypeCompletions(),
+  ...systemTypeCompletions('standard'),
   ...allStandardErrorSetCompletions(),
   ...terminalFunctionCompletions(),
   ...terminalFunctionCompletions('standard'),
@@ -587,7 +620,7 @@ function standardAdditionalFunctionCompletions(): StdlibExternalCompletionDefini
 function standardAdditionalTypeCompletions(): StdlibExternalCompletionDefinition[] {
   return standardTypeNames.map((name) => ({
     detail: `standard: type ${name}`,
-    documentation: standardTypeDocumentation.get(name) ?? `Standard-library nominal type or error leaf \`${name}\` used by importable standard APIs and errors clauses.`,
+    documentation: stdlibErrorDocumentation(name) ?? standardTypeDocumentation.get(name) ?? `Standard-library nominal type \`${name}\` used by importable standard APIs.`,
     moduleName: 'standard',
     name,
     typeOnly: true
@@ -628,20 +661,31 @@ function mathAdditionalCompletions(): StdlibExternalCompletionDefinition[] {
 function processTypeCompletions(): StdlibExternalCompletionDefinition[] {
   return processTypeNames.map((name) => ({
     detail: `process: type ${name}`,
-    documentation: `Process-module error type \`${name}\` used by process path and environment APIs.`,
+    documentation: stdlibErrorDocumentation(name) ?? `Process-module type \`${name}\` used by process path and environment APIs.`,
     moduleName: 'process',
     name,
     typeOnly: true
   }));
 }
 
+/** Build system prerequisite type and error completions. */
+function systemTypeCompletions(moduleOverride?: string): StdlibExternalCompletionDefinition[] {
+  return systemTypeNames
+    .filter((name) => moduleOverride !== 'standard' || !standardTypeNames.includes(name))
+    .map((name) => ({
+      detail: `${moduleOverride ?? 'standard.system'}: type ${name}`,
+      documentation: stdlibSystemTypeDocumentation(name) ?? `System prerequisite type \`${name}\` used by wait, timer, process-control, cancellation, and error-inspection APIs.`,
+      moduleName: moduleOverride ?? 'standard.system',
+      name,
+      typeOnly: true
+    }));
+}
+
 /** Build every named error set currently registered by standard.errors. */
 function allStandardErrorSetCompletions(): StdlibExternalCompletionDefinition[] {
   return standardErrorFamilies.map((family) => ({
     detail: `standard.errors: ${family.name} = ${family.members.join(', ')}`,
-    documentation: family.members.length === 1
-      ? `Covers ${family.members[0]}.`
-      : `Covers ${family.members.join(', ')}.`,
+    documentation: stdlibErrorSetDocumentation(family.name, family.members),
     moduleName: 'standard.errors',
     name: family.name,
     typeOnly: true
