@@ -102,6 +102,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      if (isOpalescentDocument(document)) {
+        scheduleDiagnostics(document, false);
+      }
+    }),
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (isOpalescentDocument(document) && config().get<boolean>('lintOnSave', true)) {
         scheduleDiagnostics(document, false);
