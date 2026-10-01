@@ -46,6 +46,7 @@ test('TextMate grammar tracks current public keywords and excludes removed publi
   expect(grammarText).toContain('untested');
   expect(grammarText).toContain('type_of');
   expect(grammarText).toContain('using');
+  expect(grammarText).toContain('ref');
   expect(grammarText).not.toContain('string|char|void');
 });
 
@@ -60,14 +61,35 @@ test('TextMate grammar distinguishes declaration keywords and noisy error propag
   const keywordPatterns = grammar.repository?.keyword?.patterns ?? [];
 
   expect(declarationCaptures).toContain('storage.type.let.opalescent');
-  expect(keywordPatterns).toContainEqual(expect.objectContaining({ name: 'keyword.control.exception.propagate.opalescent' }));
+  expect(keywordPatterns).toContainEqual(expect.objectContaining({ name: 'keyword.operator.error-propagation.opalescent' }));
 });
 
-test('TextMate grammar gives type members and fields TypeScript-like value scopes', () => {
-  const grammarText = fs.readFileSync(path.join(extensionRoot, 'syntaxes', 'opalescent.tmLanguage.json'), 'utf8');
+test('TextMate grammar gives type members and fields TypeScript-like value scopes without breaking return labels', () => {
+  const grammar = readJson<{
+    patterns?: Array<{ include?: string }>;
+    repository?: {
+      'type-block'?: { patterns?: Array<{ include?: string }> };
+      'type-member'?: { patterns?: Array<{ captures?: Record<string, { name?: string }> }> };
+    };
+  }>('syntaxes/opalescent.tmLanguage.json');
+  const variantCaptures = grammar.repository?.['type-member']?.patterns?.flatMap((pattern) => Object.values(pattern.captures ?? {}).map((capture) => capture.name)) ?? [];
 
-  expect(grammarText).toContain('variable.other.enummember.opalescent');
-  expect(grammarText).toContain('variable.other.property.opalescent');
+  expect(grammar.patterns).toContainEqual({ include: '#type-block' });
+  expect(grammar.patterns).not.toContainEqual({ include: '#type-member' });
+  expect(grammar.repository?.['type-block']?.patterns).toContainEqual({ include: '#type-member' });
+  expect(variantCaptures).toContain('variable.other.property.opalescent variable.other.enummember.opalescent');
+});
+
+test('TextMate grammar highlights every type in errors clauses', () => {
+  const grammar = readJson<{
+    repository?: {
+      'errors-clause'?: { begin?: string; end?: string; patterns?: Array<{ include?: string; name?: string }> };
+    };
+  }>('syntaxes/opalescent.tmLanguage.json');
+
+  expect(grammar.repository?.['errors-clause']?.begin).toContain('errors');
+  expect(grammar.repository?.['errors-clause']?.end).toBe('(?==>)');
+  expect(grammar.repository?.['errors-clause']?.patterns).toContainEqual(expect.objectContaining({ include: '#type-name' }));
 });
 
 test('VSIX packaging files and cargo-make tasks are present', () => {

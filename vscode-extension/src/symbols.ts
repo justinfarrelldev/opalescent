@@ -7,6 +7,13 @@ export interface OpalescentLookupPosition {
   line: number;
 }
 
+export interface OpalescentImportTarget {
+  character: number;
+  length: number;
+  line: number;
+  moduleSpecifier: string;
+}
+
 export interface OpalescentSymbol {
   character: number;
   documentation?: string;
@@ -182,6 +189,72 @@ export function hoverSymbolForWord(
 }
 
 /**
+ * Finds a definition symbol exactly under a lookup position.
+ * @param symbols Project symbols available for lookup.
+ * @param word Identifier under the cursor.
+ * @param position Cursor position in the requesting document.
+ * @returns The definition symbol at the position, or undefined.
+ */
+export function definitionSymbolAtPosition(
+  symbols: OpalescentSymbol[],
+  word: string,
+  position: OpalescentLookupPosition
+): OpalescentSymbol | undefined {
+  return implementationSymbolsForWord(symbols, word).find((symbol) => isPositionOnSymbolDefinition(symbol, position));
+}
+
+/**
+ * Finds an import module specifier under the cursor.
+ * @param source Source text to inspect.
+ * @param line Zero-based line index.
+ * @param character Zero-based character index.
+ * @returns Import target range and specifier, or undefined.
+ */
+export function importTargetAtPosition(source: string, line: number, character: number): OpalescentImportTarget | undefined {
+  const lineText = source.split('\n')[line];
+  if (!lineText) {
+    return undefined;
+  }
+
+  const match = /\bfrom\s+(?:'([^']+)'|"([^"]+)"|([^\s#]+))/.exec(lineText);
+  const moduleSpecifier = match?.[1] ?? match?.[2] ?? match?.[3];
+  if (!match || !moduleSpecifier) {
+    return undefined;
+  }
+
+  const specifierOffset = match.index + match[0].lastIndexOf(moduleSpecifier);
+  const specifierEnd = specifierOffset + moduleSpecifier.length;
+  if (character < specifierOffset || character > specifierEnd) {
+    return undefined;
+  }
+
+  return { character: specifierOffset, length: moduleSpecifier.length, line, moduleSpecifier };
+}
+
+/**
+ * Finds references to a symbol within its source scope.
+ * @param source Source text containing the symbol.
+ * @param symbol Definition symbol whose references should be found.
+ * @returns Reference-like symbols in source order, excluding the definition site.
+ */
+export function referenceTargetsForSymbol(source: string, symbol: OpalescentSymbol): OpalescentSymbol[] {
+  const references: OpalescentSymbol[] = [];
+  const lines = source.split('\n');
+  const wordPattern = new RegExp(`\\b${escapeRegExp(symbol.name)}\\b`, 'g');
+  for (let lineIndex = symbol.scopeStartLine; lineIndex <= symbol.scopeEndLine && lineIndex < lines.length; lineIndex += 1) {
+    const lineText = lines[lineIndex] ?? '';
+    let match = wordPattern.exec(lineText);
+    while (match) {
+      if (!(lineIndex === symbol.line && match.index === symbol.character)) {
+        references.push({ ...symbol, character: match.index, exported: false, line: lineIndex });
+      }
+      match = wordPattern.exec(lineText);
+    }
+  }
+  return references;
+}
+
+/**
  * Extracts an identifier near a zero-based editor position.
  * @param source Source text to inspect.
  * @param line Zero-based line index.
@@ -337,7 +410,7 @@ function documentationBeforeLine(lines: string[], lineIndex: number): string | u
     return undefined;
   }
 
-  const documentation = documentationLines.join('\n').trim();
+  const documentation = cleanDocumentationText(documentationLines.join('\n'));
   return documentation.length > 0 ? documentation : undefined;
 }
 
@@ -638,6 +711,28 @@ function sharesImplementationDomain(origin: OpalescentSymbol, candidate: Opalesc
  */
 function stripDocumentationIndent(line: string): string {
   return line.replace(/^\s{0,2}/, '').trimEnd();
+}
+
+/**
+ * Removes doc-comment labels that are language metadata rather than hover content.
+ * @param documentation Raw cleaned documentation text.
+ * @returns User-facing hover documentation.
+ */
+function cleanDocumentationText(documentation: string): string {
+  return documentation
+    .split('\n')
+    .map((line, index) => (index === 0 ? line.replace(/^\s*Description:\s*/i, '') : line))
+    .join('\n')
+    .trim();
+}
+
+/**
+ * Escapes a literal string for use in a regular expression.
+ * @param text Text to escape.
+ * @returns Escaped regular expression text.
+ */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

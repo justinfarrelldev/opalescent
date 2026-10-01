@@ -33,3 +33,24 @@ export function findProjectRoot(startPath: string, exists: (candidate: string) =
 
   return undefined;
 }
+
+/**
+ * Resolves a relative Opalescent import specifier to an existing source file.
+ * @param importerFilePath File containing the import.
+ * @param specifier Import module specifier such as `./editor.types`.
+ * @param exists Predicate used to test candidate source paths.
+ * @returns The resolved source file path, or undefined for external/missing imports.
+ */
+export function resolveLocalImportPath(
+  importerFilePath: string,
+  specifier: string,
+  exists: (candidate: string) => boolean
+): string | undefined {
+  if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+    return undefined;
+  }
+
+  const basePath = path.resolve(path.dirname(importerFilePath), specifier);
+  const candidates = isOpalescentFile(basePath) ? [basePath] : [`${basePath}.op`, `${basePath}.types.op`];
+  return candidates.find((candidate) => exists(candidate));
+}

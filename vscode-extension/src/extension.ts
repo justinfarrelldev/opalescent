@@ -8,8 +8,20 @@ import * as vscode from 'vscode';
 import { candidateBinaryPaths, shellQuote } from './binary.js';
 import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
 import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
-import { findProjectRoot, isOpalescentFile } from './project.js';
-import { type OpalescentLookupPosition, type OpalescentSymbol, collectSymbolsFromSource, definitionSymbolsForWord, findEntryLines, hoverSymbolForWord, wordAtPosition } from './symbols.js';
+import { collectLocalLintDiagnostics } from './lint.js';
+import { findProjectRoot, isOpalescentFile, resolveLocalImportPath } from './project.js';
+import {
+  type OpalescentLookupPosition,
+  type OpalescentSymbol,
+  collectSymbolsFromSource,
+  definitionSymbolAtPosition,
+  definitionSymbolsForWord,
+  findEntryLines,
+  hoverSymbolForWord,
+  importTargetAtPosition,
+  referenceTargetsForSymbol,
+  wordAtPosition
+} from './symbols.js';
 
 const languageId = 'opalescent';
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('opalescent');
@@ -265,8 +277,10 @@ function scheduleDiagnostics(document: vscode.TextDocument, promptUser: boolean)
  * @param promptUser Whether diagnostics may prompt for a compiler binary.
  */
 async function runDiagnostics(document: vscode.TextDocument, promptUser: boolean): Promise<void> {
+  const localDiagnostics = collectLocalLintDiagnostics(document.getText(), document.uri.fsPath);
   const binary = await resolveBinary(promptUser);
   if (!binary) {
+    applyDiagnostics({ diagnostics: localDiagnostics, success: localDiagnostics.length === 0 });
     return;
   }
 
@@ -278,16 +292,53 @@ async function runDiagnostics(document: vscode.TextDocument, promptUser: boolean
     if (result.stderr) {
       outputChannel.appendLine(result.stderr);
     }
+    applyDiagnostics({ diagnostics: localDiagnostics, success: localDiagnostics.length === 0 });
     return;
   }
 
   try {
     const report = parseOpalescentDiagnosticReport(jsonText);
-    applyDiagnostics(report);
+    applyDiagnostics({ ...report, diagnostics: mergeDiagnostics(report.diagnostics, localDiagnostics) });
   } catch (error) {
     outputChannel.appendLine(`Failed to parse Opalescent diagnostics: ${String(error)}`);
     outputChannel.appendLine(jsonText);
+    applyDiagnostics({ diagnostics: localDiagnostics, success: localDiagnostics.length === 0 });
   }
+}
+
+/**
+ * Merges compiler and local diagnostics while avoiding exact duplicates.
+ * @param primary Diagnostics from the compiler.
+ * @param secondary Diagnostics from local editor linting.
+ * @returns Combined diagnostics.
+ */
+function mergeDiagnostics(primary: OpalescentDiagnostic[], secondary: OpalescentDiagnostic[]): OpalescentDiagnostic[] {
+  const seen = new Set(primary.map(diagnosticKey));
+  const merged = [...primary];
+  for (const diagnostic of secondary) {
+    const key = diagnosticKey(diagnostic);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(diagnostic);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Builds a stable key for duplicate diagnostic suppression.
+ * @param diagnostic Diagnostic to key.
+ * @returns Stable key string.
+ */
+function diagnosticKey(diagnostic: OpalescentDiagnostic): string {
+  return [
+    diagnostic.source_path,
+    diagnostic.code ?? diagnostic.message,
+    diagnostic.range.start.line,
+    diagnostic.range.start.character,
+    diagnostic.range.end.line,
+    diagnostic.range.end.character
+  ].join(':');
 }
 
 /**
@@ -430,12 +481,25 @@ class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
    * @returns Definition location or implementation locations, or undefined when no symbol matches.
    */
   async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<undefined | vscode.Definition> {
+    const importLocation = importLocationForPosition(document, position);
+    if (importLocation) {
+      return importLocation;
+    }
+
     const word = wordAtPosition(document.getText(), position.line, position.character);
     if (!word) {
       return undefined;
     }
     const symbols = await collectProjectSymbols(document);
     const lookupPosition = lookupPositionForDocument(document, position);
+    const definitionAtCursor = definitionSymbolAtPosition(symbols, word, lookupPosition);
+    if (definitionAtCursor?.scopeKind === 'function') {
+      const references = referenceTargetsForSymbol(document.getText(), definitionAtCursor);
+      if (references.length > 0) {
+        return references.map(symbolLocation);
+      }
+    }
+
     const definitions = definitionSymbolsForWord(symbols, word, lookupPosition);
     if (definitions.length === 0) {
       return undefined;
@@ -532,6 +596,26 @@ async function collectOpalescentFiles(root: string): Promise<string[]> {
   }
   await walk(root);
   return files.sort();
+}
+
+/**
+ * Resolves a source import specifier under the cursor to its target file.
+ * @param document Document that owns the import.
+ * @param position VS Code editor position.
+ * @returns Import target location, or undefined.
+ */
+function importLocationForPosition(document: vscode.TextDocument, position: vscode.Position): undefined | vscode.Location {
+  const importTarget = importTargetAtPosition(document.getText(), position.line, position.character);
+  if (!importTarget) {
+    return undefined;
+  }
+
+  const targetPath = resolveLocalImportPath(document.uri.fsPath, importTarget.moduleSpecifier, fs.existsSync);
+  if (!targetPath) {
+    return undefined;
+  }
+
+  return new vscode.Location(vscode.Uri.file(targetPath), new vscode.Position(0, 0));
 }
 
 /**

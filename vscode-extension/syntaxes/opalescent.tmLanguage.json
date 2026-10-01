@@ -7,9 +7,10 @@
     { "include": "#line-comment" },
     { "include": "#string" },
     { "include": "#number" },
+    { "include": "#type-block" },
     { "include": "#declarations" },
+    { "include": "#errors-clause" },
     { "include": "#keyword" },
-    { "include": "#type-member" },
     { "include": "#type-name" },
     { "include": "#function-call" },
     { "include": "#identifier" }
@@ -121,6 +122,21 @@
         }
       ]
     },
+    "errors-clause": {
+      "name": "meta.errors-clause.opalescent",
+      "begin": "\\berrors\\b",
+      "beginCaptures": {
+        "0": { "name": "keyword.other.errors.opalescent" }
+      },
+      "end": "(?==>)",
+      "patterns": [
+        { "include": "#type-name" },
+        {
+          "name": "punctuation.separator.comma.opalescent",
+          "match": ","
+        }
+      ]
+    },
     "keyword": {
       "patterns": [
         {
@@ -128,7 +144,7 @@
           "match": "\\b(f|type|error|set|import|from|entry|public|pure|untested|using)\\b"
         },
         {
-          "name": "keyword.control.exception.propagate.opalescent",
+          "name": "keyword.operator.error-propagation.opalescent",
           "match": "\\bpropagate\\b"
         },
         {
@@ -141,7 +157,7 @@
         },
         {
           "name": "keyword.other.opalescent",
-          "match": "\\b(let|mutable|new|with|errors)\\b"
+          "match": "\\b(let|mutable|ref|new|with|errors)\\b"
         },
         {
           "name": "constant.language.boolean.opalescent",
@@ -153,13 +169,28 @@
         }
       ]
     },
+    "type-block": {
+      "name": "meta.type.declaration.block.opalescent",
+      "begin": "^\\s*(public\\s+)?(type)\\s+([A-Z][A-Za-z0-9_]*)\\b.*:$",
+      "beginCaptures": {
+        "1": { "name": "keyword.declaration.visibility.opalescent" },
+        "2": { "name": "keyword.declaration.type.opalescent" },
+        "3": { "name": "entity.name.type.opalescent" }
+      },
+      "end": "^(?=\\S)|\\z",
+      "patterns": [
+        { "include": "#type-member" },
+        { "include": "#line-comment" },
+        { "include": "#type-name" }
+      ]
+    },
     "type-member": {
       "patterns": [
         {
           "name": "meta.type.member.variant.opalescent",
           "match": "^(\\s+)([A-Z][A-Za-z0-9_]*)(?=\\s*(?::|#|$))",
           "captures": {
-            "2": { "name": "variable.other.enummember.opalescent" }
+            "2": { "name": "variable.other.property.opalescent variable.other.enummember.opalescent" }
           }
         },
         {

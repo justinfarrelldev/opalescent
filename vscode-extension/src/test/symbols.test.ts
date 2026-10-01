@@ -1,6 +1,15 @@
 import { expect, test } from 'vitest';
 
-import { collectSymbolsFromSource, definitionSymbolsForWord, findEntryLines, hoverSymbolForWord, wordAtPosition } from '../symbols.js';
+import {
+  collectSymbolsFromSource,
+  definitionSymbolAtPosition,
+  definitionSymbolsForWord,
+  findEntryLines,
+  hoverSymbolForWord,
+  importTargetAtPosition,
+  referenceTargetsForSymbol,
+  wordAtPosition
+} from '../symbols.js';
 
 const source = `import helper from ./helper
 
@@ -38,7 +47,7 @@ test('attaches documentation comments to declarations for hover text', () => {
   const symbols = collectSymbolsFromSource(source, '/p/src/main.op');
   const main = symbols.find((symbol) => symbol.name === 'main');
 
-  expect(main?.documentation).toBe('Description: Entry point for symbol indexing.');
+  expect(main?.documentation).toBe('Entry point for symbol indexing.');
 });
 
 const labelsSource = `import type EditorStatus from ./editor.types
@@ -95,7 +104,34 @@ test('finds hover documentation through symbol uses', () => {
   const symbols = collectSymbolsFromSource(labelsSource, '/p/src/labels.op');
   const hovered = hoverSymbolForWord(symbols, 'status_text_for', { character: 14, filePath: '/p/src/labels.op', line: 5 });
 
-  expect(hovered?.documentation).toBe('Description: Returns a display label for the current editor status.');
+  expect(hovered?.documentation).toBe('Returns a display label for the current editor status.');
+});
+
+test('finds local references when go-to-definition starts on a variable definition', () => {
+  const referenceSource = `public let example = f(): void =>
+    let changed = 1
+    print(changed)
+    return void
+`;
+  const symbols = collectSymbolsFromSource(referenceSource, '/p/src/example.op');
+  const definition = definitionSymbolAtPosition(symbols, 'changed', { character: 8, filePath: '/p/src/example.op', line: 1 });
+  const references = definition ? referenceTargetsForSymbol(referenceSource, definition) : [];
+
+  expect(references.map((reference) => [reference.line, reference.character, reference.name])).toEqual([[2, 10, 'changed']]);
+});
+
+test('detects import module specifiers for ctrl-click file navigation', () => {
+  const importSource = `import type EditorState from ./editor.types
+import helper from ../helpers/buffer
+`;
+
+  expect(importTargetAtPosition(importSource, 0, 38)).toEqual({
+    character: 29,
+    length: 14,
+    line: 0,
+    moduleSpecifier: './editor.types'
+  });
+  expect(importTargetAtPosition(importSource, 1, 29)?.moduleSpecifier).toBe('../helpers/buffer');
 });
 
 test('finds entry function lines for code lenses', () => {
