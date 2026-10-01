@@ -9,7 +9,7 @@ import { candidateBinaryPaths, shellQuote } from './binary.js';
 import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
 import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
 import { findProjectRoot, isOpalescentFile } from './project.js';
-import { type OpalescentSymbol, collectSymbolsFromSource, findEntryLines, wordAtPosition } from './symbols.js';
+import { type OpalescentLookupPosition, type OpalescentSymbol, collectSymbolsFromSource, definitionSymbolsForWord, findEntryLines, hoverSymbolForWord, wordAtPosition } from './symbols.js';
 
 const languageId = 'opalescent';
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('opalescent');
@@ -62,7 +62,8 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.languages.registerCodeLensProvider(languageId, new OpalescentCodeLensProvider()),
     vscode.languages.registerDefinitionProvider(languageId, new OpalescentDefinitionProvider()),
-    vscode.languages.registerImplementationProvider(languageId, new OpalescentImplementationProvider())
+    vscode.languages.registerImplementationProvider(languageId, new OpalescentImplementationProvider()),
+    vscode.languages.registerHoverProvider(languageId, new OpalescentHoverProvider())
   );
 
   context.subscriptions.push(
@@ -426,16 +427,20 @@ class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
    * Resolves a symbol definition location for the word under the cursor.
    * @param document Document containing the lookup position.
    * @param position Position whose word should be resolved.
-   * @returns Definition location, or undefined when no symbol matches.
+   * @returns Definition location or implementation locations, or undefined when no symbol matches.
    */
-  async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<undefined | vscode.Location> {
+  async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<undefined | vscode.Definition> {
     const word = wordAtPosition(document.getText(), position.line, position.character);
     if (!word) {
       return undefined;
     }
     const symbols = await collectProjectSymbols(document);
-    const symbol = symbols.find((candidate) => candidate.name === word);
-    return symbol ? symbolLocation(symbol) : undefined;
+    const lookupPosition = lookupPositionForDocument(document, position);
+    const definitions = definitionSymbolsForWord(symbols, word, lookupPosition);
+    if (definitions.length === 0) {
+      return undefined;
+    }
+    return definitions.map(symbolLocation);
   }
 }
 
@@ -455,6 +460,31 @@ class OpalescentImplementationProvider implements vscode.ImplementationProvider 
     return symbols
       .filter((candidate) => candidate.name === word)
       .map(symbolLocation);
+  }
+}
+
+class OpalescentHoverProvider implements vscode.HoverProvider {
+  /**
+   * Resolves hover documentation for the word under the cursor.
+   * @param document Document containing the lookup position.
+   * @param position Position whose word should be resolved.
+   * @returns Hover text for documented symbols, or undefined.
+   */
+  async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<undefined | vscode.Hover> {
+    const word = wordAtPosition(document.getText(), position.line, position.character);
+    if (!word) {
+      return undefined;
+    }
+
+    const symbols = await collectProjectSymbols(document);
+    const symbol = hoverSymbolForWord(symbols, word, lookupPositionForDocument(document, position));
+    if (!symbol?.documentation) {
+      return undefined;
+    }
+
+    const contents = new vscode.MarkdownString(symbol.documentation);
+    contents.isTrusted = false;
+    return new vscode.Hover(contents);
   }
 }
 
@@ -505,13 +535,29 @@ async function collectOpalescentFiles(root: string): Promise<string[]> {
 }
 
 /**
+ * Converts a VS Code position to the pure symbol lookup position shape.
+ * @param document Document that owns the position.
+ * @param position VS Code editor position.
+ * @returns Lookup position used by symbol helpers.
+ */
+function lookupPositionForDocument(document: vscode.TextDocument, position: vscode.Position): OpalescentLookupPosition {
+  return { character: position.character, filePath: document.uri.fsPath, line: position.line };
+}
+
+/**
  * Converts a symbol into a VS Code location.
  * @param symbol Symbol to convert.
  * @returns Location spanning the symbol name.
  */
 function symbolLocation(symbol: OpalescentSymbol): vscode.Location {
-  return new vscode.Location(
-    vscode.Uri.file(symbol.filePath),
-    new vscode.Range(symbol.line, symbol.character, symbol.line, symbol.character + symbol.name.length)
-  );
+  return new vscode.Location(vscode.Uri.file(symbol.filePath), symbolRange(symbol));
+}
+
+/**
+ * Converts a symbol into a VS Code range.
+ * @param symbol Symbol to convert.
+ * @returns Range spanning the symbol name.
+ */
+function symbolRange(symbol: OpalescentSymbol): vscode.Range {
+  return new vscode.Range(symbol.line, symbol.character, symbol.line, symbol.character + symbol.name.length);
 }

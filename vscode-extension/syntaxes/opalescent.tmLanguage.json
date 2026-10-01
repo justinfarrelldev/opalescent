@@ -9,6 +9,7 @@
     { "include": "#number" },
     { "include": "#declarations" },
     { "include": "#keyword" },
+    { "include": "#type-member" },
     { "include": "#type-name" },
     { "include": "#function-call" },
     { "include": "#identifier" }
@@ -73,10 +74,22 @@
       "patterns": [
         {
           "name": "meta.function.declaration.opalescent",
-          "match": "\\b(public\\s+)?let\\s+([a-z_][A-Za-z0-9_]*)\\s*(?==\\s*f\\b)",
+          "match": "\\b(public\\s+)?(let)\\s+(mutable\\s+)?([a-z_][A-Za-z0-9_]*)\\s*(?==\\s*f\\b)",
           "captures": {
             "1": { "name": "keyword.declaration.visibility.opalescent" },
-            "2": { "name": "entity.name.function.opalescent" }
+            "2": { "name": "storage.type.let.opalescent" },
+            "3": { "name": "storage.modifier.mutable.opalescent" },
+            "4": { "name": "entity.name.function.opalescent" }
+          }
+        },
+        {
+          "name": "meta.let.declaration.opalescent",
+          "match": "\\b(public\\s+)?(let)\\s+(mutable\\s+)?([a-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.visibility.opalescent" },
+            "2": { "name": "storage.type.let.opalescent" },
+            "3": { "name": "storage.modifier.mutable.opalescent" },
+            "4": { "name": "variable.other.definition.opalescent" }
           }
         },
         {
@@ -89,18 +102,21 @@
         },
         {
           "name": "meta.type.declaration.opalescent",
-          "match": "\\b(public\\s+)?type\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "match": "\\b(public\\s+)?(type)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": { "name": "keyword.declaration.visibility.opalescent" },
-            "2": { "name": "entity.name.type.opalescent" }
+            "2": { "name": "keyword.declaration.type.opalescent" },
+            "3": { "name": "entity.name.type.opalescent" }
           }
         },
         {
           "name": "meta.error-set.declaration.opalescent",
-          "match": "\\b(public\\s+)?error\\s+set\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "match": "\\b(public\\s+)?(error)\\s+(set)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": { "name": "keyword.declaration.visibility.opalescent" },
-            "2": { "name": "entity.name.type.error-set.opalescent" }
+            "2": { "name": "keyword.declaration.error.opalescent" },
+            "3": { "name": "keyword.declaration.set.opalescent" },
+            "4": { "name": "entity.name.type.error-set.opalescent" }
           }
         }
       ]
@@ -109,11 +125,15 @@
       "patterns": [
         {
           "name": "keyword.declaration.opalescent",
-          "match": "\\b(f|type|error|set|import|from|entry|public|pure|untested)\\b"
+          "match": "\\b(f|type|error|set|import|from|entry|public|pure|untested|using)\\b"
+        },
+        {
+          "name": "keyword.control.exception.propagate.opalescent",
+          "match": "\\bpropagate\\b"
         },
         {
           "name": "keyword.control.opalescent",
-          "match": "\\b(if|else|while|for|in|loop|break|continue|return|guard|propagate|into)\\b"
+          "match": "\\b(if|else|while|for|in|loop|break|continue|return|guard|into)\\b"
         },
         {
           "name": "keyword.operator.word.opalescent",
@@ -130,6 +150,24 @@
         {
           "name": "support.type.primitive.opalescent",
           "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|void)\\b"
+        }
+      ]
+    },
+    "type-member": {
+      "patterns": [
+        {
+          "name": "meta.type.member.variant.opalescent",
+          "match": "^(\\s+)([A-Z][A-Za-z0-9_]*)(?=\\s*(?::|#|$))",
+          "captures": {
+            "2": { "name": "variable.other.enummember.opalescent" }
+          }
+        },
+        {
+          "name": "meta.type.member.property.opalescent",
+          "match": "^(\\s+)([a-z_][A-Za-z0-9_]*)(?=\\s*:)",
+          "captures": {
+            "2": { "name": "variable.other.property.opalescent" }
+          }
         }
       ]
     },

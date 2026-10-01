@@ -45,7 +45,29 @@ test('TextMate grammar tracks current public keywords and excludes removed publi
   expect(grammarText).toContain('set');
   expect(grammarText).toContain('untested');
   expect(grammarText).toContain('type_of');
+  expect(grammarText).toContain('using');
   expect(grammarText).not.toContain('string|char|void');
+});
+
+test('TextMate grammar distinguishes declaration keywords and noisy error propagation', () => {
+  const grammar = readJson<{
+    repository?: {
+      declarations?: { patterns?: Array<{ captures?: Record<string, { name?: string }> }> };
+      keyword?: { patterns?: Array<{ match?: string; name?: string }> };
+    };
+  }>('syntaxes/opalescent.tmLanguage.json');
+  const declarationCaptures = grammar.repository?.declarations?.patterns?.flatMap((pattern) => Object.values(pattern.captures ?? {}).map((capture) => capture.name)) ?? [];
+  const keywordPatterns = grammar.repository?.keyword?.patterns ?? [];
+
+  expect(declarationCaptures).toContain('storage.type.let.opalescent');
+  expect(keywordPatterns).toContainEqual(expect.objectContaining({ name: 'keyword.control.exception.propagate.opalescent' }));
+});
+
+test('TextMate grammar gives type members and fields TypeScript-like value scopes', () => {
+  const grammarText = fs.readFileSync(path.join(extensionRoot, 'syntaxes', 'opalescent.tmLanguage.json'), 'utf8');
+
+  expect(grammarText).toContain('variable.other.enummember.opalescent');
+  expect(grammarText).toContain('variable.other.property.opalescent');
 });
 
 test('VSIX packaging files and cargo-make tasks are present', () => {
