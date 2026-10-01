@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 
 import { candidateBinaryPaths, shellQuote } from './binary.js';
 import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
+import { type OpalescentCompletionImportEdit, type OpalescentCompletionItem, completionItemsForSymbols } from './completion.js';
 import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
 import { collectLocalLintDiagnostics } from './lint.js';
 import { findProjectRoot, isOpalescentFile, resolveLocalImportPath } from './project.js';
@@ -76,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerDocumentFormattingEditProvider(languageId, {
       provideDocumentFormattingEdits: async (document) => formatDocument(document)
     }),
+    vscode.languages.registerCompletionItemProvider(languageId, new OpalescentCompletionProvider()),
     vscode.languages.registerCodeLensProvider(languageId, new OpalescentCodeLensProvider()),
     vscode.languages.registerDefinitionProvider(languageId, new OpalescentDefinitionProvider()),
     vscode.languages.registerImplementationProvider(languageId, new OpalescentImplementationProvider()),
@@ -477,6 +479,24 @@ class OpalescentCodeLensProvider implements vscode.CodeLensProvider {
   }
 }
 
+class OpalescentCompletionProvider implements vscode.CompletionItemProvider {
+  /**
+   * Provides project-wide symbol completions and import edits for public cross-file declarations.
+   * @param document Document requesting completions.
+   * @param position Cursor position requesting completions.
+   * @returns Completion items for visible and auto-importable project symbols.
+   */
+  async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[]> {
+    const projectIndex = await collectProjectIndex(document);
+    const range = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
+    return completionItemsForSymbols({
+      currentFilePath: document.uri.fsPath,
+      source: document.getText(),
+      symbols: projectIndex.symbols
+    }).map((completion) => toVsCodeCompletionItem(completion, range));
+  }
+}
+
 class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
   /**
    * Resolves a symbol definition location for the word under the cursor.
@@ -550,6 +570,66 @@ class OpalescentHoverProvider implements vscode.HoverProvider {
     const contents = new vscode.MarkdownString(symbol.documentation);
     contents.isTrusted = false;
     return new vscode.Hover(contents);
+  }
+}
+
+/**
+ * Converts a pure Opalescent completion candidate into a VS Code completion item.
+ * @param completion Completion candidate from project symbol analysis.
+ * @param range Optional editor range to replace when accepting the item.
+ * @returns VS Code completion item with optional auto-import edit.
+ */
+function toVsCodeCompletionItem(completion: OpalescentCompletionItem, range: undefined | vscode.Range): vscode.CompletionItem {
+  const item = new vscode.CompletionItem(completion.name, toCompletionItemKind(completion.kind));
+  item.insertText = completion.insertText;
+  item.filterText = completion.name;
+  item.sortText = `${completion.autoImportEdit ? '1' : '0'}_${completion.name}`;
+  item.detail = completion.sourceModule ? `Auto import from ${completion.sourceModule}` : completion.kind;
+  if (range) {
+    item.range = range;
+  }
+  if (completion.documentation) {
+    const documentation = new vscode.MarkdownString(completion.documentation);
+    documentation.isTrusted = false;
+    item.documentation = documentation;
+  }
+  if (completion.autoImportEdit) {
+    item.additionalTextEdits = [toVsCodeTextEdit(completion.autoImportEdit)];
+  }
+  return item;
+}
+
+/**
+ * Converts a pure completion import edit into a VS Code text edit.
+ * @param edit Import insertion edit.
+ * @returns VS Code text edit.
+ */
+function toVsCodeTextEdit(edit: OpalescentCompletionImportEdit): vscode.TextEdit {
+  return vscode.TextEdit.insert(new vscode.Position(edit.line, edit.character), edit.text);
+}
+
+/**
+ * Maps Opalescent symbol kinds to VS Code completion item kinds.
+ * @param kind Opalescent symbol kind.
+ * @returns VS Code completion item kind.
+ */
+function toCompletionItemKind(kind: OpalescentSymbol['kind']): vscode.CompletionItemKind {
+  switch (kind) {
+    case 'entry':
+    case 'function':
+      return vscode.CompletionItemKind.Function;
+    case 'parameter':
+      return vscode.CompletionItemKind.Variable;
+    case 'let':
+      return vscode.CompletionItemKind.Variable;
+    case 'type':
+      return vscode.CompletionItemKind.Class;
+    case 'type_field':
+      return vscode.CompletionItemKind.Field;
+    case 'type_variant':
+      return vscode.CompletionItemKind.EnumMember;
+    case 'error_set':
+      return vscode.CompletionItemKind.Enum;
   }
 }
 

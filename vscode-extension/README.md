@@ -9,6 +9,7 @@ VS Code support for Opalescent source files (`.op`) and type-definition files (`
 - Formatting through `opalescent fmt`.
 - Command palette actions for lint/check, format, build, run, and selecting the compiler binary.
 - Code lenses above `entry` declarations for build and run.
+- Project-wide symbol completions with auto-import edits for public declarations.
 - Conservative text-indexed go-to-definition and find-implementation support.
 
 ## Compiler binary

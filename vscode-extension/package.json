@@ -1,7 +1,7 @@
 {
   "name": "opalescent-language-support",
   "displayName": "Opalescent Language Support",
-  "description": "VS Code language support for Opalescent: syntax highlighting, compiler diagnostics, formatting, build/run, and navigation.",
+  "description": "VS Code language support for Opalescent: syntax highlighting, compiler diagnostics, formatting, build/run, completions, and navigation.",
   "version": "0.1.0",
   "publisher": "opalescent",
   "license": "Apache-2.0",

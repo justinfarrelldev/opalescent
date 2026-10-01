@@ -54,3 +54,31 @@ export function resolveLocalImportPath(
   const candidates = isOpalescentFile(basePath) ? [basePath] : [`${basePath}.op`, `${basePath}.types.op`];
   return candidates.find((candidate) => exists(candidate));
 }
+
+/**
+ * Builds an Opalescent relative import specifier from one source file to another.
+ * @param importerFilePath File that will receive the import.
+ * @param importedFilePath File that exports the imported symbol.
+ * @returns Module specifier without the trailing `.op` extension.
+ */
+export function moduleSpecifierForLocalImport(importerFilePath: string, importedFilePath: string): string {
+  const importerDirectory = path.dirname(path.resolve(importerFilePath));
+  const importedModulePath = stripOpalescentSourceExtension(path.resolve(importedFilePath));
+  const relativePath = path.relative(importerDirectory, importedModulePath).replace(/\\/g, '/');
+  if (relativePath.startsWith('../')) {
+    return relativePath;
+  }
+  if (relativePath === '..') {
+    return relativePath;
+  }
+  return `./${relativePath}`;
+}
+
+/**
+ * Removes the final `.op` extension while preserving `.types` module suffixes.
+ * @param filePath Source file path.
+ * @returns File path as it should appear in import specifiers before relativizing.
+ */
+function stripOpalescentSourceExtension(filePath: string): string {
+  return filePath.endsWith('.op') ? filePath.slice(0, -'.op'.length) : filePath;
+}
