@@ -92,6 +92,15 @@ test('TextMate grammar highlights every type in errors clauses', () => {
   expect(grammar.repository?.['errors-clause']?.patterns).toContainEqual(expect.objectContaining({ include: '#type-name' }));
 });
 
+test('entry code lens titles stay concise', () => {
+  const extensionSource = fs.readFileSync(path.join(extensionRoot, 'src', 'extension.ts'), 'utf8');
+
+  expect(extensionSource).toMatch(/title: ['"]Build Project['"]/);
+  expect(extensionSource).toMatch(/title: ['"]Run Program['"]/);
+  expect(extensionSource).not.toContain("Build Opalescent Project");
+  expect(extensionSource).not.toContain("Run Opalescent Program");
+});
+
 test('VSIX packaging files and cargo-make tasks are present', () => {
   expect(fs.existsSync(path.join(extensionRoot, '.vscodeignore'))).toBe(true);
   expect(fs.existsSync(path.join(extensionRoot, 'README.md'))).toBe(true);

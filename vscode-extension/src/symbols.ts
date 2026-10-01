@@ -1,4 +1,4 @@
-export type OpalescentSymbolKind = 'entry' | 'error_set' | 'function' | 'let' | 'parameter' | 'type';
+export type OpalescentSymbolKind = 'entry' | 'error_set' | 'function' | 'let' | 'parameter' | 'type' | 'type_field' | 'type_variant';
 export type OpalescentSymbolScopeKind = 'file' | 'function';
 
 export interface OpalescentLookupPosition {
@@ -82,7 +82,9 @@ export function collectSymbolsFromSource(source: string, filePath: string): Opal
 
     const typeMatch = line.match(typePattern);
     if (typeMatch?.[2]) {
-      symbols.push(fileSymbolFromMatch(lines, lineIndex, filePath, typeMatch[2], 'type', Boolean(typeMatch[1])));
+      const exported = Boolean(typeMatch[1]);
+      symbols.push(fileSymbolFromMatch(lines, lineIndex, filePath, typeMatch[2], 'type', exported));
+      symbols.push(...typeMemberSymbolsForDeclaration(lines, topLevelLines, lineIndex, filePath, exported));
       continue;
     }
 
@@ -252,6 +254,24 @@ export function referenceTargetsForSymbol(source: string, symbol: OpalescentSymb
     }
   }
   return references;
+}
+
+/**
+ * Finds references when go-to-definition starts on a definition site.
+ * @param source Source text containing the lookup position.
+ * @param symbols Project symbols available for lookup.
+ * @param word Identifier under the cursor.
+ * @param position Cursor position in the requesting document.
+ * @returns Reference locations for the definition under the cursor.
+ */
+export function definitionReferenceSymbolsForWord(
+  source: string,
+  symbols: OpalescentSymbol[],
+  word: string,
+  position: OpalescentLookupPosition
+): OpalescentSymbol[] {
+  const definition = definitionSymbolAtPosition(symbols, word, position);
+  return definition ? referenceTargetsForSymbol(source, definition) : [];
 }
 
 /**
@@ -600,6 +620,75 @@ function parameterSymbolsForFunction(lines: string[], filePath: string, scope: F
     match = parameterPattern.exec(parameterText);
   }
   return parameters;
+}
+
+/**
+ * Collects variant and field symbols from a type declaration block.
+ * @param lines Source lines.
+ * @param topLevelLines Top-level declaration line numbers.
+ * @param declarationLine Type declaration line.
+ * @param filePath Source file path.
+ * @param exported Whether the parent type is public.
+ * @returns Type member symbols in source order.
+ */
+function typeMemberSymbolsForDeclaration(
+  lines: string[],
+  topLevelLines: number[],
+  declarationLine: number,
+  filePath: string,
+  exported: boolean
+): OpalescentSymbol[] {
+  const scopeEndLine = functionEndLine(topLevelLines, declarationLine, lines.length);
+  const symbols: OpalescentSymbol[] = [];
+  for (let lineIndex = declarationLine + 1; lineIndex <= scopeEndLine; lineIndex += 1) {
+    const line = lines[lineIndex] ?? '';
+    const variantMatch = line.match(/^(\s+)([A-Z][A-Za-z0-9_]*)(?=\s*(?::|#|$))/);
+    if (variantMatch?.[2]) {
+      symbols.push(typeMemberSymbolFromMatch(line, lineIndex, filePath, variantMatch[2], 'type_variant', exported, declarationLine, scopeEndLine));
+      continue;
+    }
+
+    const fieldMatch = line.match(/^(\s+)([a-z_][A-Za-z0-9_]*)(?=\s*:)/);
+    if (fieldMatch?.[2]) {
+      symbols.push(typeMemberSymbolFromMatch(line, lineIndex, filePath, fieldMatch[2], 'type_field', exported, declarationLine, scopeEndLine));
+    }
+  }
+  return symbols;
+}
+
+/**
+ * Builds a symbol for a member inside a type declaration block.
+ * @param line Source line containing the member.
+ * @param lineIndex Source line index.
+ * @param filePath Source file path.
+ * @param name Member name.
+ * @param kind Member symbol kind.
+ * @param exported Whether the parent type is public.
+ * @param scopeStartLine Parent type declaration line.
+ * @param scopeEndLine Last line in the parent type block.
+ * @returns Type member symbol.
+ */
+function typeMemberSymbolFromMatch(
+  line: string,
+  lineIndex: number,
+  filePath: string,
+  name: string,
+  kind: 'type_field' | 'type_variant',
+  exported: boolean,
+  scopeStartLine: number,
+  scopeEndLine: number
+): OpalescentSymbol {
+  return {
+    character: line.indexOf(name),
+    exported,
+    filePath,
+    kind,
+    line: lineIndex,
+    name,
+    scopeEndLine,
+    scopeKind: 'file',
+    scopeStartLine
+  };
 }
 
 /**

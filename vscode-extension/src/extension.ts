@@ -14,12 +14,11 @@ import {
   type OpalescentLookupPosition,
   type OpalescentSymbol,
   collectSymbolsFromSource,
-  definitionSymbolAtPosition,
+  definitionReferenceSymbolsForWord,
   definitionSymbolsForWord,
   findEntryLines,
   hoverSymbolForWord,
   importTargetAtPosition,
-  referenceTargetsForSymbol,
   wordAtPosition
 } from './symbols.js';
 
@@ -461,12 +460,12 @@ class OpalescentCodeLensProvider implements vscode.CodeLensProvider {
         new vscode.CodeLens(range, {
           arguments: [document.uri],
           command: 'opalescent.buildProject',
-          title: 'Build Opalescent Project'
+          title: 'Build Project'
         }),
         new vscode.CodeLens(range, {
           arguments: [document.uri],
           command: 'opalescent.runProject',
-          title: 'Run Opalescent Program'
+          title: 'Run Program'
         })
       ];
     });
@@ -492,12 +491,9 @@ class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
     }
     const symbols = await collectProjectSymbols(document);
     const lookupPosition = lookupPositionForDocument(document, position);
-    const definitionAtCursor = definitionSymbolAtPosition(symbols, word, lookupPosition);
-    if (definitionAtCursor?.scopeKind === 'function') {
-      const references = referenceTargetsForSymbol(document.getText(), definitionAtCursor);
-      if (references.length > 0) {
-        return references.map(symbolLocation);
-      }
+    const references = definitionReferenceSymbolsForWord(document.getText(), symbols, word, lookupPosition);
+    if (references.length > 0) {
+      return references.map(symbolLocation);
     }
 
     const definitions = definitionSymbolsForWord(symbols, word, lookupPosition);

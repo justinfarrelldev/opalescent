@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 
 import {
   collectSymbolsFromSource,
+  definitionReferenceSymbolsForWord,
   definitionSymbolAtPosition,
   definitionSymbolsForWord,
   findEntryLines,
@@ -36,6 +37,7 @@ test('collects current Opalescent declarations for navigation', () => {
     ['function', 'helper', 2, true],
     ['parameter', 'value', 2, false],
     ['type', 'LifeConfig', 5, true],
+    ['type_field', 'width', 6, true],
     ['error_set', 'AppErrors', 8, true],
     ['entry', 'main', 13, true],
     ['parameter', 'args', 13, false],
@@ -107,6 +109,20 @@ test('finds hover documentation through symbol uses', () => {
   expect(hovered?.documentation).toBe('Returns a display label for the current editor status.');
 });
 
+test('resolves type variants from constructor member names', () => {
+  const editorTypesSource = `public type EditorStatus:
+    Ok
+    BellFailed:
+        message: string
+`;
+  const symbols = collectSymbolsFromSource(editorTypesSource, '/p/src/editor.types.op');
+  const definitions = definitionSymbolsForWord(symbols, 'BellFailed', { character: 54, filePath: '/p/src/input.op', line: 0 });
+
+  expect(definitions.map((symbol) => [symbol.kind, symbol.filePath, symbol.line, symbol.name])).toEqual([
+    ['type_variant', '/p/src/editor.types.op', 2, 'BellFailed']
+  ]);
+});
+
 test('finds local references when go-to-definition starts on a variable definition', () => {
   const referenceSource = `public let example = f(): void =>
     let changed = 1
@@ -118,6 +134,20 @@ test('finds local references when go-to-definition starts on a variable definiti
   const references = definition ? referenceTargetsForSymbol(referenceSource, definition) : [];
 
   expect(references.map((reference) => [reference.line, reference.character, reference.name])).toEqual([[2, 10, 'changed']]);
+});
+
+test('finds top-level references when go-to-definition starts on a function definition', () => {
+  const referenceSource = `public let named_key_text = f(): string =>
+    return 'named'
+
+public let handle = f(): void =>
+    print(named_key_text())
+    return void
+`;
+  const symbols = collectSymbolsFromSource(referenceSource, '/p/src/input.op');
+  const references = definitionReferenceSymbolsForWord(referenceSource, symbols, 'named_key_text', { character: 11, filePath: '/p/src/input.op', line: 0 });
+
+  expect(references.map((reference) => [reference.line, reference.character, reference.name])).toEqual([[4, 10, 'named_key_text']]);
 });
 
 test('detects import module specifiers for ctrl-click file navigation', () => {
