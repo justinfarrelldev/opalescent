@@ -240,20 +240,7 @@ export function importTargetAtPosition(source: string, line: number, character: 
  * @returns Reference-like symbols in source order, excluding the definition site.
  */
 export function referenceTargetsForSymbol(source: string, symbol: OpalescentSymbol): OpalescentSymbol[] {
-  const references: OpalescentSymbol[] = [];
-  const lines = source.split('\n');
-  const wordPattern = new RegExp(`\\b${escapeRegExp(symbol.name)}\\b`, 'g');
-  for (let lineIndex = symbol.scopeStartLine; lineIndex <= symbol.scopeEndLine && lineIndex < lines.length; lineIndex += 1) {
-    const lineText = lines[lineIndex] ?? '';
-    let match = wordPattern.exec(lineText);
-    while (match) {
-      if (!(lineIndex === symbol.line && match.index === symbol.character)) {
-        references.push({ ...symbol, character: match.index, exported: false, line: lineIndex });
-      }
-      match = wordPattern.exec(lineText);
-    }
-  }
-  return references;
+  return referenceTargetsForSymbolInSource(source, symbol.filePath, symbol);
 }
 
 /**
@@ -270,8 +257,63 @@ export function definitionReferenceSymbolsForWord(
   word: string,
   position: OpalescentLookupPosition
 ): OpalescentSymbol[] {
+  return definitionReferenceSymbolsForWordInSources(new Map([[position.filePath, source]]), symbols, word, position);
+}
+
+/**
+ * Finds project-wide references when go-to-definition starts on a definition site.
+ * @param sources Source text by file path.
+ * @param symbols Project symbols available for lookup.
+ * @param word Identifier under the cursor.
+ * @param position Cursor position in the requesting document.
+ * @returns Project-wide reference locations for the definition under the cursor.
+ */
+export function definitionReferenceSymbolsForWordInSources(
+  sources: ReadonlyMap<string, string>,
+  symbols: OpalescentSymbol[],
+  word: string,
+  position: OpalescentLookupPosition
+): OpalescentSymbol[] {
   const definition = definitionSymbolAtPosition(symbols, word, position);
-  return definition ? referenceTargetsForSymbol(source, definition) : [];
+  if (!definition) {
+    return [];
+  }
+
+  const references: OpalescentSymbol[] = [];
+  for (const [filePath, source] of sources) {
+    references.push(...referenceTargetsForSymbolInSource(source, filePath, definition));
+  }
+  return references.sort(compareSymbolsInSourceOrder);
+}
+
+/**
+ * Finds references to a symbol inside one source file.
+ * @param source Source text to scan.
+ * @param filePath File path associated with the source text.
+ * @param symbol Definition symbol whose references should be found.
+ * @returns References in the given source, excluding the definition site.
+ */
+function referenceTargetsForSymbolInSource(source: string, filePath: string, symbol: OpalescentSymbol): OpalescentSymbol[] {
+  if (symbol.scopeKind === 'function' && !sameFilePath(filePath, symbol.filePath)) {
+    return [];
+  }
+
+  const references: OpalescentSymbol[] = [];
+  const lines = source.split('\n');
+  const startLine = sameFilePath(filePath, symbol.filePath) && symbol.scopeKind === 'function' ? symbol.scopeStartLine : 0;
+  const endLine = sameFilePath(filePath, symbol.filePath) && symbol.scopeKind === 'function' ? symbol.scopeEndLine : lines.length - 1;
+  const wordPattern = new RegExp(`\\b${escapeRegExp(symbol.name)}\\b`, 'g');
+  for (let lineIndex = startLine; lineIndex <= endLine && lineIndex < lines.length; lineIndex += 1) {
+    const lineText = lines[lineIndex] ?? '';
+    let match = wordPattern.exec(lineText);
+    while (match) {
+      if (!(sameFilePath(filePath, symbol.filePath) && lineIndex === symbol.line && match.index === symbol.character)) {
+        references.push({ ...symbol, character: match.index, exported: false, filePath, line: lineIndex });
+      }
+      match = wordPattern.exec(lineText);
+    }
+  }
+  return references;
 }
 
 /**

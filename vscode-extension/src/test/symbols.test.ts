@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import {
   collectSymbolsFromSource,
   definitionReferenceSymbolsForWord,
+  definitionReferenceSymbolsForWordInSources,
   definitionSymbolAtPosition,
   definitionSymbolsForWord,
   findEntryLines,
@@ -148,6 +149,33 @@ public let handle = f(): void =>
   const references = definitionReferenceSymbolsForWord(referenceSource, symbols, 'named_key_text', { character: 11, filePath: '/p/src/input.op', line: 0 });
 
   expect(references.map((reference) => [reference.line, reference.character, reference.name])).toEqual([[4, 10, 'named_key_text']]);
+});
+
+test('finds project-wide references when go-to-definition starts on a function definition', () => {
+  const renderSource = `import status_text_for from ./labels
+
+public let render = f(): void =>
+    print(status_text_for())
+    return void
+`;
+  const symbols = [
+    ...collectSymbolsFromSource(labelsSource, '/p/src/labels.op'),
+    ...collectSymbolsFromSource(renderSource, '/p/src/render.op')
+  ];
+  const references = definitionReferenceSymbolsForWordInSources(
+    new Map([
+      ['/p/src/labels.op', labelsSource],
+      ['/p/src/render.op', renderSource]
+    ]),
+    symbols,
+    'status_text_for',
+    { character: 11, filePath: '/p/src/labels.op', line: 5 }
+  );
+
+  expect(references.map((reference) => [reference.filePath, reference.line, reference.character, reference.name])).toEqual([
+    ['/p/src/render.op', 0, 7, 'status_text_for'],
+    ['/p/src/render.op', 3, 10, 'status_text_for']
+  ]);
 });
 
 test('detects import module specifiers for ctrl-click file navigation', () => {

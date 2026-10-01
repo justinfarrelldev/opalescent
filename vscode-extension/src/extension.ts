@@ -14,7 +14,7 @@ import {
   type OpalescentLookupPosition,
   type OpalescentSymbol,
   collectSymbolsFromSource,
-  definitionReferenceSymbolsForWord,
+  definitionReferenceSymbolsForWordInSources,
   definitionSymbolsForWord,
   findEntryLines,
   hoverSymbolForWord,
@@ -32,6 +32,11 @@ interface CompilerResult {
   code: number;
   stderr: string;
   stdout: string;
+}
+
+interface ProjectSymbolIndex {
+  sources: Map<string, string>;
+  symbols: OpalescentSymbol[];
 }
 
 /**
@@ -489,14 +494,14 @@ class OpalescentDefinitionProvider implements vscode.DefinitionProvider {
     if (!word) {
       return undefined;
     }
-    const symbols = await collectProjectSymbols(document);
+    const projectIndex = await collectProjectIndex(document);
     const lookupPosition = lookupPositionForDocument(document, position);
-    const references = definitionReferenceSymbolsForWord(document.getText(), symbols, word, lookupPosition);
+    const references = definitionReferenceSymbolsForWordInSources(projectIndex.sources, projectIndex.symbols, word, lookupPosition);
     if (references.length > 0) {
       return references.map(symbolLocation);
     }
 
-    const definitions = definitionSymbolsForWord(symbols, word, lookupPosition);
+    const definitions = definitionSymbolsForWord(projectIndex.symbols, word, lookupPosition);
     if (definitions.length === 0) {
       return undefined;
     }
@@ -554,15 +559,26 @@ class OpalescentHoverProvider implements vscode.HoverProvider {
  * @returns Symbols available for navigation.
  */
 async function collectProjectSymbols(document: vscode.TextDocument): Promise<OpalescentSymbol[]> {
+  return (await collectProjectIndex(document)).symbols;
+}
+
+/**
+ * Collects navigation symbols and source text from the current project or file.
+ * @param document Current document whose project should be scanned.
+ * @returns Project symbol index with source text by file.
+ */
+async function collectProjectIndex(document: vscode.TextDocument): Promise<ProjectSymbolIndex> {
   const currentFile = document.uri.fsPath;
   const projectRoot = findProjectRoot(currentFile, fs.existsSync);
   const files = projectRoot ? await collectOpalescentFiles(projectRoot) : [currentFile];
+  const sources = new Map<string, string>();
   const symbols: OpalescentSymbol[] = [];
   for (const file of files) {
     const source = path.resolve(file) === path.resolve(currentFile) ? document.getText() : await fsp.readFile(file, 'utf8');
+    sources.set(file, source);
     symbols.push(...collectSymbolsFromSource(source, file));
   }
-  return symbols;
+  return { sources, symbols };
 }
 
 /**
