@@ -276,7 +276,7 @@ const snippetCompletions: readonly OpalescentCompletionItem[] = [
     insertText: 'guard ${1:fallible_call()} into ${2:value} else ${3:err} =>\n    ${0}',
     isSnippet: true,
     kind: 'snippet',
-    name: 'guard into else'
+    name: 'guard ... into ... else'
   },
   {
     detail: 'Snippet: loop expression with break value',

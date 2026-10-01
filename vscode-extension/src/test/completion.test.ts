@@ -127,7 +127,7 @@ test('includes core language keyword completions', () => {
 
 test('includes tab-stop snippets for common Opalescent structures', () => {
   const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
-  const guardSnippet = completions.find((completion) => completion.name === 'guard into else');
+  const guardSnippet = completions.find((completion) => completion.name === 'guard ... into ... else');
   const whileSnippet = completions.find((completion) => completion.name === 'while block');
 
   expect(guardSnippet).toMatchObject({
