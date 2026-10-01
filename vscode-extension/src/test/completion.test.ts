@@ -3,7 +3,8 @@ import { expect, test } from 'vitest';
 
 import {
   completionItemsForSymbols,
-  importLineForSymbol
+  importLineForSymbol,
+  staticHoverInfoForWord
 } from '../completion.js';
 import { collectSymbolsFromSource } from '../symbols.js';
 
@@ -195,13 +196,13 @@ test('suggests standard-library functions with docs and auto-import edits', () =
   expect(pathFrom).toMatchObject({
     autoImportEdit: { character: 0, line: 0, text: 'import path_from from standard\n' },
     detail: 'standard: path_from(raw: string): FilesystemPath',
-    documentation: expect.stringContaining('Wraps a raw string as a filesystem path.'),
+    documentation: expect.stringContaining('Wraps raw text as a `FilesystemPath`.'),
     insertText: 'path_from',
     sourceModule: 'standard'
   });
   expect(readText).toMatchObject({
     autoImportEdit: { character: 0, line: 0, text: 'import read_text_sync from standard\n' },
-    documentation: expect.stringContaining('Reads the whole file as UTF-8 text.'),
+    documentation: expect.stringContaining('Reads an entire file as UTF-8 text.'),
     sourceModule: 'standard'
   });
   expect(readText?.documentation).toContain('InvalidUtf8Error');
@@ -225,4 +226,117 @@ test('suggests standard error sets with import type edits and docs', () => {
     documentation: expect.stringContaining('FileNotFoundError'),
     sourceModule: 'standard.errors'
   });
+});
+
+test('suggests every standard library surface including importable types and numeric submodule items', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const append = completions.find((completion) => completion.name === 'append' && completion.sourceModule === 'standard');
+  const bytes = completions.find((completion) => completion.name === 'Bytes' && completion.sourceModule === 'standard');
+  const int64ToInt32 = completions.find(
+    (completion) => completion.name === 'int64_to_int32' && completion.sourceModule === 'standard.numeric'
+  );
+  const integerRangeError = completions.find(
+    (completion) => completion.name === 'IntegerRangeError' && completion.sourceModule === 'standard'
+  );
+
+  expect(append).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import append from standard\n' },
+    documentation: expect.stringContaining('Returns a new array with'),
+    kind: 'function'
+  });
+  expect(bytes).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import type Bytes from standard\n' },
+    documentation: expect.stringContaining('opaque immutable byte buffer'),
+    kind: 'type'
+  });
+  expect(int64ToInt32).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import int64_to_int32 from standard.numeric\n' },
+    documentation: expect.stringContaining('checked'),
+    kind: 'function'
+  });
+  expect(integerRangeError).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import type IntegerRangeError from standard\n' },
+    kind: 'type'
+  });
+});
+
+test('suggests terminal submodule functions and types with import edits and source documentation', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const session = completions.find((completion) => completion.name === 'TerminalSession' && completion.sourceModule === 'standard.terminal');
+  const openSession = completions.find(
+    (completion) => completion.name === 'terminal_session_open_sync' && completion.sourceModule === 'standard.terminal'
+  );
+  const chordRouter = completions.find(
+    (completion) => completion.name === 'terminal_chord_router_new' && completion.sourceModule === 'standard.terminal.chords'
+  );
+
+  expect(session).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import type TerminalSession from standard.terminal\n' },
+    documentation: expect.stringContaining('active terminal session'),
+    kind: 'type'
+  });
+  expect(openSession).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import terminal_session_open_sync from standard.terminal\n' },
+    documentation: expect.stringContaining('Opens a terminal session'),
+    kind: 'function'
+  });
+  expect(chordRouter).toMatchObject({
+    autoImportEdit: { character: 0, line: 0, text: 'import terminal_chord_router_new from standard.terminal.chords\n' },
+    documentation: expect.stringContaining('Creates a terminal chord router'),
+    kind: 'function'
+  });
+});
+
+test('provides static hover descriptions for primitive types and stdlib symbols', () => {
+  expect(staticHoverInfoForWord('string')).toMatchObject({
+    detail: 'Primitive type',
+    documentation: expect.stringContaining('Owned Unicode text value')
+  });
+  expect(staticHoverInfoForWord('read_text_sync')).toMatchObject({
+    detail: 'standard: read_text_sync(path: FilesystemPath): string errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error',
+    documentation: expect.stringContaining('Reads an entire file as UTF-8 text')
+  });
+  expect(staticHoverInfoForWord('terminal_session_open_sync')).toMatchObject({
+    detail: 'standard.terminal: terminal_session_open_sync(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError',
+    documentation: expect.stringContaining('Opens a terminal session')
+  });
+});
+
+test('documents terminal/core proposal functions with purpose rather than generated name expansions', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const cancellationSource = completions.find(
+    (completion) => completion.name === 'cancellation_source_new' && completion.sourceModule === 'standard.system'
+  );
+
+  expect(cancellationSource).toMatchObject({
+    documentation: expect.stringContaining('Creates a cancellation source')
+  });
+  expect(cancellationSource?.documentation).toContain('cancellation_token');
+  expect(cancellationSource?.documentation).toContain('cancellation_request');
+
+  const proposalCompletions = completions.filter((completion) =>
+    ['standard.system', 'standard.terminal', 'standard.terminal.chords', 'standard.testing.terminal'].includes(completion.sourceModule ?? '')
+  );
+
+  expect(proposalCompletions.length).toBeGreaterThan(0);
+  expect(proposalCompletions.every((completion) => !completion.documentation?.includes('API for'))).toBe(true);
+  expect(proposalCompletions.every((completion) => !completion.documentation?.includes('standard library function'))).toBe(true);
+  expect(proposalCompletions.every((completion) => !completion.documentation?.startsWith('Documents '))).toBe(true);
+});
+
+test('documents ordinary standard-library functions with practical usage guidance', () => {
+  const completions = completionItemsForSymbols({ currentFilePath: currentFile, source: '', symbols: [] });
+  const random = completions.find((completion) => completion.name === 'random_int32' && completion.sourceModule === 'math');
+  const readText = completions.find((completion) => completion.name === 'read_text_sync' && completion.sourceModule === 'standard');
+  const range = completions.find((completion) => completion.name === 'string_extract_range' && completion.sourceModule === 'standard');
+  const bytesFromHex = completions.find((completion) => completion.name === 'bytes_from_hex' && completion.sourceModule === 'standard');
+  const numericConversion = completions.find(
+    (completion) => completion.name === 'int64_to_int32' && completion.sourceModule === 'standard.numeric'
+  );
+
+  expect(random?.documentation).toContain('Use it for simple non-cryptographic choices');
+  expect(readText?.documentation).toContain('Use it for human-readable UTF-8 files');
+  expect(range?.documentation).toContain('Use it when you need a substring by Unicode scalar positions');
+  expect(bytesFromHex?.documentation).toContain('Use it for test fixtures, hashes, IDs, or wire-format values');
+  expect(numericConversion?.documentation).toContain('Use it instead of `as` when the value is only known at runtime');
 });

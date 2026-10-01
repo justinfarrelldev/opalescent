@@ -1,6 +1,8 @@
 import type { OpalescentSymbol, OpalescentSymbolKind } from './symbols.js';
 
 import { moduleSpecifierForLocalImport } from './project.js';
+import { withStdlibDocumentation } from './stdlib_docs.js';
+import { additionalStdlibExternalCompletions } from './stdlib_metadata.js';
 
 export type OpalescentCompletionKind = 'keyword' | 'snippet' | OpalescentSymbolKind;
 
@@ -26,6 +28,12 @@ export interface OpalescentCompletionRequest {
   currentFilePath: string;
   source: string;
   symbols: OpalescentSymbol[];
+}
+
+export interface OpalescentStaticHoverInfo {
+  detail?: string;
+  documentation: string;
+  name: string;
 }
 
 interface ExternalCompletionDefinition {
@@ -171,8 +179,8 @@ const externalCompletions: readonly ExternalCompletionDefinition[] = [
   ...timeCompletions(),
   ...mathCompletions(),
   ...processCompletions(),
-  ...standardErrorSetCompletions()
-];
+  ...additionalStdlibExternalCompletions
+].map(withStdlibDocumentation);
 const snippetCompletions: readonly OpalescentCompletionItem[] = [
   {
     detail: 'Snippet: entry point',
@@ -497,40 +505,6 @@ function processCompletions(): ExternalCompletionDefinition[] {
 }
 
 /**
- * Builds named error-set completions from the standard.errors module.
- * @returns Type-only standard error-set completion definitions.
- */
-function standardErrorSetCompletions(): ExternalCompletionDefinition[] {
-  return externalDefinitions(
-    'standard.errors',
-    [
-      ['ParseErrors', 'ParseErrors = ParseError', 'Covers parse failures from numeric string parsing.'],
-      ['BytesErrors', 'BytesErrors = HexDecodeError, SliceRangeError', 'Covers byte hex decoding and byte slicing failures.'],
-      ['StringSearchErrors', 'StringSearchErrors = StringEmptySearchTextError, StringPatternNotFoundError', 'Covers string search failures.'],
-      ['StringRangeErrors', 'StringRangeErrors = StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError', 'Covers string range, count, and ordering failures.'],
-      ['StringBuilderErrors', 'StringBuilderErrors = BuilderFinishedError, AllocationFailureError', 'Covers string-builder use-after-finish and allocation failures.'],
-      ['StdoutWriterErrors', 'StdoutWriterErrors = WriteFailureError, FlushFailureError, SinkClosedError', 'Covers standard-output writer write, flush, and closed-sink failures.'],
-      ['TerminalControlErrors', 'TerminalControlErrors = TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError', 'Covers terminal control write failures, invalid cursor positions, and closed sinks.'],
-      ['TimeErrors', 'TimeErrors = InvalidDurationError, InvalidFrameRateError', 'Covers invalid sleep durations and frame-clock rates.'],
-      ['ProcessPathErrors', 'ProcessPathErrors = PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError', 'Covers process current-directory and executable-path failures.'],
-      ['ProcessEnvErrors', 'ProcessEnvErrors = EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error', 'Covers process environment variable lookup failures.'],
-      ['FilesystemPathErrors', 'FilesystemPathErrors = InvalidPathError, PermissionDeniedError', 'Covers filesystem path validation and permission failures.'],
-      ['FilesystemReadErrors', 'FilesystemReadErrors = FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, OffsetOutOfRangeError', 'Covers filesystem read failures including FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, and OffsetOutOfRangeError.'],
-      ['FilesystemWriteErrors', 'FilesystemWriteErrors = FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError, OffsetOutOfRangeError', 'Covers filesystem write and append failures.'],
-      ['FilesystemCreateErrors', 'FilesystemCreateErrors = FileAlreadyExistsError, PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError', 'Covers file and directory creation failures.'],
-      ['FilesystemDeleteErrors', 'FilesystemDeleteErrors = FileNotFoundError, PermissionDeniedError, DeleteFailureError, IsADirectoryError, InvalidPathError', 'Covers file deletion failures.'],
-      ['FilesystemDirectoryDeleteErrors', 'FilesystemDirectoryDeleteErrors = DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, InvalidPathError', 'Covers directory deletion failures.'],
-      ['FilesystemCopyMoveErrors', 'FilesystemCopyMoveErrors = FileNotFoundError, PermissionDeniedError, CopyFailureError, MoveFailureError, IsADirectoryError, FileAlreadyExistsError, InvalidPathError, FilesystemFullError', 'Covers filesystem copy and move failures.'],
-      ['FilesystemMetadataErrors', 'FilesystemMetadataErrors = FileNotFoundError, PermissionDeniedError, MetadataUnavailableError, InvalidPathError', 'Covers filesystem metadata failures.'],
-      ['FilesystemListErrors', 'FilesystemListErrors = DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError', 'Covers directory listing failures.'],
-      ['FilesystemErrors', 'FilesystemErrors = union of filesystem error leaves', 'Covers the broad filesystem error set, including read, write, create, delete, copy/move, metadata, and list-directory leaves.'],
-      ['IndexAccessErrors', 'IndexAccessErrors = IndexOutOfBoundsError', 'Covers array and string `.at(index)` out-of-bounds access failures.']
-    ],
-    true
-  );
-}
-
-/**
  * Converts compact external completion tuples into full definitions.
  * @param moduleName Module imported by the completion definitions.
  * @param definitions Name, signature, and documentation tuples.
@@ -583,6 +557,27 @@ export function completionItemsForSymbols(request: OpalescentCompletionRequest):
   }
 
   return items.sort(compareCompletionItems);
+}
+
+/**
+ * Finds hover metadata for built-in keywords, primitive types, and standard-library symbols.
+ * @param word Identifier under the cursor.
+ * @returns Static hover information, or undefined when the word is not a documented static symbol.
+ */
+export function staticHoverInfoForWord(word: string): OpalescentStaticHoverInfo | undefined {
+  const keywordName = keywordNames.find((name) => name === word);
+  if (keywordName) {
+    const keyword = keywordCompletion(keywordName);
+    if (keyword.documentation) {
+      return { detail: keyword.detail, documentation: keyword.documentation, name: keyword.name };
+    }
+  }
+
+  const external = externalCompletions.find((completion) => completion.name === word);
+  if (!external) {
+    return undefined;
+  }
+  return { detail: external.detail, documentation: external.documentation, name: external.name };
 }
 
 /**

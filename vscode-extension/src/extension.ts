@@ -7,7 +7,13 @@ import * as vscode from 'vscode';
 
 import { candidateBinaryPaths, shellQuote } from './binary.js';
 import { type OpalescentCommandContext, buildArgsForContext, checkArgsForContext, formatArgs, runArgsForContext } from './cli.js';
-import { type OpalescentCompletionImportEdit, type OpalescentCompletionItem, type OpalescentCompletionKind, completionItemsForSymbols } from './completion.js';
+import {
+  type OpalescentCompletionImportEdit,
+  type OpalescentCompletionItem,
+  type OpalescentCompletionKind,
+  completionItemsForSymbols,
+  staticHoverInfoForWord
+} from './completion.js';
 import { type OpalescentDiagnostic, diagnosticsByFile, parseOpalescentDiagnosticReport } from './diagnostics.js';
 import { collectLocalLintDiagnostics } from './lint.js';
 import { findProjectRoot, isOpalescentFile, resolveLocalImportPath } from './project.js';
@@ -563,14 +569,31 @@ class OpalescentHoverProvider implements vscode.HoverProvider {
 
     const symbols = await collectProjectSymbols(document);
     const symbol = hoverSymbolForWord(symbols, word, lookupPositionForDocument(document, position));
-    if (!symbol?.documentation) {
+    if (symbol?.documentation) {
+      const contents = new vscode.MarkdownString(symbol.documentation);
+      contents.isTrusted = false;
+      return new vscode.Hover(contents);
+    }
+
+    const staticHover = staticHoverInfoForWord(word);
+    if (!staticHover) {
       return undefined;
     }
 
-    const contents = new vscode.MarkdownString(symbol.documentation);
+    const contents = new vscode.MarkdownString(markdownForStaticHover(staticHover.detail, staticHover.documentation));
     contents.isTrusted = false;
     return new vscode.Hover(contents);
   }
+}
+
+/**
+ * Formats static hover details and documentation as Markdown.
+ * @param detail Optional signature or kind label.
+ * @param documentation User-facing documentation body.
+ * @returns Markdown hover content.
+ */
+function markdownForStaticHover(detail: string | undefined, documentation: string): string {
+  return detail ? `\`${detail}\`\n\n${documentation}` : documentation;
 }
 
 /**
