@@ -10,6 +10,8 @@ import type LifeConfig from ./life.types
 ##
 entry main = f(args: string[]): void errors
     InvalidFrameRateError,
+    StandardOutputHandleError,
+    StandardOutputCapabilityError,
     StdoutWriterErrors,
     TerminalWriteFailureError
 =>

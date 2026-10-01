@@ -9,6 +9,32 @@ const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[test]
 #[serial(fs)]
+fn game_of_life_full_project_compiles() {
+    let project_name = "game-of-life-full";
+    let project_dir = fs_project_root(project_name);
+
+    let execution_result: Result<(), String> = (|| {
+        let _guard = FsStateGuard::new("test-projects/game-of-life-full")
+            .map_err(|error| format!("game-of-life-full guard should initialize: {error}"))?;
+
+        let temp_dir = super::fs_helpers::unique_probe_target_dir("game-of-life-full-compile");
+        let _binary_path =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host()).map_err(
+                |error| format!("game-of-life-full fixture should compile into a binary: {error}"),
+            )?;
+
+        Ok(())
+    })();
+
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "game-of-life-full should compile in the normal integration suite: {failure_message}"
+    );
+}
+
+#[test]
+#[serial(fs)]
 fn game_of_life_ten_frames() {
     let project_name = "game-of-life";
     let project_dir = fs_project_root(project_name);
