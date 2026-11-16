@@ -25,4 +25,23 @@ Unchecked phases are not implemented or verified.
 - [x] Malformed quoted title GREEN: bounded string scanner; all 29 lexer tests pass.
 - [x] Refactor: isolate prose scanning; use explicit `ModuleMode` rather than another state boolean; ordinary multiline strings unchanged.
 - [x] `cargo make lint`: all-target/all-feature strict Clippy passes.
-- [ ] First increment commit and unchanged pre-commit gates.
+- [x] First increment committed as `7be4b90`; unchanged pre-commit gates passed (Rust tests/lint/build and extension checks).
+- [x] Structured test-module parser RED/GREEN: ordinary callbacks, Worlds, scenarios, hooks and metadata.
+- [x] Named examples/test-support imports RED/GREEN; explicit provider/handle import AST.
+- [x] Assertions RED/GREEN: token-bounded fixed vocabulary, polling and call-history matchers; no raw-text splitting.
+- [x] Import-edge declaration and double configuration RED/GREEN; parent-relative import grammar preserves original paths.
+- [x] Scheduler exclusion metadata RED/GREEN; only constant strings accepted.
+- [x] Callback error recovery RED/GREEN: any recovered parser error invalidates the test module.
+- [x] Minimal fixture documentation RED/GREEN: retain documentation between indented test declarations.
+- [x] Structured statement visitors preserve operand traversal for capture/reference/naming analysis; production checker/lowering reject unlowered test operations.
+- [x] Extract existing diagnostic/expression/store-mode helpers without changing production semantics to keep file-length gates intact.
+- [x] Minimal fixture added at `test-projects/native-testing-basic`; parsed by regression tests (not yet executable through CLI).
+- [x] Frontend verification: 11 new parser tests; 268 existing/new parser tests passed with 1 existing ignored; strict lint passes.
+- [ ] Structured frontend increment commit and unchanged pre-commit gates.
+
+## Remaining integration warning
+
+The test AST and parsing entry point are not yet connected to a test compiler,
+resolver, artifact builder or runner. Native execution, full static validation,
+abort transport, lifecycle, scheduling/reporting and support libraries remain
+required. Do not interpret parsing fixtures as full feature conformance.

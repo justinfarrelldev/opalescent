@@ -1,0 +1,47 @@
+import add from ../src/arithmetic
+import type AdditionExample from ./addition_examples.types
+
+##
+    Description:
+        A per-attempt nominal environment containing an ordinary integer.
+        There is intentionally no cleanup callback and no resource obligation.
+##
+world StartingNumber:
+    setup: f(): int64 =>
+        return 2
+
+##
+    Description:
+        Addition combines both inputs, including a negative second input.
+        Every named example is an independent case, not an ordered step.
+##
+scenario adding integers:
+    unit under test: add
+    kind: unit
+    worlds: StartingNumber
+
+    it should combine the World's value with another integer:
+        f(ref number: StartingNumber): void =>
+            let result = add(number.state, 2)
+            expect result to be 4
+            return void
+
+    ##
+        Description: The body is shared but each example is independently identified.
+    ##
+    it should handle named input pairs:
+        worlds: none
+        examples of AdditionExample:
+            example two positive inputs:
+                left: 2
+                right: 2
+                expected: 4
+
+            example a negative second input:
+                left: 2
+                right: -3
+                expected: -1
+
+        f(ref example: AdditionExample): void =>
+            expect add(example.left, example.right) to be example.expected
+            return void

@@ -130,7 +130,7 @@ impl Parser {
 
     /// Collect consecutive documentation comment tokens, if present, and convert
     /// them into structured documentation metadata.
-    fn collect_documentation(&mut self) -> Option<Documentation> {
+    pub(super) fn collect_documentation(&mut self) -> Option<Documentation> {
         let mut raw_parts = Vec::new();
         let mut span: Option<Span> = None;
 

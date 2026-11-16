@@ -35,6 +35,17 @@ impl Parser {
         self.skip_newlines();
 
         match self.current_token().token_type {
+            TokenType::Identifier(ref name)
+                if name == "expect" && self.module_mode == crate::lexer::ModuleMode::Test =>
+            {
+                self.parse_test_expectation()
+            }
+            TokenType::Identifier(ref name)
+                if matches!(name.as_str(), "stub" | "spy" | "verify" | "restore")
+                    && self.module_mode == crate::lexer::ModuleMode::Test =>
+            {
+                self.parse_double_statement()
+            }
             TokenType::Comment(_) => {
                 let comment_token = self.advance().clone();
                 Ok(Stmt::Comment {

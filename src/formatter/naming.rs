@@ -170,6 +170,11 @@ fn check_decl(decl: &Decl, violations: &mut Vec<NamingViolation>) {
 )]
 fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
     match *stmt {
+        Stmt::Testing { ref statement, .. } => {
+            for expression in statement.expressions() {
+                check_expr(expression, violations);
+            }
+        }
         Stmt::Let {
             ref binding,
             ref initializer,

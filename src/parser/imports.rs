@@ -80,7 +80,7 @@ impl Parser {
     }
 
     /// Parse a single import item (either Named or Type)
-    fn parse_import_item(&mut self, is_type: bool) -> ParseResult<ImportItem> {
+    pub(super) fn parse_import_item(&mut self, is_type: bool) -> ParseResult<ImportItem> {
         let start_span = self.current_token().span;
         // Parse item name
         let name = match self.current_token().token_type {
@@ -141,7 +141,7 @@ impl Parser {
     /// - String literals: "./path/to/module"
     /// - Relative paths: ./path/to/module  
     /// - Bare specifiers: math (stdlib only)
-    fn parse_import_path(&mut self) -> ParseResult<String> {
+    pub(super) fn parse_import_path(&mut self) -> ParseResult<String> {
         match self.current_token().token_type {
             // String literals are the simplest case
             TokenType::StringLiteral(ref path) => {
@@ -180,23 +180,23 @@ impl Parser {
 
             // Relative paths starting with ./
             TokenType::Dot => {
-                let mut path = String::from(".");
-                self.advance(); // consume '.'
-
-                if self.check(&TokenType::Divide) {
+                let mut path = String::new();
+                // Preserve explicit relative segments; the resolver, not the
+                // parser, decides how they map to a canonical module identity.
+                while self.check(&TokenType::Dot) {
+                    self.advance();
+                    path.push('.');
+                    if self.check(&TokenType::Dot) {
+                        self.advance();
+                        path.push('.');
+                    }
+                    self.consume(
+                        &TokenType::Divide,
+                        "Expected '/' after relative path segment",
+                    )?;
                     path.push('/');
-                    self.advance(); // consume '/'
-
-                    // Parse path components
-                    path.push_str(&self.parse_path_components()?);
-                } else {
-                    return Err(ParseError::UnexpectedToken {
-                        expected: "'/' after '.'".to_owned(),
-                        found: format!("{}", self.current_token().token_type),
-                        span: ParseError::span_from_token(self.current_token()),
-                    });
                 }
-
+                path.push_str(&self.parse_path_components()?);
                 Ok(path)
             }
 

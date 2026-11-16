@@ -167,6 +167,11 @@ fn collect_identifiers_in_stmt(
     captures: &mut Vec<String>,
 ) {
     match stmt {
+        Stmt::Testing { statement, .. } => {
+            for expression in statement.expressions() {
+                collect_identifiers_in_expr(expression, param_names, seen, captures);
+            }
+        }
         Stmt::Let { initializer, .. } => {
             if let Some(init) = initializer {
                 collect_identifiers_in_expr(init, param_names, seen, captures);

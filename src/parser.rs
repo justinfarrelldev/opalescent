@@ -57,6 +57,9 @@ mod string_interpolation;
 /// Parser submodule for type parsing (type annotations, function types)
 mod types;
 
+mod testing;
+#[cfg(test)]
+mod testing_tests;
 #[cfg(test)]
 mod tests;
 
@@ -83,6 +86,8 @@ pub struct Parser {
     active_guard_error_bindings: Vec<String>,
     /// Node ID counter for unique AST node identification
     next_node_id: usize,
+    /// Contextual test syntax is enabled only by the test-module entry point.
+    module_mode: crate::lexer::ModuleMode,
 }
 
 impl Parser {
@@ -96,6 +101,7 @@ impl Parser {
             deferred_doc_comments: Vec::new(),
             active_guard_error_bindings: Vec::new(),
             next_node_id: 1,
+            module_mode: crate::lexer::ModuleMode::Application,
         }
     }
 

@@ -75,6 +75,9 @@ impl FormatterStatementPrinter for Formatter {
     fn print_stmt(&self, stmt: &Stmt, depth: usize) -> String {
         let indent = self.indent(depth);
         match *stmt {
+            Stmt::Testing { ref statement, .. } => {
+                super::testing::print_testing_statement(self, statement, depth)
+            }
             Stmt::Block { ref statements, .. } => {
                 if statements.is_empty() {
                     return format!("{indent}# empty");

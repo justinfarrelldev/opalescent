@@ -9,12 +9,14 @@
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
+mod store_mode;
+use self::store_mode::assignment_store_mode;
 
 use crate::ast::{Expr, LabeledValue, LetBinding, Stmt};
 use crate::codegen::adts::product_field_indices_from_constructor;
 use crate::codegen::binding_store::{
-    StoreMode, binding_requires_rc_cleanup, initialize_binding_value,
-    store_binding_overwrite_rc_safe, store_binding_overwrite_rc_safe_with_mode,
+    StoreMode, initialize_binding_value, store_binding_overwrite_rc_safe,
+    store_binding_overwrite_rc_safe_with_mode,
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
@@ -64,6 +66,9 @@ pub fn codegen_statement<'context>(
     stmt: &Stmt,
 ) -> Result<(), CodegenError> {
     match *stmt {
+        Stmt::Testing { .. } => Err(CodegenError::new(
+            "unlowered test operation cannot enter production code generation".to_owned(),
+        )),
         Stmt::Let {
             ref binding,
             ref initializer,
@@ -1204,36 +1209,6 @@ fn codegen_guard_error_propagation_statement<'context>(
     cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
-}
-
-fn assignment_store_mode(value: &Expr, binding_type: &CoreType) -> StoreMode {
-    match *value {
-        // Array literals are allocated in this lowering flow, so assignment can transfer that
-        // fresh RC owner directly into the binding without an extra retain.
-        Expr::Array { .. } => StoreMode::TakeOwned,
-        // `reserve` noop paths return an owned alias, so reassignment should consume that owner
-        // instead of retaining the same pointer again.
-        Expr::Call { ref callee, .. } if reserve_call_returns_owned_alias(callee.as_ref()) => {
-            StoreMode::TakeOwned
-        }
-        // Align with reassignment leak semantics: call results transfer ownership when the
-        // destination binding participates in RC cleanup.
-        Expr::Call { .. } if binding_requires_take_owned_call_assignment(binding_type) => {
-            StoreMode::TakeOwned
-        }
-        _ => StoreMode::Retain,
-    }
-}
-
-fn binding_requires_take_owned_call_assignment(binding_type: &CoreType) -> bool {
-    binding_requires_rc_cleanup(binding_type)
-}
-
-fn reserve_call_returns_owned_alias(callee: &Expr) -> bool {
-    match *callee {
-        Expr::Identifier { ref name, .. } => name == "reserve",
-        _ => false,
-    }
 }
 
 fn current_function<'context>(

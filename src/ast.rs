@@ -15,6 +15,8 @@ mod node_impls;
 mod operators;
 mod patterns;
 mod span_helpers;
+/// Structured declarations used exclusively by test-mode compilation.
+pub mod testing;
 mod types;
 
 extern crate alloc;
@@ -502,6 +504,15 @@ pub struct LabeledValue {
 /// Statement AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    /// Framework-only typed operations, never valid in production artifacts.
+    Testing {
+        /// Structured operation parsed in explicit test-module mode.
+        statement: Box<testing::TestingStatement>,
+        /// Original source extent.
+        span: Span,
+        /// Unique source node identity.
+        id: NodeId,
+    },
     /// Let bindings (let x = 5, let mutable y = 10)
     Let {
         /// Shared binding metadata

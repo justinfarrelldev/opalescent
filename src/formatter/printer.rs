@@ -30,6 +30,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 
 mod statements;
+mod testing;
 use statements::FormatterStatementPrinter;
 
 // ─── Free functions (no `self`) ──────────────────────────────────────────────

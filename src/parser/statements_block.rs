@@ -16,7 +16,10 @@ impl Parser {
 
         while !self.check(&TokenType::Dedent) && !self.is_at_end() {
             if let &TokenType::DocComment(ref content) = &self.current_token().token_type {
-                if self.current_token().span.start.column == 1 {
+                if self.current_token().span.start.column == 1
+                    || (self.module_mode == crate::lexer::ModuleMode::Test
+                        && self.current_token().span.start.column < start_span.start.column)
+                {
                     let doc_comment_span = self.current_token().span;
                     self.deferred_doc_comments
                         .push((content.clone(), doc_comment_span));

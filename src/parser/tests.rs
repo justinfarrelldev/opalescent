@@ -231,6 +231,10 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
 /// Determine whether the provided statement tree contains the requested AST feature.
 fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
     match stmt {
+        Stmt::Testing { statement, .. } => statement
+            .expressions()
+            .into_iter()
+            .any(|expression| expr_contains_feature(expression, feature)),
         Stmt::Let {
             initializer: Some(expr),
             ..

@@ -1,0 +1,7 @@
+##
+    Description: Constant inputs and expected output for one addition case.
+##
+public type AdditionExample:
+    left: int64
+    right: int64
+    expected: int64

@@ -1,0 +1,5 @@
+##
+    Description: Adds two signed integers without an external operation.
+##
+public let add = f(left: int64, right: int64): int64 =>
+    return left + right

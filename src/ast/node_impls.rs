@@ -97,6 +97,7 @@ impl AstNode for Stmt {
             | Self::While { span, .. }
             | Self::Guard { span, .. }
             | Self::Using { span, .. }
+            | Self::Testing { span, .. }
             | Self::PropagateGuardError { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
@@ -118,6 +119,7 @@ impl AstNode for Stmt {
             | Self::While { id, .. }
             | Self::Guard { id, .. }
             | Self::Using { id, .. }
+            | Self::Testing { id, .. }
             | Self::PropagateGuardError { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
