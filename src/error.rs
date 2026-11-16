@@ -10,6 +10,14 @@ use thiserror::Error;
 /// Errors that can occur during lexical analysis
 #[derive(Error, Debug, Diagnostic)]
 pub enum LexError {
+    /// A test declaration title must terminate on its original source line.
+    #[error("Test title requires a terminating colon on the same line")]
+    #[diagnostic(code(opalescent::lexer::unterminated_test_title))]
+    UnterminatedTestTitle {
+        /// Original position of the title.
+        #[label("add a terminating colon on this line")]
+        span: SourceSpan,
+    },
     /// Encountered a character that cannot be tokenized in the current context
     #[error("Unexpected character '{character}' at position {position:?}")]
     #[diagnostic(

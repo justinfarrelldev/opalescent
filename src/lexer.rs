@@ -4,6 +4,10 @@
 
 extern crate alloc;
 
+mod testing_prose;
+#[cfg(test)]
+mod testing_tests;
+
 use crate::error::{LexError, LexErrors};
 use crate::token::{self, Position, Span, Token, TokenType};
 use alloc::collections::BTreeMap;
@@ -72,6 +76,15 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "xor",
 ];
 
+/// Grammar mode selected explicitly by the module loader/compiler.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleMode {
+    /// Ordinary application grammar, including dependencies of test modules.
+    Application,
+    /// Test declarations and test-support grammar.
+    Test,
+}
+
 /// The main lexer struct that tokenizes Opalescent source code
 #[derive(Debug)]
 pub struct Lexer<'input> {
@@ -101,6 +114,8 @@ pub struct Lexer<'input> {
     awaiting_block_indent: bool,
     /// Absolute source offset where this lexer's input starts.
     span_offset_base: usize,
+    /// Enable contextual declaration prose only in test/test-support modules.
+    module_mode: ModuleMode,
 }
 
 /// Type of whitespace detected in the source code
@@ -118,6 +133,14 @@ impl<'input> Lexer<'input> {
     /// Create a new lexer for the given input
     pub fn new(input: &'input str) -> Self {
         Self::new_with_start_position(input, Position::start())
+    }
+
+    /// Create a lexer for an explicitly selected test or test-support module.
+    /// Ordinary application dependencies must continue to use [`Self::new`].
+    pub fn new_test_module(input: &'input str) -> Self {
+        let mut lexer = Self::new(input);
+        lexer.module_mode = ModuleMode::Test;
+        lexer
     }
 
     /// Create a lexer whose first character maps to an arbitrary source position.
@@ -197,6 +220,7 @@ impl<'input> Lexer<'input> {
             line_has_block_starter: false,
             awaiting_block_indent: false,
             span_offset_base: start_position.offset,
+            module_mode: ModuleMode::Application,
         }
     }
 
@@ -241,6 +265,10 @@ impl<'input> Lexer<'input> {
 
         if self.is_at_end() {
             return None;
+        }
+
+        if let Some(header) = self.scan_test_prose_header() {
+            return Some(header);
         }
 
         let start_pos = self.position;
@@ -570,6 +598,16 @@ impl<'input> Lexer<'input> {
 
     /// Scan a string literal
     fn scan_string_literal(&mut self, start_pos: Position) -> token::Token {
+        self.scan_string_literal_with_line_limit(start_pos, false)
+    }
+
+    /// Test identities are static, single-line text; ordinary strings retain
+    /// their existing multiline behavior.
+    fn scan_string_literal_with_line_limit(
+        &mut self,
+        start_pos: Position,
+        single_line: bool,
+    ) -> token::Token {
         let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // Skip opening quote
@@ -578,6 +616,9 @@ impl<'input> Lexer<'input> {
         let mut value = String::new();
 
         while !self.is_at_end() && self.current_char() != '\'' {
+            if single_line && matches!(self.current_char(), '\n' | '\r') {
+                break;
+            }
             if self.current_char() == '\0' {
                 let span = LexError::span_from_position(self.position, 1);
                 self.errors.push(LexError::UnexpectedCharacter {
@@ -588,7 +629,7 @@ impl<'input> Lexer<'input> {
                 self.advance();
             } else if self.current_char() == '\\' {
                 self.advance();
-                if self.is_at_end() {
+                if self.is_at_end() || (single_line && matches!(self.current_char(), '\n' | '\r')) {
                     break;
                 }
 
@@ -620,7 +661,7 @@ impl<'input> Lexer<'input> {
             }
         }
 
-        if self.is_at_end() {
+        if self.is_at_end() || (single_line && self.current_char() != '\'') {
             let span = LexError::span_from_position(start_pos, 1);
             self.errors.push(LexError::UnterminatedString {
                 start: start_pos,
