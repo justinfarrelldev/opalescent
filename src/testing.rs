@@ -9,6 +9,8 @@ pub mod assertions;
 pub mod bench;
 pub mod coverage;
 pub mod discovery;
+/// Compiler-integrated native testing implementation.
+pub mod native;
 pub mod property;
 pub mod runner;
 

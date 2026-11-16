@@ -37,11 +37,17 @@ Unchecked phases are not implemented or verified.
 - [x] Extract existing diagnostic/expression/store-mode helpers without changing production semantics to keep file-length gates intact.
 - [x] Minimal fixture added at `test-projects/native-testing-basic`; parsed by regression tests (not yet executable through CLI).
 - [x] Frontend verification: 11 new parser tests; 268 existing/new parser tests passed with 1 existing ignored; strict lint passes.
-- [ ] Structured frontend increment commit and unchanged pre-commit gates.
+- [x] Structured frontend committed as `0096a3c`; all unchanged pre-commit gates passed.
+- [x] Native loader RED/GREEN: explicit test/support mode, ordinary dependency grammar, original-source diagnostics and `.types.op` restrictions.
+- [x] Resolved World graph RED/GREEN: canonical alias identity, missing/duplicate dependencies, closed cycle paths, deterministic diamond initialization order.
+- [x] Function subjects RED/GREEN: genuine local/imported callables, privacy, aliases and qualified standard-module references use canonical defining identities.
+- [x] Native foundation regression tests: 12 passed; strict all-target/all-feature lint passed.
+- [ ] Native loading/resolution foundation commit and unchanged pre-commit gates.
 
 ## Remaining integration warning
 
-The test AST and parsing entry point are not yet connected to a test compiler,
-resolver, artifact builder or runner. Native execution, full static validation,
+The test AST/parser now feed an explicit source loader and canonical World/function
+resolution APIs. These are not yet connected to an executable test artifact builder
+or CLI runner; full callback/type checking is still pending. Native execution, full static validation,
 abort transport, lifecycle, scheduling/reporting and support libraries remain
 required. Do not interpret parsing fixtures as full feature conformance.
