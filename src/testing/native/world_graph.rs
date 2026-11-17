@@ -86,6 +86,14 @@ impl WorldGraph {
         Ok(graph)
     }
 
+    /// Inspect explicit canonical dependencies of one validated provider.
+    #[must_use]
+    pub fn dependencies(&self, identity: &WorldIdentity) -> Option<&[WorldIdentity]> {
+        self.indices
+            .get(identity)
+            .map(|&index| self.nodes[index].dependencies.as_slice())
+    }
+
     /// Compute the reachable union and initialize each provider at most once.
     /// Independent ready nodes follow deterministic source/declaration order.
     /// Cleanup uses the reverse of this returned order.

@@ -42,7 +42,12 @@ Unchecked phases are not implemented or verified.
 - [x] Resolved World graph RED/GREEN: canonical alias identity, missing/duplicate dependencies, closed cycle paths, deterministic diamond initialization order.
 - [x] Function subjects RED/GREEN: genuine local/imported callables, privacy, aliases and qualified standard-module references use canonical defining identities.
 - [x] Native foundation regression tests: 12 passed; strict all-target/all-feature lint passed.
-- [ ] Native loading/resolution foundation commit and unchanged pre-commit gates.
+- [x] Native loading/resolution committed as `3b26b4c`; all unchanged pre-commit gates passed.
+- [x] Case metadata RED/GREEN: stable named-case expansion, one shared source body, inherited/replaced lists, subject/kind overrides, duplicate names and conflicting clauses.
+- [x] Hook/transitive requirements retain separate origins and do not become body injections.
+- [x] Example reordering regression proves the complete structured identity set remains unchanged.
+- [x] Native resolution verification: 17 tests passed; strict all-target/all-feature lint passed.
+- [ ] Case metadata increment commit and unchanged pre-commit gates.
 
 ## Remaining integration warning
 
