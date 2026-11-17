@@ -38,8 +38,9 @@ pub enum NativeArtifactError {
 
 /// Build a complete checked suite into one native executable in a private directory.
 ///
-/// The caller owns the build-product directory. This initial build path does not
-/// reuse persistent cache entries; production artifacts cannot be reused here.
+/// The caller owns the private build-product directory. The higher-level
+/// `artifact_cache` publishes and verifies persistent test-only entries; this
+/// low-level builder never reads or overwrites another build's products.
 ///
 /// # Errors
 /// Returns compilation or infrastructure errors; never runs application/setup code.

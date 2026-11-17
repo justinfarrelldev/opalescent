@@ -3,7 +3,7 @@ extern crate alloc;
 mod options;
 mod report;
 use super::{
-    artifact::build_native_artifact,
+    artifact_cache::cached_native_artifact,
     checking::check_project,
     identity::DeclarationIdentity,
     project::NativeTestProject,
@@ -109,6 +109,22 @@ pub fn run(args: &[String]) -> Result<(), i32> {
     }
 }
 
+/// Preserve compiler failures separately from cache/link/tool infrastructure failures.
+fn cached_worker(
+    project: &NativeTestProject,
+    checked: &super::checking::CheckedNativeProject,
+    root: &Path,
+) -> Result<super::artifact::NativeTestArtifact, NativeCommandError> {
+    cached_native_artifact(project, checked, &root.join("target/native-testing/cache")).map_err(
+        |error| match error {
+            super::artifact::NativeArtifactError::Compilation(_) => {
+                NativeCommandError::compilation(error)
+            }
+            _ => NativeCommandError::infrastructure(error),
+        },
+    )
+}
+
 /// Discover/check once, build once, then schedule selected cases independently.
 fn execute_options(options: &Options) -> Result<(String, i32), NativeCommandError> {
     let root = std::fs::canonicalize(&options.root).map_err(NativeCommandError::infrastructure)?;
@@ -162,8 +178,7 @@ fn execute_options(options: &Options) -> Result<(String, i32), NativeCommandErro
         ));
     }
     let directory = run_directory(&root)?;
-    let artifact = build_native_artifact(&project, &checked, &directory.join("build"))
-        .map_err(NativeCommandError::compilation)?;
+    let artifact = cached_worker(&project, &checked, &root)?;
     let cases: Vec<_> = checked
         .suite
         .cases

@@ -3,6 +3,9 @@
 //! This is separate from the legacy Rust function-pointer testing API. Test
 //! declarations are parsed by the normal lexer/parser in explicit module mode.
 pub mod artifact;
+pub mod artifact_cache;
+#[cfg(test)]
+mod artifact_cache_tests;
 #[cfg(test)]
 mod artifact_tests;
 pub mod cases;
