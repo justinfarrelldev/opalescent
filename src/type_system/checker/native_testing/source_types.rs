@@ -14,6 +14,14 @@ use core::fmt::Write;
 const SOURCE_TYPE_PREFIX: &str = "__opal_type::";
 
 impl TypeChecker {
+    /// Only genuine type bindings install source layout aliases; constructor
+    /// value symbols must not overwrite their parent type's variant aliases.
+    pub(crate) fn native_is_type_binding(&self, name: &str) -> bool {
+        self.symbol_table
+            .lookup(name)
+            .is_some_and(|symbol| symbol.symbol_type == SymbolType::Type)
+    }
+
     /// Whether this checker participates in canonical native artifact typing.
     pub(in crate::type_system::checker) const fn native_source_type_identities_enabled(
         &self,

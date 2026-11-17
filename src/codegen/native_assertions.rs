@@ -9,12 +9,12 @@ use crate::ast::{AstNode, Expr};
 use crate::type_system::types::CoreType;
 use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
-#[path = "native_array_assertions.rs"]
-mod arrays;
 #[path = "native_string_assertions.rs"]
 mod strings;
 #[path = "native_value_equality.rs"]
 mod value_equality;
+#[path = "native_value_assertions.rs"]
+mod values;
 
 /// Lower an operation only in an explicitly registered native source function.
 ///
@@ -58,8 +58,8 @@ fn lower_expectation<'context>(
     if actual_type == Some(CoreType::String) {
         return strings::lower(codegen, env, expectation);
     }
-    if let Some(ref core @ CoreType::Array(_)) = actual_type {
-        return arrays::lower(codegen, env, expectation, core);
+    if let Some(ref core @ (CoreType::Array(_) | CoreType::Generic { .. })) = actual_type {
+        return values::lower(codegen, env, expectation, core);
     }
     let (Matcher::Equal {
         expected: ref expected_expression,

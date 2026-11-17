@@ -243,7 +243,9 @@ impl SourceLayouts {
                     env.imported_signatures
                         .insert(entry.name.clone(), entry.core_type.clone());
                 }
-                CoreType::Generic { ref name, .. } => {
+                CoreType::Generic { ref name, .. }
+                    if checked_module.checker.native_is_type_binding(&entry.name) =>
+                {
                     env.adt_layout_aliases
                         .insert(entry.name.clone(), name.clone());
                     let prefix = format!("{name}.");

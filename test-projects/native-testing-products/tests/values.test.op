@@ -1,0 +1,65 @@
+import type Document, Envelope, Status, DetailedStatus from ./values.types
+
+scenario ordinary typed product values:
+    it should compare field values rather than allocation identities:
+        f(): void =>
+            let actual: Document = new Document:
+                title: 'café'
+                lines: ['one', 'two']
+                count: 2
+            let expected: Document = new Document:
+                count: 2
+                title: 'café'
+                lines: ['one', 'two']
+            expect actual to be expected
+            let inferred = new Document:
+                title: 'café'
+                lines: ['one', 'two']
+                count: 2
+            expect inferred to be expected
+            expect inferred.count to be 2
+            let documents: Document[] = [actual, expected]
+            expect documents to be [expected, actual]
+            let envelope: Envelope = new Envelope:
+                document: actual
+                status: new Status.Open
+            let other: Envelope = new Envelope:
+                document: expected
+                status: new Status.Open
+            expect envelope to be other
+            let changed: Document = expected with:
+                count: 3
+            expect actual not to be changed
+            return void
+
+    it should reject different product fields:
+        f(): void =>
+            let actual: Document = new Document:
+                title: 'one'
+                lines: ['a']
+                count: 1
+            let expected: Document = actual with:
+                title: 'two'
+            expect actual to be expected
+            return void
+
+scenario nominal variants:
+    it should compare payloadless variants and identify payload-bearing variants:
+        f(): void =>
+            let open: Status = new Status.Open
+            let written: Status = new Status.Written
+            expect open to be new Status.Open
+            expect open not to be written
+            expect written to be the Written variant of Status
+            let inferred = new Status.Written
+            expect inferred to be the Written variant of Status
+            let detail: DetailedStatus = new DetailedStatus.Failed:
+                reason: 'disk full'
+            expect detail to be the Failed variant of DetailedStatus
+            return void
+
+    it should fail a wrong nominal variant:
+        f(): void =>
+            let status: Status = new Status.Open
+            expect status to be the Written variant of Status
+            return void

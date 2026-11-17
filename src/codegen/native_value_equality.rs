@@ -60,8 +60,142 @@ pub(super) fn equal<'context>(
             actual.into_pointer_value(),
             expected.into_pointer_value(),
         ),
+        CoreType::Generic { ref name, .. } => nominal_equal(codegen, env, name, actual, expected),
         _ => scalar_equal(codegen, actual, expected),
     }
+}
+
+/// Nominal enum tags are selected by real declaration metadata, never pointer bits.
+pub(super) fn variant_tag<'context>(
+    codegen: &CodegenContext<'context>,
+    value: BasicValueEnum<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    if value.is_struct_value() {
+        return Ok(codegen
+            .builder
+            .build_extract_value(value.into_struct_value(), 0, "expect.variant.tag")?
+            .into_int_value());
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(
+            "nominal variant has no tagged value representation",
+        ));
+    }
+    let pointer = codegen.builder.build_pointer_cast(
+        value.into_pointer_value(),
+        codegen
+            .context
+            .i64_type()
+            .ptr_type(inkwell::AddressSpace::default()),
+        "expect.variant.tag.pointer",
+    )?;
+    Ok(codegen
+        .builder
+        .build_load(pointer, "expect.variant.tag")?
+        .into_int_value())
+}
+
+/// Acyclic supported products compare declared fields; payloadless sums compare tags.
+fn nominal_equal<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    name: &str,
+    actual: BasicValueEnum<'context>,
+    expected: BasicValueEnum<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    let owner = env.adt_layout_key(name).to_owned();
+    let prefix = format!("{owner}.");
+    if env
+        .adt_variant_discriminants
+        .keys()
+        .any(|variant| variant.starts_with(&prefix))
+    {
+        if env
+            .adt_variant_discriminants
+            .keys()
+            .filter(|variant| variant.starts_with(&prefix))
+            .any(|variant| {
+                env.adt_field_layout(variant)
+                    .is_none_or(|fields| !fields.is_empty())
+            })
+        {
+            return Err(CodegenError::new(
+                "typed value equality supports only payloadless nominal variants",
+            ));
+        }
+        let actual = variant_tag(codegen, actual)?;
+        let expected = variant_tag(codegen, expected)?;
+        return Ok(codegen.builder.build_int_compare(
+            IntPredicate::EQ,
+            actual,
+            expected,
+            "expect.variant.equal",
+        )?);
+    }
+    let fields = env.adt_field_layout(&owner).cloned().ok_or_else(|| {
+        CodegenError::new("typed product equality requires canonical declared field metadata")
+    })?;
+    let structure = codegen.context.struct_type(
+        &fields
+            .iter()
+            .map(|&(_, ref core)| crate::codegen::types::core_type_to_llvm(codegen.context, core))
+            .collect::<Vec<_>>(),
+        false,
+    );
+    let mut result = codegen.context.bool_type().const_int(1, false);
+    for (index, &(_, ref core)) in fields.iter().enumerate() {
+        let index = u32::try_from(index).map_err(|error| CodegenError::new(error.to_string()))?;
+        let left = product_field(codegen, actual, structure, index)?;
+        let right = product_field(codegen, expected, structure, index)?;
+        let field = equal(codegen, env, core, left, right)?;
+        result = codegen
+            .builder
+            .build_and(result, field, "expect.product.equal")?;
+    }
+    Ok(result)
+}
+
+/// Read ordinary product storage using its checked field layout and position.
+fn product_field<'context>(
+    codegen: &CodegenContext<'context>,
+    value: BasicValueEnum<'context>,
+    structure: inkwell::types::StructType<'context>,
+    index: u32,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if value.is_struct_value() {
+        return Ok(codegen.builder.build_extract_value(
+            value.into_struct_value(),
+            index,
+            "expect.product.field",
+        )?);
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(
+            "typed product has no declared field representation",
+        ));
+    }
+    let pointer = codegen.builder.build_pointer_cast(
+        value.into_pointer_value(),
+        structure.ptr_type(inkwell::AddressSpace::default()),
+        "expect.product.pointer",
+    )?;
+    // SAFETY: Both the struct layout and index come from canonical checked fields.
+    let field = unsafe {
+        codegen.builder.build_in_bounds_gep(
+            pointer,
+            &[
+                codegen.context.i32_type().const_zero(),
+                codegen
+                    .context
+                    .i32_type()
+                    .const_int(u64::from(index), false),
+            ],
+            "expect.product.field.pointer",
+        )?
+    };
+    Ok(codegen
+        .builder
+        .build_load(field, "expect.product.field.value")?)
 }
 
 /// Length is checked before elements; order and multiplicity follow the index loop.

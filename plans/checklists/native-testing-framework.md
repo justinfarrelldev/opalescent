@@ -143,8 +143,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Literal assertion operand RED/GREEN: preserve authoritative checker types by original source extent in native codegen environments, avoiding backend re-inference of arrays/string literals and preserving nominal identities.
 - [x] Added `test-projects/native-testing-arrays/` with minimal positive/negative length, order, repeated-element, empty, literal, string, boolean, floating and nested-array fixtures.
 - [x] Array increment verification: 1,800 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Array matcher increment commit and unchanged gates.
-- [ ] Complete product/variant matcher lowering, owned array/product/variant diagnostics, polling and double history matchers.
+- [x] Array matchers committed as `425bc10`; all unchanged pre-commit gates passed, including production integration and extension checks.
+- [x] Product/variant matcher RED/GREEN: acyclic supported products compare declared typed fields recursively (including arrays, strings and nested products); payloadless sums compare tags; genuine nominal variant assertions support payload-bearing variants without reading payloads.
+- [x] Native source type-alias RED/GREEN: constructor value symbols cannot overwrite genuine type/variant layout aliases; variant discriminants retain canonical identities.
+- [x] Inferred native constructor RED/GREEN: checked native product and enum constructor bindings retain nominal layouts without requiring artificial source annotations; production inference fallback is unchanged.
+- [x] Added `test-projects/native-testing-products/` for independent allocations, reordered named initialization, record updates, nested products, arrays of products, inferred constructor types, payloadless equality, payload-bearing variant identity and intentional mismatches.
+- [x] Product/variant increment verification: 1,801 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Product/variant increment commit and unchanged gates.
+- [ ] Complete owned array/product/variant diagnostics, polling and double history matchers.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.

@@ -1,0 +1,29 @@
+##
+    Description: Ordinary acyclic product values with owned strings and arrays.
+##
+public type Document:
+    title: string
+    lines: string[]
+    count: int64
+
+##
+    Description: Distinct nominal payloadless status values.
+##
+public type Status:
+    Open
+    Written
+
+##
+    Description: Nested products retain their declared field types.
+##
+public type Envelope:
+    document: Document
+    status: Status
+
+##
+    Description: Variant identity can be checked without comparing payload data.
+##
+public type DetailedStatus:
+    Open
+    Failed:
+        reason: string

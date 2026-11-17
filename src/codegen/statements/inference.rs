@@ -121,6 +121,13 @@ pub(super) fn infer_core_type_from_expr<'context>(
             ..
         } => {
             if let Expr::Identifier { ref name, .. } = **callee {
+                let owner = env.adt_layout_key(name);
+                if env.adt_product_layouts.contains(owner) {
+                    return CoreType::Generic {
+                        name: owner.to_owned(),
+                        type_args: alloc::vec::Vec::new(),
+                    };
+                }
                 if (fields.is_empty() && lookup_propertyless_constructor(name.as_str()).is_some())
                     || crate::type_system::is_terminal_proposal_constructible_product_type(
                         name.as_str(),
@@ -143,6 +150,17 @@ pub(super) fn infer_core_type_from_expr<'context>(
                     ..
                 } = **object
                 {
+                    let owner = env.adt_layout_key(type_name);
+                    if owner.starts_with("__opal_type::")
+                        && env
+                            .adt_variant_discriminant(&alloc::format!("{type_name}.{member}"))
+                            .is_some()
+                    {
+                        return CoreType::Generic {
+                            name: owner.to_owned(),
+                            type_args: alloc::vec::Vec::new(),
+                        };
+                    }
                     if crate::type_system::terminal_proposal_variant_id(
                         type_name.as_str(),
                         member.as_str(),

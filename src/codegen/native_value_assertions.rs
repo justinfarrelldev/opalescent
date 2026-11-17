@@ -1,4 +1,4 @@
-//! Array assertion operands reuse ordinary lexical RC ownership and element ABI.
+//! Composite assertions reuse ordinary lexical ownership and declared value ABI.
 use super::{
     CodegenContext, CodegenEnv, CodegenError, emit_native_abort, record_assertion_failure,
 };
@@ -12,7 +12,7 @@ use crate::codegen::expressions_array::load_array_length_from_value;
 use crate::type_system::types::CoreType;
 use inkwell::values::BasicValueEnum;
 
-/// Ordinary equality and exact-order matching share typed recursive comparison.
+/// Equality and exact-order matching compare typed values; variants use nominal tags.
 pub(super) fn lower<'context>(
     codegen: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -30,6 +30,7 @@ pub(super) fn lower<'context>(
             negated,
         } => (Some(expected), negated),
         Matcher::Empty { negated } => (None, negated),
+        Matcher::Variant { .. } => (None, false),
         _ => return Err(CodegenError::new("unsupported typed array matcher")),
     };
     let _scope = env.enter_scope();
@@ -37,6 +38,26 @@ pub(super) fn lower<'context>(
     let mut passed = if let Some(expected) = expected {
         let value = capture(codegen, env, expected, core)?;
         super::value_equality::equal(codegen, env, core, actual, value)?
+    } else if let Matcher::Variant {
+        ref variant,
+        ref nominal_type,
+    } = expectation.matcher
+    {
+        let name = format!("{}.{}", nominal_type.path.join("."), variant);
+        let tag = env.adt_variant_discriminant(&name).ok_or_else(|| {
+            CodegenError::new(format!(
+                "variant matcher has no genuine nominal discriminant for {name}"
+            ))
+        })?;
+        let actual_tag = super::value_equality::variant_tag(codegen, actual)?;
+        codegen.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            actual_tag,
+            actual_tag
+                .get_type()
+                .const_int(crate::codegen::types::integer_literal_bits(tag)?, true),
+            "expect.variant.matches",
+        )?
     } else {
         let length = load_array_length_from_value(
             codegen,
@@ -83,7 +104,7 @@ fn capture<'context>(
     core: &CoreType,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let value = codegen_expression(codegen, env, expression, Some(core))?;
-    let name = env.next_name("__native_assertion_array");
+    let name = env.next_name("__native_assertion_value");
     let slot = codegen.builder.build_alloca(value.get_type(), &name)?;
     env.variables.insert(
         name.clone(),
@@ -101,7 +122,7 @@ fn capture<'context>(
         env,
         &name,
         value,
-        "capture assertion array",
+        "capture typed assertion value",
         borrowed(expression),
     )?;
     Ok(value)
