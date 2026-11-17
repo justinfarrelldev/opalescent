@@ -138,7 +138,7 @@ fn constraint_description(matcher: &Matcher) -> String {
 }
 
 /// Append immutable compiler-owned punctuation or field names.
-fn text<'context>(
+pub(super) fn text<'context>(
     ctx: &CodegenContext<'context>,
     snapshot: PointerValue<'context>,
     value: &str,
@@ -168,7 +168,7 @@ fn append<'context>(
     Ok(())
 }
 /// Type-directed rendering never participates in comparison semantics.
-fn render<'context>(
+pub(super) fn render<'context>(
     ctx: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     snapshot: PointerValue<'context>,

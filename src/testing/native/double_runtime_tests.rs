@@ -23,6 +23,14 @@ static int overlaps(const void *left, const void *right) {
 static int history_matches(const void *expected, const void *actual) {
     return *(const int *)expected == *(const int *)actual;
 }
+static void describe(void *diagnostic, const void *arguments) {
+    int64_t value = *(const int *)arguments;
+    uint64_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    opal_test_snapshot_text(diagnostic, "(");
+    opal_test_snapshot_scalar(diagnostic, bits, 0);
+    opal_test_snapshot_text(diagnostic, ")");
+}
 static Rule *rule(int argument, int result) {
     Rule *value = malloc(sizeof(Rule));
     if (value) { value->argument = argument; value->result = result; }
@@ -82,6 +90,12 @@ int main(void) {
     if (!opal_test_double_history_matches(opaque_handle, &argument, history_matches, &found)) return 30;
     if (opal_test_double_count(opaque_handle, &count) || count != 1) return 31;
     if (opal_test_primary_failure_id() != conflict_id) return 32;
+    argument = 99;
+    uint64_t mismatch = opal_test_double_history_failure(handle, &argument, describe, "double.test.op", 80, 3);
+    const OpalTestFailure *diagnostic = opal_test_failure_at(opal_test_failure_count()-1);
+    if (!mismatch || diagnostic->kind != OPAL_TEST_FAILURE_ASSERTION || diagnostic->offset != 80) return 34;
+    if (!strstr(diagnostic->message, "actual (arguments) [(2)") || !strstr(diagnostic->message, "expected (arguments) (99)")) return 35;
+    if (opal_test_primary_failure_id() != conflict_id) return 36;
     opal_test_doubles_end();
     /* Four original histories, two unexpected histories, three rules,
        one duplicate rejection and one replacement payload. */

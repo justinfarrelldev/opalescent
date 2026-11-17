@@ -147,74 +147,24 @@ pub fn record_count_failure<'context>(
     )
 }
 
-/// Record a failed typed history query without repeating the application operation.
-pub fn record_history_failure<'context>(
-    ctx: &CodegenContext<'context>,
+/// Append immutable punctuation to framework-owned bounded diagnostic storage.
+pub fn snapshot_text<'context>(
+    codegen: &CodegenContext<'context>,
+    snapshot: inkwell::values::PointerValue<'context>,
+    text: &str,
+) -> Result<(), CodegenError> {
+    snapshots::text(codegen, snapshot, text)
+}
+
+/// Render captured typed values without re-executing source/application expressions.
+pub fn snapshot_value<'context>(
+    codegen: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
-    expectation: &Expectation,
-) -> Result<IntValue<'context>, CodegenError> {
-    super::native_polling::retry_mismatch(ctx, env)?;
-    let pointer = ctx
-        .context
-        .i8_type()
-        .ptr_type(inkwell::AddressSpace::default());
-    let helper = super::native_callback_boundary::c_function(
-        ctx,
-        "opal_test_record_failure",
-        ctx.context.i64_type().fn_type(
-            &[
-                ctx.context.i32_type().into(),
-                pointer.into(),
-                pointer.into(),
-                ctx.context.i64_type().into(),
-                ctx.context.i64_type().into(),
-            ],
-            false,
-        ),
-    )?;
-    let message = ctx
-        .builder
-        .build_global_string_ptr(
-            "call history did not contain the typed expected argument values",
-            "history.message",
-        )?
-        .as_pointer_value();
-    let file = ctx
-        .builder
-        .build_global_string_ptr(&env.current_source_path, "history.file")?
-        .as_pointer_value();
-    let span = expectation.span;
-    Ok(ctx
-        .builder
-        .build_call(
-            helper,
-            &[
-                ctx.context.i32_type().const_int(1, false).into(),
-                message.into(),
-                file.into(),
-                ctx.context
-                    .i64_type()
-                    .const_int(
-                        u64::try_from(span.start.offset)
-                            .map_err(|e| CodegenError::new(e.to_string()))?,
-                        false,
-                    )
-                    .into(),
-                ctx.context
-                    .i64_type()
-                    .const_int(
-                        u64::try_from(span.end.offset.saturating_sub(span.start.offset))
-                            .map_err(|e| CodegenError::new(e.to_string()))?,
-                        false,
-                    )
-                    .into(),
-            ],
-            "history.failure",
-        )?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new("history failure omitted its identity"))?
-        .into_int_value())
+    snapshot: inkwell::values::PointerValue<'context>,
+    core: &CoreType,
+    value: BasicValueEnum<'context>,
+) -> Result<(), CodegenError> {
+    snapshots::render(codegen, env, snapshot, core, value)
 }
 
 /// Pure checked equality is also used by compiler-generated rule/history callbacks.

@@ -16,6 +16,16 @@ pub fn capture<'context>(
     expression: &Expr,
     core: &CoreType,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    capture_binding(ctx, env, expression, core).map(|(_, value)| value)
+}
+
+/// A private binding lets polling reuse a captured operand without reevaluating source.
+pub fn capture_binding<'context>(
+    ctx: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &Expr,
+    core: &CoreType,
+) -> Result<(String, BasicValueEnum<'context>), CodegenError> {
     let value = codegen_expression(ctx, env, expression, Some(core))?;
     if super::native_path_values::is_path(core) {
         let copy = super::native_path_values::copy(ctx, value)?;
@@ -40,9 +50,9 @@ pub fn capture<'context>(
         )?;
         super::native_abort::emit_native_abort(ctx, env, identity, &[])?;
         ctx.builder.position_at_end(ready);
-        return hold(ctx, env, copy.into(), &CoreType::String, false);
+        return hold_binding(ctx, env, copy.into(), &CoreType::String, false);
     }
-    hold(ctx, env, value, core, borrowed(expression, core))
+    hold_binding(ctx, env, value, core, borrowed(expression, core))
 }
 
 /// Hold one already-evaluated value under the existing lexical cleanup machinery.
@@ -53,6 +63,17 @@ pub fn hold<'context>(
     core: &CoreType,
     retain: bool,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    hold_binding(ctx, env, value, core, retain).map(|(_, value)| value)
+}
+
+/// Register a capture in the existing lexical scope, with its true storage ownership.
+fn hold_binding<'context>(
+    ctx: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    value: BasicValueEnum<'context>,
+    core: &CoreType,
+    retain: bool,
+) -> Result<(String, BasicValueEnum<'context>), CodegenError> {
     let name = env.next_name("__native_double_value");
     let slot = super::native_assertion_storage::entry_slot(ctx, value.get_type(), &name)?;
     env.variables.insert(
@@ -74,7 +95,7 @@ pub fn hold<'context>(
         "capture double value",
         retain,
     )?;
-    Ok(value)
+    Ok((name, value))
 }
 
 /// String indexing produces fresh values; array projections are ordinarily borrowed.

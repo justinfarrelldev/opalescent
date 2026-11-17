@@ -1,7 +1,7 @@
 //! Synchronous assertion mismatch retries with ordinary lexical value ownership.
 use super::context::CodegenContext;
 use super::error::CodegenError;
-use super::expressions::{CodegenEnv, VariableBinding, codegen_expression};
+use super::expressions::{CodegenEnv, codegen_expression};
 use super::native_abort::propagate_runtime_failure as check_abort;
 use super::native_assertion_storage::entry_slot;
 use super::native_callback_boundary::c_function;
@@ -137,7 +137,8 @@ fn capture_expected<'context>(
     matcher: &mut Matcher,
     core: &CoreType,
 ) -> Result<(), CodegenError> {
-    let expression = match *matcher {
+    use crate::ast::testing::ExpectedCallCount;
+    match *matcher {
         Matcher::Equal {
             ref mut expected, ..
         }
@@ -146,61 +147,59 @@ fn capture_expected<'context>(
         }
         | Matcher::Sequence {
             ref mut expected, ..
-        } => expected,
-        Matcher::Empty { .. } | Matcher::Variant { .. } => return Ok(()),
-        _ => {
-            return Err(CodegenError::new(
-                "polling double assertions require native double matcher plans",
-            ));
+        } => capture_once(codegen, env, expected, core),
+        Matcher::Empty { .. }
+        | Matcher::Variant { .. }
+        | Matcher::CallCount {
+            count: ExpectedCallCount::Once | ExpectedCallCount::Never,
+        } => Ok(()),
+        Matcher::CallCount {
+            count: ExpectedCallCount::Exactly(ref mut expected),
+        } => {
+            let expected_core = super::native_assertions::operand_core_type(env, expected)
+                .unwrap_or(CoreType::Int64);
+            capture_once(codegen, env, expected, &expected_core)
         }
-    };
-    let value = codegen_expression(codegen, env, expression, Some(core))?;
-    let name = env.next_name("__native_poll_expected");
-    let slot = entry_slot(codegen, value.get_type(), &name)?;
-    env.variables.insert(
-        name.clone(),
-        VariableBinding {
-            alloca: slot,
-            core_type: core.clone(),
-            length: None,
-            capacity: None,
-            is_mutable: false,
-        },
-    );
-    env.register_scope_binding(&name);
-    let retain = expected_is_borrowed(expression, core);
-    super::binding_store::initialize_binding_value(
-        codegen,
-        env,
-        &name,
-        value,
-        "capture polling expected",
-        retain,
-    )?;
+        Matcher::CalledWith { ref mut arguments } => {
+            let CoreType::Generic { ref name, .. } = *core else {
+                return Err(CodegenError::new(
+                    "polling history requires a checked nominal double",
+                ));
+            };
+            let signature = env
+                .native_double_signatures
+                .get(name)
+                .cloned()
+                .ok_or_else(|| {
+                    CodegenError::new("polling history has no checked double signature")
+                })?;
+            if arguments.len() != signature.parameters.len() {
+                return Err(CodegenError::new(
+                    "polling history argument arity does not match its signature",
+                ));
+            }
+            for (expression, expected_core) in arguments.iter_mut().zip(&signature.parameters) {
+                capture_once(codegen, env, expression, expected_core)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Generated identifiers reference ordinary owned capture slots, not repeatable source calls.
+fn capture_once<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &mut Expr,
+    core: &CoreType,
+) -> Result<(), CodegenError> {
+    let (name, _) = super::native_double_owned::capture_binding(codegen, env, expression, core)?;
     *expression = Expr::Identifier {
         name,
         span: expression.span(),
         id: expression.node_id(),
     };
     Ok(())
-}
-
-/// Preserve existing borrowing for parenthesized and projected expected values.
-fn expected_is_borrowed(expression: &Expr, core: &CoreType) -> bool {
-    if *core == CoreType::String {
-        return super::string_ownership::string_expr_needs_retain_at_ownership_boundary(expression);
-    }
-    match *expression {
-        Expr::Identifier { .. } | Expr::Member { .. } | Expr::Index { .. } => true,
-        Expr::Parenthesized { ref expr, .. }
-        | Expr::BorrowArgument {
-            target: ref expr, ..
-        }
-        | Expr::Constrain {
-            value: ref expr, ..
-        } => expected_is_borrowed(expr, core),
-        _ => false,
-    }
 }
 
 /// Deadlines use the existing signedness rules before conversion to seconds.

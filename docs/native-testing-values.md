@@ -21,6 +21,12 @@ Configured operands are captured before later expressions run. History copies
 logical argument values during the call; it does not keep the addresses of
 borrowed variables. History remains valid after those caller scopes exit.
 
+Count and argument-history matchers also support `expect eventually`. Expected
+counts/arguments and deadlines are evaluated once; only mismatches retry.
+Final failures copy the latest count or observed owned argument history into
+bounded diagnostics. Histories are displayed newest-first, explicitly labeled.
+Rendering reads captured values and never repeats an application operation.
+
 A filesystem path currently has an immutable UTF-8 byte-string representation.
 Path equality compares that value, after any construction-time expansion. It
 performs no filesystem operations, normalization, file-identity lookup or

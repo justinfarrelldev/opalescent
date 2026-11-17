@@ -1,0 +1,17 @@
+##
+    Description: A minimal synchronous source boundary for polling observations.
+##
+public let operation = f(value: int64): int64 =>
+    return value
+
+##
+    Description: Managed text observations keep ordinary owned return values.
+##
+public let text = f(ref value: string): string =>
+    return 'observed {value}'
+
+##
+    Description: Nested array snapshots can be rendered without source reevaluation.
+##
+public let values = f(ref input: int64[][]): void =>
+    return void

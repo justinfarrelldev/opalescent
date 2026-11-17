@@ -234,6 +234,24 @@ uint64_t opal_test_double_history_matches(void *value, const void *expected,
     return 0;
 }
 
+uint64_t opal_test_double_history_failure(void *value, const void *expected,
+    OpalTestDoubleDescribe describe, const char *file, uint64_t offset, uint64_t length) {
+    DoubleHandle *handle = find_handle(value);
+    if (!handle || !describe || !handle->descriptor->snapshot)
+        return infrastructure("history diagnostics require supported owned argument snapshots");
+    void *actual = opal_test_snapshot_new();
+    void *wanted = opal_test_snapshot_new();
+    describe(wanted, expected);
+    opal_test_snapshot_text(actual, "[");
+    for (DoubleCall *call = handle->history; call && opal_test_snapshot_available(actual); call = call->next) {
+        describe(actual, call->snapshot);
+        opal_test_snapshot_text(actual, ", ");
+    }
+    opal_test_snapshot_text(actual, "]");
+    return opal_test_snapshot_failure(actual, wanted, "call history (newest first)",
+        "arguments", file ? file : "", offset, length);
+}
+
 void opal_test_doubles_end(void) {
     while (handles) {
         DoubleHandle *handle = handles;

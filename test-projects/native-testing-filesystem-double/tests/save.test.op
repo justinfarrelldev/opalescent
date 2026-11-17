@@ -4,6 +4,10 @@ import path_from from standard
 double AtomicWrite replaces write_text_atomic_sync from standard
     as used by ../src/app
 
+let missing_path = f(): FilesystemPath =>
+    print('path expected once')
+    return path_from('missing-{2}.txt')
+
 scenario typed filesystem boundary:
     it should compare builtin path values rather than allocation identity:
         f(): void =>
@@ -35,6 +39,15 @@ scenario typed filesystem boundary:
                 print('filesystem application guard handled')
                 propagate filesystem_error
             expect false to be true
+            return void
+
+    it should retain path expectations and observed values across polling retries:
+        f(): void errors inferred =>
+            let writer = new AtomicWrite
+            stub writer(path_from('/__opal_testing_missing__/café.txt'), 'Draft') returns void
+            propagate save('Draft')
+            expect eventually writer to have been called with (missing_path(), 'Draft') within 0.02 seconds
+            restore writer
             return void
 
     it should fail unexpected filesystem calls before executing the operation:

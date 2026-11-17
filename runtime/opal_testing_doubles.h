@@ -7,6 +7,8 @@
 typedef void *(*OpalTestDoubleSnapshot)(const void *arguments);
 typedef void (*OpalTestDoubleDrop)(void *value);
 typedef int (*OpalTestDoubleMatch)(const void *expected, const void *actual);
+/* Pure compiler-owned value rendering, never application callbacks. */
+typedef void (*OpalTestDoubleDescribe)(void *diagnostic, const void *arguments);
 
 typedef struct {
     const char *edge;
@@ -45,6 +47,8 @@ uint64_t opal_test_double_verify(void *handle);
 uint64_t opal_test_double_count(void *handle, uint64_t *count);
 uint64_t opal_test_double_history_matches(void *handle, const void *expected,
     OpalTestDoubleMatch match, int *found);
+uint64_t opal_test_double_history_failure(void *handle, const void *expected,
+    OpalTestDoubleDescribe describe, const char *file, uint64_t offset, uint64_t length);
 /* Disposes framework configuration/history memory only, never resource recovery. */
 void opal_test_doubles_end(void);
 #endif

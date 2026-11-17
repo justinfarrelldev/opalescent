@@ -411,7 +411,7 @@ fn compiled_scalar_rules_snapshot_borrows_and_reject_duplicates_unused_rules_and
     let diagnostics = report.to_string();
     assert!(diagnostics.contains("duplicate or overlapping exact double rules"));
     assert!(diagnostics.contains("never exercised"));
-    assert!(diagnostics.contains("call history did not contain"));
+    assert!(diagnostics.contains("call history (newest first) failed"));
     let unused = report["cases"]
         .as_array()
         .expect("cases")
@@ -531,7 +531,24 @@ fn filesystem_double_paths_compare_by_value_and_keep_nominal_errors_ordinary() {
     let report: serde_json::Value =
         serde_json::from_str(&output.text).expect("filesystem double report");
     assert_eq!(report["totals"]["passed"], 2_u64);
-    assert_eq!(report["totals"]["failed"], 3_u64);
+    assert_eq!(report["totals"]["failed"], 4_u64);
+    assert!(report.to_string().contains("missing-2.txt"));
+    let polling = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"]
+                == "retain path expectations and observed values across polling retries"
+        })
+        .expect("path polling");
+    let path_trace = polling["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("path trace");
+    assert_eq!(
+        std::fs::read_to_string(path_trace).expect("path evaluation trace"),
+        "path expected once\n"
+    );
     assert!(report.to_string().contains("café.txt"));
     assert!(report.to_string().contains("other.txt"));
     let application = report["cases"]
@@ -575,6 +592,56 @@ fn case_listing_rejects_unsupported_argument_history_without_building() {
     assert_eq!(output.exit_code, 2_i32);
     assert!(output.text.contains("owned snapshots"));
     assert!(!directory.path().join("target").exists());
+}
+
+#[test]
+fn double_polling_captures_configuration_once_and_retains_latest_count() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-double-polling");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("double polling");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value =
+        serde_json::from_str(&output.text).expect("double polling report");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 4_u64);
+    for case in report["cases"].as_array().expect("cases") {
+        let attempt = &case["execution"]["attempts"][0];
+        let path = attempt["stdout_path"].as_str().expect("evaluation trace");
+        let trace = std::fs::read_to_string(path).expect("trace");
+        if case["identity"]["test"]
+            == "retain managed expected arguments across polling observations"
+        {
+            assert_eq!(trace, "text expected once\ndeadline once\n");
+        } else if case["identity"]["test"]
+            == "diagnose captured managed history after polling expiry"
+        {
+            assert_eq!(trace, "missing text once\ndeadline once\n");
+        } else if case["identity"]["test"]
+            == "render owned nested array history without repeating source operations"
+        {
+            assert_eq!(trace, "array expected once\ndeadline once\n");
+        } else if case["execution"]["outcome"] == "passed" {
+            assert_eq!(
+                trace,
+                "count expected once\ndeadline once\nargument expected once\ndeadline once\n"
+            );
+        } else {
+            assert_eq!(trace, "two expected once\ndeadline once\n");
+        }
+    }
+    assert!(report.to_string().contains("actual (uint64) 1"));
+    assert!(report.to_string().contains("actual (arguments) [(1)"));
+    assert!(report.to_string().contains("expected (arguments) (2)"));
+    assert!(report.to_string().contains("café 1"));
+    assert!(report.to_string().contains("missing 2"));
+    assert!(report.to_string().contains("[[1, 2"));
+    assert!(report.to_string().contains("[[8, 9"));
 }
 
 #[test]

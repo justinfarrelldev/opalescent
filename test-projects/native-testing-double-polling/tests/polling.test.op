@@ -1,0 +1,97 @@
+import apply, apply_text, apply_values from ../src/app
+
+double Write replaces operation from ../src/io
+    as used by ../src/app
+
+double Text replaces text from ../src/io
+    as used by ../src/app
+
+double Values replaces values from ../src/io
+    as used by ../src/app
+
+let expected_values = f(): int64[][] =>
+    print('array expected once')
+    return [[8, 9]]
+
+let expected_text = f(): string =>
+    print('text expected once')
+    return 'café {1}'
+
+let missing_text = f(): string =>
+    print('missing text once')
+    return 'missing {2}'
+
+let expected_count = f(): int64 =>
+    print('count expected once')
+    return 1
+
+let expected_argument = f(): int64 =>
+    print('argument expected once')
+    return 1
+
+let expected_two = f(): int64 =>
+    print('two expected once')
+    return 2
+
+let deadline = f(): float64 =>
+    print('deadline once')
+    return 0.02
+
+scenario polling double observations:
+    it should capture count and argument configuration once:
+        f(): void =>
+            let writer = new Write
+            spy writer using original
+            expect apply(1) to be 1
+            expect eventually writer to have been called exactly expected_count() times within deadline() seconds
+            expect eventually writer to have been called with (expected_argument()) within deadline() seconds
+            restore writer
+            return void
+
+    it should retain managed expected arguments across polling observations:
+        f(): void =>
+            let writer = new Text
+            spy writer using original
+            let actual: string = 'café {1}'
+            expect apply_text(ref actual) to be 'observed café 1'
+            expect eventually writer to have been called with (expected_text()) within deadline() seconds
+            restore writer
+            return void
+
+    it should diagnose captured managed history after polling expiry:
+        f(): void =>
+            let writer = new Text
+            spy writer using original
+            let actual: string = 'café {1}'
+            expect apply_text(ref actual) to be 'observed café 1'
+            expect eventually writer to have been called with (missing_text()) within deadline() seconds
+            restore writer
+            return void
+
+    it should render owned nested array history without repeating source operations:
+        f(): void =>
+            let writer = new Values
+            spy writer using original
+            let actual: int64[][] = [[1, 2], [], [3]]
+            apply_values(ref actual)
+            expect eventually writer to have been called with (expected_values()) within deadline() seconds
+            restore writer
+            return void
+
+    it should retain the latest count on polling expiry:
+        f(): void =>
+            let writer = new Write
+            spy writer using original
+            expect apply(1) to be 1
+            expect eventually writer to have been called exactly expected_two() times within deadline() seconds
+            restore writer
+            return void
+
+    it should capture missing history arguments once while retrying only mismatch:
+        f(): void =>
+            let writer = new Write
+            spy writer using original
+            expect apply(1) to be 1
+            expect eventually writer to have been called with (expected_two()) within deadline() seconds
+            restore writer
+            return void

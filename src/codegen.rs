@@ -50,6 +50,7 @@ pub mod native_descriptors;
 pub(crate) mod native_double_configuration;
 pub(crate) mod native_double_edges;
 pub(crate) mod native_double_history;
+pub(crate) mod native_double_history_render;
 pub(crate) mod native_double_owned;
 pub(crate) mod native_double_replacements;
 pub(crate) mod native_double_rules;

@@ -88,7 +88,15 @@ pub fn lower<'context>(
     ctx.builder
         .build_conditional_branch(passed, ready, failed)?;
     ctx.builder.position_at_end(failed);
-    let mismatch = super::native_assertions::record_history_failure(ctx, env, expectation)?;
+    let mismatch = super::native_double_history_render::failure(
+        ctx,
+        env,
+        expectation,
+        handle.into_pointer_value(),
+        expected,
+        &key,
+        &signature,
+    )?;
     super::native_abort::emit_native_abort(ctx, env, mismatch, &[])?;
     ctx.builder.position_at_end(ready);
     env.exit_scope_cleanup(ctx, &[])
