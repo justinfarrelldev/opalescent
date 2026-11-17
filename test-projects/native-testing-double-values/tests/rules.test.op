@@ -1,0 +1,80 @@
+import apply_scalar, apply_borrowed from ../src/app
+
+double Scalars replaces scalar from ../src/io
+    as used by ../src/app
+
+double Borrowed replaces borrowed from ../src/io
+    as used by ../src/app
+
+scenario concrete typed rules:
+    it should compare scalar widths signedness floating values and booleans:
+        f(): void =>
+            let writer = new Scalars
+            let maximum: uint64 = 9223372036854775807
+            let higher: uint64 = maximum + (1 as uint64)
+            stub writer(1 as int8, higher, 1.25, true) returns 42
+            expect apply_scalar(1 as int8, higher, 1.25, true) to be 42
+            expect writer to have been called with (1 as int8, higher, 1.25, true)
+            expect writer to have been called once
+            verify writer
+            restore writer
+            return void
+
+    it should snapshot borrowed values at configuration and invocation:
+        f(): void =>
+            let writer = new Borrowed
+            let mutable configured: int64 = 1
+            stub writer(ref configured) returns 9
+            configured = 2
+            let mutable actual: int64 = 1
+            expect apply_borrowed(ref actual) to be 9
+            actual = 8
+            expect writer to have been called with (1)
+            verify writer
+            restore writer
+            return void
+
+    it should prioritize repeatable exact rules over the original fallback:
+        f(): void =>
+            let writer = new Borrowed
+            let one: int64 = 1
+            let two: int64 = 2
+            let three: int64 = 3
+            stub writer(ref one) returns 9
+            spy writer using original
+            expect apply_borrowed(ref one) to be 9
+            expect apply_borrowed(ref two) to be 2
+            expect apply_borrowed(ref one) to be 9
+            expect apply_borrowed(ref three) to be 3
+            expect apply_borrowed(ref one) to be 9
+            expect writer to have been called exactly 5 times
+            expect writer to have been called with (2)
+            expect writer to have been called with (3)
+            verify writer
+            restore writer
+            return void
+
+    it should diagnose unused exact rules at their source location:
+        f(): void =>
+            let writer = new Borrowed
+            let one: int64 = 1
+            stub writer(ref one) returns 9
+            verify writer
+            return void
+
+    it should reject duplicate runtime argument values:
+        f(): void =>
+            let writer = new Borrowed
+            let one: int64 = 1
+            stub writer(ref one) returns 9
+            stub writer(ref one) returns 10
+            return void
+
+    it should fail an absent history value rather than comparing addresses:
+        f(): void =>
+            let writer = new Borrowed
+            let one: int64 = 1
+            spy writer using original
+            expect apply_borrowed(ref one) to be 1
+            expect writer to have been called with (7)
+            return void

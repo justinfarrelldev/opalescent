@@ -28,7 +28,11 @@ pub fn install<'context>(
                 "double boundary cannot silently intercept an unsupported foreign ABI",
             ));
         }
-        let dispatcher = emit(ctx, &declaration.edge, original)?;
+        let signature = checked
+            .double_signatures
+            .get(&declaration.identity)
+            .ok_or_else(|| CodegenError::new("edge has no checked double signature"))?;
+        let dispatcher = emit(ctx, &declaration.edge, original, signature)?;
         let symbol = dispatcher
             .get_name()
             .to_str()
@@ -48,6 +52,7 @@ fn emit<'context>(
     ctx: &CodegenContext<'context>,
     edge: &ResolvedImportEdge,
     original: FunctionValue<'context>,
+    double_signature: &crate::type_system::NativeDoubleSignature,
 ) -> Result<FunctionValue<'context>, CodegenError> {
     let name = super::native_project::symbol("double_edge", edge)?;
     let parameters = original.get_type().get_param_types();
@@ -65,7 +70,7 @@ fn emit<'context>(
         return Ok(function);
     }
     let previous = ctx.builder.get_insert_block();
-    let result = emit_body(ctx, edge, original, function);
+    let result = emit_body(ctx, edge, original, function, double_signature);
     if let Some(previous) = previous {
         ctx.builder.position_at_end(previous);
     } else {
@@ -81,11 +86,22 @@ fn emit_body<'context>(
     edge: &ResolvedImportEdge,
     original: FunctionValue<'context>,
     function: FunctionValue<'context>,
+    signature: &crate::type_system::NativeDoubleSignature,
 ) -> Result<(), CodegenError> {
     let llvm = ctx.context;
     let pointer = llvm.i8_type().ptr_type(AddressSpace::default());
     ctx.builder
         .position_at_end(llvm.append_basic_block(function, "entry"));
+    let plan = super::native_double_rules::layout(ctx, signature)?;
+    let arguments = ctx
+        .builder
+        .build_alloca(plan.physical, "double.arguments")?;
+    for (index, value) in function.get_param_iter().enumerate() {
+        super::native_double_configuration::store(ctx, arguments, index, value)?;
+    }
+    let actual = ctx
+        .builder
+        .build_pointer_cast(arguments, pointer, "double.actual.arguments")?;
     let selection_type = llvm.struct_type(&[llvm.i32_type().into(), pointer.into()], false);
     let selection = ctx
         .builder
@@ -107,7 +123,7 @@ fn emit_body<'context>(
         .builder
         .build_call(
             select,
-            &[edge.into(), pointer.const_null().into(), selection.into()],
+            &[edge.into(), actual.into(), selection.into()],
             "double.dispatch.status",
         )?
         .try_as_basic_value()
@@ -134,19 +150,73 @@ fn emit_body<'context>(
     ctx.builder
         .build_conditional_branch(is_original, forward, unsupported)?;
     ctx.builder.position_at_end(unsupported);
+    let stored = llvm.append_basic_block(function, "double.stored.application");
+    let invalid = llvm.append_basic_block(function, "double.unsupported.selection");
+    let is_stored = ctx.builder.build_int_compare(
+        IntPredicate::ULE,
+        kind,
+        llvm.i32_type().const_int(2, false),
+        "double.has.stored.application",
+    )?;
+    ctx.builder
+        .build_conditional_branch(is_stored, stored, invalid)?;
+    ctx.builder.position_at_end(stored);
+    return_stored(ctx, function, selection, plan, signature.parameters.len())?;
+    ctx.builder.position_at_end(invalid);
     let failure = unsupported_rule(ctx, pointer)?;
     super::native_abort::emit_native_abort(ctx, &mut env, failure, &[])?;
     ctx.builder.position_at_end(forward);
-    let arguments = function
+    let original_arguments = function
         .get_param_iter()
         .map(Into::into)
         .collect::<Vec<_>>();
     let outcome = ctx
         .builder
-        .build_call(original, &arguments, "double.original.outcome")?
+        .build_call(original, &original_arguments, "double.original.outcome")?
         .try_as_basic_value()
         .basic()
         .ok_or_else(|| CodegenError::new("native original omitted its explicit outcome"))?;
+    ctx.builder.build_return(Some(&outcome))?;
+    Ok(())
+}
+
+/// Stored results use explicit checked application metadata, including ordinary errors.
+fn return_stored<'context>(
+    ctx: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+    selection: inkwell::values::PointerValue<'context>,
+    plan: super::native_double_rules::RuleLayout<'context>,
+    count: usize,
+) -> Result<(), CodegenError> {
+    let application = if plan.application.is_some() {
+        let payload_slot =
+            ctx.builder
+                .build_struct_gep(selection, 1, "double.selected.payload.slot")?;
+        let payload = ctx
+            .builder
+            .build_load(payload_slot, "double.selected.payload")?
+            .into_pointer_value();
+        let payload = ctx.builder.build_pointer_cast(
+            payload,
+            plan.payload.ptr_type(AddressSpace::default()),
+            "double.selected.typed",
+        )?;
+        let result_slot = ctx.builder.build_struct_gep(
+            payload,
+            u32::try_from(count).map_err(|e| CodegenError::new(e.to_string()))?,
+            "double.selected.application.slot",
+        )?;
+        Some(
+            ctx.builder
+                .build_load(result_slot, "double.selected.application")?,
+        )
+    } else {
+        None
+    };
+    let metadata = ctx.native_function_outcome(function).ok_or_else(|| {
+        CodegenError::new("double boundary lost explicit native outcome metadata")
+    })?;
+    let outcome = metadata.build_completed(ctx, application)?;
     ctx.builder.build_return(Some(&outcome))?;
     Ok(())
 }

@@ -43,6 +43,18 @@ pub fn install<'context>(
                 "double descriptor has no canonical nominal type",
             ));
         };
+        let signature = checked
+            .double_signatures
+            .get(identity)
+            .ok_or_else(|| CodegenError::new("double has no checked application signature"))?;
+        env.native_double_signatures
+            .insert(name.clone(), signature.clone());
+        let callbacks = signature
+            .parameters
+            .iter()
+            .all(super::native_double_rules::supported)
+            .then(|| super::native_double_rules::callbacks(ctx, env, name, signature))
+            .transpose()?;
         let symbol = super::native_project::symbol("double_descriptor", identity)?;
         let descriptor = if let Some(global) = ctx.module.get_global(&symbol) {
             if global.as_pointer_value().get_type() != layout.ptr_type(AddressSpace::default()) {
@@ -60,12 +72,24 @@ pub fn install<'context>(
             let edge = constant_string(ctx, &format!("{symbol}.edge"), &edge);
             let key = constant_string(ctx, &format!("{symbol}.identity"), &key);
             let global = ctx.module.add_global(layout, None, &symbol);
-            global.set_initializer(&layout.const_named_struct(&[
-                edge.into(),
-                key.into(),
-                clone_type.const_null().into(),
-                drop_type.const_null().into(),
-            ]));
+            global.set_initializer(
+                &layout.const_named_struct(&[
+                    edge.into(),
+                    key.into(),
+                    callbacks
+                        .map_or_else(
+                            || clone_type.const_null(),
+                            |helpers| helpers.snapshot.as_global_value().as_pointer_value(),
+                        )
+                        .into(),
+                    callbacks
+                        .map_or_else(
+                            || drop_type.const_null(),
+                            |helpers| helpers.release.as_global_value().as_pointer_value(),
+                        )
+                        .into(),
+                ]),
+            );
             global.set_constant(true);
             global.set_linkage(inkwell::module::Linkage::Private);
             global
@@ -156,14 +180,30 @@ pub fn statement<'context>(
     let (target, name) = match *statement {
         TestingStatement::Stub {
             ref target,
-            arguments: None,
+            ref arguments,
             ref behavior,
-        } => return fallback(ctx, env, target, behavior),
+        } => {
+            if matches!(
+                *behavior,
+                crate::ast::testing::StubBehavior::SpyOriginal
+                    | crate::ast::testing::StubBehavior::FailTest
+            ) && arguments.is_none()
+            {
+                return fallback(ctx, env, target, behavior);
+            }
+            return super::native_double_configuration::configure(
+                ctx,
+                env,
+                target,
+                arguments.as_deref(),
+                behavior,
+            );
+        }
         TestingStatement::Restore(ref target) => (target, "opal_test_double_restore"),
         TestingStatement::Verify(ref target) => (target, "opal_test_double_verify"),
-        _ => {
+        TestingStatement::Expect(_) => {
             return Err(CodegenError::new(
-                "typed double configuration requires compiled rule lowering",
+                "expected a double configuration or lifecycle statement",
             ));
         }
     };
@@ -246,6 +286,9 @@ pub fn count<'context>(
     env: &mut CodegenEnv<'context>,
     expectation: &Expectation,
 ) -> Result<(), CodegenError> {
+    if matches!(expectation.matcher, Matcher::CalledWith { .. }) {
+        return super::native_double_history::lower(ctx, env, expectation);
+    }
     let Matcher::CallCount { ref count } = expectation.matcher else {
         return Err(CodegenError::new(
             "typed argument history requires compiled snapshot matchers",

@@ -1,0 +1,13 @@
+import scalar as imported_scalar, borrowed as imported_borrowed from ./io
+
+##
+    Description: Canonical scalar import edge with a local alias.
+##
+public let apply_scalar = f(small: int8, large: uint64, fraction: float64, flag: boolean): int64 =>
+    return imported_scalar(small, large, fraction, flag)
+
+##
+    Description: Canonical borrowed import edge with a local alias.
+##
+public let apply_borrowed = f(ref value: int64): int64 =>
+    return imported_borrowed(ref value)

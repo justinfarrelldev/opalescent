@@ -107,6 +107,8 @@ pub struct CodegenEnv<'context> {
     pub native_assertion_types: BTreeMap<(usize, usize), CoreType>,
     /// Canonical nominal handles mapped to immutable native double descriptors.
     pub native_double_descriptors: BTreeMap<String, PointerValue<'context>>,
+    /// Checked application signatures for compiler-generated rule payloads.
+    pub native_double_signatures: BTreeMap<String, crate::type_system::NativeDoubleSignature>,
     /// Compiler-only assertion mismatch retry destinations.
     pub native_polling: Vec<crate::codegen::native_polling::NativePollingContext<'context>>,
     /// Module-local display names mapped to canonical manifest layout keys.
@@ -146,6 +148,7 @@ impl<'context> CodegenEnv<'context> {
             adt_product_layouts: alloc::collections::BTreeSet::new(),
             native_assertion_types: BTreeMap::new(),
             native_double_descriptors: BTreeMap::new(),
+            native_double_signatures: BTreeMap::new(),
             native_polling: Vec::new(),
             adt_layout_aliases: BTreeMap::new(),
             adt_variant_discriminants: BTreeMap::new(),

@@ -47,7 +47,10 @@ pub mod native_context;
 pub mod native_declarations;
 /// Immutable target-aware lifecycle case descriptor emission.
 pub mod native_descriptors;
+pub(crate) mod native_double_configuration;
 pub(crate) mod native_double_edges;
+pub(crate) mod native_double_history;
+pub(crate) mod native_double_rules;
 pub(crate) mod native_doubles;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
@@ -81,6 +84,8 @@ mod native_cleanup_call_tests;
 mod native_declaration_tests;
 #[cfg(test)]
 mod native_descriptor_tests;
+#[cfg(test)]
+mod native_double_rule_tests;
 #[cfg(test)]
 mod native_function_tests;
 #[cfg(test)]

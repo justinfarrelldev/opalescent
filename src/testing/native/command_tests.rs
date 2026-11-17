@@ -376,6 +376,57 @@ fn compiled_double_activation_restores_handles_and_aborts_conflicts_independentl
 }
 
 #[test]
+fn compiled_exact_double_rules_return_values_and_preserve_guarded_nominal_errors() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-doubles");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("compiled exact rules");
+    assert_eq!(output.exit_code, 0_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("double report");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 0_u64);
+}
+
+#[test]
+fn compiled_scalar_rules_snapshot_borrows_and_reject_duplicates_unused_rules_and_missing_history() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-double-values");
+    super::project::NativeTestProject::load(&root, &[root.join("tests/rules.test.op")])
+        .expect("valid typed scalar fixture");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("typed scalar rules");
+    assert_eq!(output.exit_code, 2_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("scalar rule report");
+    assert_eq!(report["totals"]["passed"], 3_u64);
+    assert_eq!(report["totals"]["failed"], 3_u64);
+    let diagnostics = report.to_string();
+    assert!(diagnostics.contains("duplicate or overlapping exact double rules"));
+    assert!(diagnostics.contains("never exercised"));
+    assert!(diagnostics.contains("call history did not contain"));
+    let unused = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"] == "diagnose unused exact rules at their source location"
+        })
+        .expect("unused rule case");
+    let offset = unused["execution"]["attempts"][0]["result"]["failures"][0]["offset"]
+        .as_u64()
+        .expect("original source offset");
+    assert!(offset > 0);
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

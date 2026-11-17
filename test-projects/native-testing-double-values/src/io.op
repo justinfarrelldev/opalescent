@@ -1,0 +1,11 @@
+##
+    Description: Scalar arguments retain declared width, signedness and type.
+##
+public let scalar = f(small: int8, large: uint64, fraction: float64, flag: boolean): int64 =>
+    return 0
+
+##
+    Description: Borrowed arguments are read through their original storage.
+##
+public let borrowed = f(ref value: int64): int64 =>
+    return value + 0
