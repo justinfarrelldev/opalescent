@@ -14,6 +14,8 @@ mod error_inspectors;
 #[path = "functions_stdlib_numeric.rs"]
 #[doc = "Numeric conversion stdlib declaration helpers."]
 mod numeric;
+#[path = "functions_stdlib_runtime_gate.rs"]
+mod runtime_gate;
 #[path = "functions_stdlib_string.rs"]
 #[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
 mod string;
@@ -23,6 +25,8 @@ mod terminal_core;
 #[path = "functions_stdlib_terminal_session.rs"]
 #[doc = "Terminal session declarations."]
 mod terminal_session;
+#[path = "functions_stdlib_testing.rs"]
+mod testing;
 use self::error_inspectors::{ERROR_ATTACHMENT_STDLIB_NAMES, declare_error_inspector_function};
 use self::numeric::{declare_numeric_conversion_function, is_numeric_conversion_runtime_name};
 use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
@@ -30,6 +34,14 @@ use self::terminal_core::{
     declare_terminal_core_prerequisite_function, is_terminal_core_prerequisite_runtime_name,
 };
 use self::terminal_session::{declare_terminal_session_function, is_terminal_session_runtime_name};
+/// Readiness diagnostic for gated imports.
+pub fn terminal_proposal_import_gate_error(module: &str, name: &str) -> Option<CodegenError> {
+    runtime_gate::terminal_proposal_import_gate_error(module, name)
+}
+/// Readiness diagnostic for gated direct calls.
+pub fn terminal_proposal_runtime_gate_error(name: &str) -> Option<CodegenError> {
+    runtime_gate::terminal_proposal_runtime_gate_error(name)
+}
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
 #[expect(
@@ -44,6 +56,9 @@ pub fn declare_stdlib_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
 ) -> Option<FunctionValue<'context>> {
+    if let Some(function) = testing::declare(codegen_context, name) {
+        return Some(function);
+    }
     #[cfg(test)]
     let is_test_fallible_constructor = name == "test_frame_clock_new";
     #[cfg(not(test))]
@@ -873,6 +888,12 @@ pub fn resolve_imported_runtime_name(
         {
             Ok(name.to_owned())
         }
+        (
+            "standard.testing",
+            name @ ("temporary_directory_create"
+            | "temporary_directory_file"
+            | "temporary_directory_remove"),
+        ) => Ok(name.to_owned()),
         ("standard.system", name)
             if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
                 || is_terminal_core_prerequisite_runtime_name(name) =>
@@ -883,32 +904,6 @@ pub fn resolve_imported_runtime_name(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
     }
-}
-
-/// Return the explicit runtime-readiness diagnostic for proposal imports.
-pub fn terminal_proposal_import_gate_error(
-    module_name: &str,
-    symbol_name: &str,
-) -> Option<CodegenError> {
-    crate::type_system::is_terminal_proposal_codegen_gated_import(module_name, symbol_name)
-        .then(|| terminal_proposal_gate_error(Some(module_name), symbol_name))
-}
-
-/// Return the explicit runtime-readiness diagnostic for proposal call resolution.
-pub fn terminal_proposal_runtime_gate_error(symbol_name: &str) -> Option<CodegenError> {
-    crate::type_system::is_terminal_proposal_codegen_gated_runtime_name(symbol_name)
-        .then(|| terminal_proposal_gate_error(None, symbol_name))
-}
-
-/// Build the shared user-facing diagnostic for missing terminal runtime lowering.
-fn terminal_proposal_gate_error(module_name: Option<&str>, symbol_name: &str) -> CodegenError {
-    let location = module_name.map_or_else(
-        || format!("runtime symbol '{symbol_name}'"),
-        |module| format!("'{symbol_name}' from module '{module}'"),
-    );
-    CodegenError::new(format!(
-        "terminal public API prerequisites are satisfied, but runtime lowering for {location} is not implemented yet"
-    ))
 }
 
 #[must_use]
@@ -997,6 +992,9 @@ pub const STDLIB_NAMES: &[&str] = &[
     "path_file_extension",
     "normalize_path",
     "path_to_string",
+    "temporary_directory_create",
+    "temporary_directory_file",
+    "temporary_directory_remove",
     "absolute_path_sync",
     "current_working_directory_sync",
     "current_executable_path_sync",

@@ -1,0 +1,39 @@
+import temporary_directory_create, temporary_directory_file, temporary_directory_remove from standard.testing
+import type TemporaryDirectory from standard.testing
+import path_from, write_text_sync, read_text_sync from standard
+
+world Workspace:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+    cleanup:
+        f(mutable ref directory: TemporaryDirectory): void errors inferred =>
+            propagate temporary_directory_remove(mutable ref directory)
+            return void
+
+world UnmanagedWorkspace:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+
+scenario explicit private workspaces:
+    worlds: Workspace
+
+    it should write and read UTF-8 contents in a private workspace:
+        f(ref workspace: Workspace): void errors inferred =>
+            let filename = temporary_directory_file(ref workspace.state, 'café.txt')
+            print(filename)
+            propagate write_text_sync(path_from(filename), 'café\n!')
+            expect propagate read_text_sync(path_from(filename)) to be 'café\n!'
+            return void
+
+    it should run declared cleanup after an assertion abort:
+        f(ref workspace: Workspace): void =>
+            print(temporary_directory_file(ref workspace.state, 'abort.txt'))
+            expect false to be true
+            return void
+
+scenario omitted cleanup is not resource discovery:
+    worlds: UnmanagedWorkspace
+    it should leave an explicitly unmanaged directory alone:
+        f(ref workspace: UnmanagedWorkspace): void =>
+            print(temporary_directory_file(ref workspace.state, 'unmanaged.txt'))
+            return void

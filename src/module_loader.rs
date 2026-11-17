@@ -94,6 +94,7 @@ fn is_stdlib_import_source(import_source: &str) -> bool {
             | "standard.terminal"
             | "standard.terminal.chords"
             | "standard.testing.terminal"
+            | "standard.testing"
     )
 }
 

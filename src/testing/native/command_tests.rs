@@ -1,5 +1,6 @@
 //! Native compiler CLI discovery/listing/selection/reporting executes real cases.
 #![cfg(target_os = "linux")]
+extern crate alloc;
 use super::command::execute;
 use std::path::Path;
 
@@ -642,6 +643,41 @@ fn double_polling_captures_configuration_once_and_retains_latest_count() {
     assert!(report.to_string().contains("missing 2"));
     assert!(report.to_string().contains("[[1, 2"));
     assert!(report.to_string().contains("[[8, 9"));
+}
+
+#[test]
+fn explicit_workspaces_support_io_cleanup_after_abort_and_no_implicit_cleanup() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-workspace");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("workspace command");
+    assert_eq!(output.exit_code, 1_i32, "{}", output.text);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("report");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 1_u64);
+    let mut paths = alloc::collections::BTreeSet::new();
+    for case in report["cases"].as_array().expect("cases") {
+        let log = case["execution"]["attempts"][0]["stdout_path"]
+            .as_str()
+            .expect("trace");
+        let trace = std::fs::read_to_string(log).expect("trace");
+        let filename = Path::new(trace.trim());
+        let directory = filename.parent().expect("workspace path");
+        assert!(paths.insert(directory.to_owned()));
+        if filename
+            .file_name()
+            .is_some_and(|name| name == "unmanaged.txt")
+        {
+            assert!(directory.is_dir());
+            std::fs::remove_dir_all(directory).expect("external test harness cleanup");
+        } else {
+            assert!(!directory.exists());
+        }
+    }
 }
 
 #[test]

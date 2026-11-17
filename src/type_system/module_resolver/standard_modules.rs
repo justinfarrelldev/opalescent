@@ -18,6 +18,8 @@ use crate::type_system::types::CoreType;
 #[path = "standard_symbols_numeric.rs"]
 #[doc = "Checked numeric conversion symbol declarations."]
 mod standard_symbols_numeric;
+#[path = "testing_workspace.rs"]
+mod testing_workspace;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::{string::String, vec::Vec};
 
@@ -30,6 +32,7 @@ pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_terminal_proposal_modules(resolver);
     register_standard_errors_module(resolver);
     register_standard_module(resolver);
+    testing_workspace::register(resolver);
 }
 
 /// Register `standard` built-in module symbols.
