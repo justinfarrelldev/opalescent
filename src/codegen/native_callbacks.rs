@@ -1,12 +1,11 @@
 //! C-compatible lifecycle wrappers around typed native Opalescent callbacks.
 use super::context::CodegenContext;
 use super::error::CodegenError;
-use inkwell::AddressSpace;
-use inkwell::module::Linkage;
+use super::native_callback_boundary::declare_boundary;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 #[path = "native_callback_arguments.rs"]
-mod arguments;
+pub(super) mod arguments;
 
 /// Compiler-resolved injection positions, never source-name fixture lookup.
 #[derive(Clone, Copy, Debug)]
@@ -60,48 +59,11 @@ pub fn emit_void_callback_wrapper_with_arguments<'context>(
         codegen.application_return_type(callback),
         application_errors,
     )?;
-    if codegen.module.get_function(name).is_some() {
-        return Err(CodegenError::new(
-            "native callback wrapper name conflicts with an existing function",
-        ));
-    }
+    let boundary = declare_boundary(codegen, name)?;
+    let wrapper = boundary.function;
+    let failure = boundary.failure;
+    let error = boundary.error;
     let llvm = codegen.context;
-    let pointer = llvm.i8_type().ptr_type(AddressSpace::default());
-    let pointer_slot = pointer.ptr_type(AddressSpace::default());
-    let failure_slot = llvm.i64_type().ptr_type(AddressSpace::default());
-    let signature = llvm.i32_type().fn_type(
-        &[
-            pointer_slot.into(),
-            pointer.into(),
-            pointer_slot.into(),
-            failure_slot.into(),
-            pointer_slot.into(),
-        ],
-        false,
-    );
-    let wrapper = codegen
-        .module
-        .add_function(name, signature, Some(Linkage::External));
-    codegen
-        .builder
-        .position_at_end(llvm.append_basic_block(wrapper, "entry"));
-    let created = wrapper
-        .get_nth_param(2)
-        .ok_or_else(|| CodegenError::new("wrapper created-value output missing"))?
-        .into_pointer_value();
-    let failure = wrapper
-        .get_nth_param(3)
-        .ok_or_else(|| CodegenError::new("wrapper failure output missing"))?
-        .into_pointer_value();
-    let error = wrapper
-        .get_nth_param(4)
-        .ok_or_else(|| CodegenError::new("wrapper error output missing"))?
-        .into_pointer_value();
-    codegen.builder.build_store(created, pointer.const_null())?;
-    codegen
-        .builder
-        .build_store(failure, llvm.i64_type().const_zero())?;
-    codegen.builder.build_store(error, pointer.const_null())?;
     let lowered_arguments = arguments::lower_arguments(codegen, wrapper, callback, plan)?;
     let result = codegen
         .builder

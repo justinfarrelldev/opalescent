@@ -157,8 +157,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Context internal canonical name uses the reserved `__opal_testing::` namespace, matching native identity conventions without triggering production tagged-variant name lowering; production projection behavior is unchanged.
 - [x] Pre-commit integration RED exposed legacy production variant alias assumptions; reverted the attempted projection-policy change rather than weakening production tests.
 - [x] Context increment verification: 1,768 library tests passed (8 existing ignored); strict lint passed.
-- [ ] Context increment commit and unchanged pre-commit gates.
-- [ ] Complete typed setup/example value construction/drop wrappers and checked case artifact generation; verify managed borrowed values, nested inline projections and generic instantiation paths.
+- [x] Context increment committed as `8b844cb`; all unchanged pre-commit gates passed, including the complete integration suite.
+- [x] Typed value construction RED/GREEN: compiled setup/example callbacks reserve ordinary typed slots before source invocation and publish them only after successful completion.
+- [x] Typed construction failure verification: assertion aborts and allocation failures publish no state; ordinary application errors remain completed application errors with no success-field reads.
+- [x] Generated value drop boundaries reuse existing ordinary binding-release semantics and free only compiler-owned value slot memory; no external-resource recovery or ownership protocol was added.
+- [x] Shared scalar callback boundary creation initializes outputs consistently for void and value callbacks and validates C runtime function ABIs.
+- [x] Native lifecycle regressions now execute compiled source World setup and example constructors, typed World/example/context bodies or after-hooks, declared state cleanup and generated ordinary drops.
+- [x] Typed value increment verification: 1,772 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Typed value increment commit and unchanged pre-commit gates.
+- [ ] Complete checked case descriptor/artifact generation; verify managed borrowed values, nested inline projections and generic instantiation paths.
 
 ## Remaining integration work
 

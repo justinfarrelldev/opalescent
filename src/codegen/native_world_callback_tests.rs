@@ -126,11 +126,47 @@ fn exercise(previous_failure: bool) {
         &[super::native_callbacks::NativeCallbackArgument::StateReference(0)],
     )
     .expect("state wrapper");
+    emit_constructors(&codegen);
     codegen
         .module
         .verify()
         .expect("valid typed World/state ABI");
     execute_driver(&codegen, previous_failure);
+}
+
+/// World setup and example construction are actual compiled source callbacks.
+fn emit_constructors(codegen: &CodegenContext<'_>) {
+    let signature = CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: Vec::new(),
+        return_types: vec![CoreType::Int64],
+        error_types: Vec::new(),
+    };
+    for (name, literal) in [("setup", 41_i64), ("example", 7_i64)] {
+        let (parameters, statements) = function(&format!(
+            "let constructor = f(): int64 =>\n    return {literal}\n"
+        ));
+        let source = super::native_declarations::emit_source_function(
+            codegen,
+            &mut CodegenEnv::new(false),
+            &format!("source_{name}"),
+            &parameters,
+            &signature,
+            &statements,
+        )
+        .expect("source constructor");
+        super::native_value_callbacks::emit_value_callback_wrapper(
+            codegen,
+            &format!("compiled_{name}"),
+            source,
+            &CoreType::Int64,
+            false,
+            &[],
+        )
+        .expect("typed constructor boundary");
+    }
+    super::native_value_callbacks::emit_value_drop_wrapper(codegen, "drop_value", &CoreType::Int64)
+        .expect("ordinary value drop");
 }
 
 /// Link the same reusable native functions to an explicit lifecycle descriptor.
@@ -160,17 +196,12 @@ const DRIVER: &str = r#"
 #include "opal_testing_lifecycle.h"
 #include <stdio.h>
 static int64_t state;
-static const int64_t example_row = 7;
 int compiled_body(void **, const void *, void **, uint64_t *, const char **);
 int compiled_cleanup(void **, const void *, void **, uint64_t *, const char **);
-static int setup(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
-    (void)worlds; (void)example; (void)failure; (void)error;
-    state = 41; *created = &state; return OPAL_TEST_CALLBACK_COMPLETED;
-}
-static int construct_example(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
-    (void)worlds; (void)example; (void)failure; (void)error;
-    *created = (void *)&example_row; return OPAL_TEST_CALLBACK_COMPLETED;
-}
+int compiled_setup(void **, const void *, void **, uint64_t *, const char **);
+int compiled_example(void **, const void *, void **, uint64_t *, const char **);
+void drop_value(void *);
+static void observe_world_drop(void *value) { state = *(int64_t *)value; drop_value(value); }
 #if PREVIOUS_FAILURE
 static int failed_body(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
     (void)worlds; (void)example; (void)created; (void)error;
@@ -180,13 +211,13 @@ static int failed_body(void **worlds, const void *example, void **created, uint6
 #endif
 int main(void) {
     if (!opal_test_attempt_begin("typed World identity", 1)) return 1;
-    OpalTestWorldDescriptor world = {"World", {setup, "", 0, 0}, {compiled_cleanup, "", 0, 0}, NULL};
+    OpalTestWorldDescriptor world = {"World", {compiled_setup, "", 0, 0}, {compiled_cleanup, "", 0, 0}, observe_world_drop};
 #if PREVIOUS_FAILURE
     OpalTestCallback after = {compiled_body, "", 0, 0};
     OpalTestHookScope scope = {NULL, 0, &after, 1};
-    OpalTestCaseDescriptor descriptor = {&world, 1, &scope, 1, {failed_body, "", 0, 0}, {construct_example, "", 0, 0}, NULL};
+    OpalTestCaseDescriptor descriptor = {&world, 1, &scope, 1, {failed_body, "", 0, 0}, {compiled_example, "", 0, 0}, drop_value};
 #else
-    OpalTestCaseDescriptor descriptor = {&world, 1, NULL, 0, {compiled_body, "", 0, 0}, {construct_example, "", 0, 0}, NULL};
+    OpalTestCaseDescriptor descriptor = {&world, 1, NULL, 0, {compiled_body, "", 0, 0}, {compiled_example, "", 0, 0}, drop_value};
 #endif
     OpalTestLifecycleResult result;
     int failed = opal_test_run_case(&descriptor, &result);

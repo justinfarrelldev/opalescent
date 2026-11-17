@@ -36,6 +36,7 @@ pub mod monomorphization;
 pub(crate) mod native_abort;
 /// Typed native assertion operations and source-aware failure sites.
 pub(crate) mod native_assertions;
+mod native_callback_boundary;
 /// Typed native callback boundaries for the lifecycle runtime.
 pub mod native_callbacks;
 /// Generated runner-owned context layouts and callback metadata views.
@@ -46,6 +47,8 @@ pub mod native_declarations;
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
+/// Typed setup/example construction and ordinary value-drop boundaries.
+pub mod native_value_callbacks;
 #[doc = "LLVM optimization pass pipeline configuration."]
 pub mod optimization;
 #[doc = "RC runtime call emission for reference counting operations."]
@@ -74,6 +77,8 @@ mod native_guard_call_tests;
 mod native_outcome_call_tests;
 #[cfg(test)]
 mod native_outcome_tests;
+#[cfg(test)]
+mod native_value_callback_tests;
 #[cfg(test)]
 mod native_world_callback_tests;
 #[cfg(test)]
