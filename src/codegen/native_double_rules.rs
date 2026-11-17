@@ -49,24 +49,7 @@ pub struct RuleCallbacks<'context> {
 
 /// Explicit initial snapshot subset; unsupported signatures remain count-only spies.
 pub fn supported(core: &CoreType) -> bool {
-    if let CoreType::Array(ref element) = *core {
-        return supported(element);
-    }
-    matches!(
-        *core,
-        CoreType::String
-            | CoreType::Boolean
-            | CoreType::Int8
-            | CoreType::Int16
-            | CoreType::Int32
-            | CoreType::Int64
-            | CoreType::UInt8
-            | CoreType::UInt16
-            | CoreType::UInt32
-            | CoreType::UInt64
-            | CoreType::Float32
-            | CoreType::Float64
-    )
+    crate::type_system::native_double_signature::supports_argument_snapshot(core)
 }
 
 /// Reproduce native declaration parameter and application return representations.
@@ -160,7 +143,13 @@ fn emit_callbacks<'context>(
         signature,
         false,
     )?;
-    let snapshot = copy_arguments(ctx, &format!("{name}.snapshot"), signature, plan)?;
+    let snapshot = copy_arguments(
+        ctx,
+        &format!("{name}.snapshot"),
+        signature,
+        plan,
+        drop_snapshot,
+    )?;
     Ok(RuleCallbacks {
         matches,
         overlap,
@@ -300,6 +289,7 @@ fn copy_arguments<'context>(
     name: &str,
     signature: &NativeDoubleSignature,
     plan: RuleLayout<'context>,
+    drop_snapshot: FunctionValue<'context>,
 ) -> Result<FunctionValue<'context>, CodegenError> {
     let pointer = ctx.context.i8_type().ptr_type(AddressSpace::default());
     let function = c_function(ctx, name, pointer.fn_type(&[pointer.into()], false))?;
@@ -356,6 +346,7 @@ fn copy_arguments<'context>(
         plan.logical.ptr_type(AddressSpace::default()),
         "double.snapshot.typed",
     )?;
+    ctx.builder.build_store(typed, plan.logical.const_zero())?;
     for (index, mode) in signature.parameter_modes.iter().enumerate() {
         let value = argument(ctx, plan.physical, input, index, *mode != BorrowKind::Owned)?;
         let slot = ctx.builder.build_struct_gep(
@@ -363,13 +354,45 @@ fn copy_arguments<'context>(
             u32::try_from(index).map_err(|e| CodegenError::new(e.to_string()))?,
             "double.snapshot.slot",
         )?;
-        super::binding_store::retain_new_binding_value_if_needed(
-            ctx,
-            &signature.parameters[index],
-            value,
-        )?;
+        let value = if super::native_path_values::is_path(&signature.parameters[index]) {
+            copy_path_or_abort_snapshot(ctx, function, storage, drop_snapshot, value)?.into()
+        } else {
+            super::binding_store::retain_new_binding_value_if_needed(
+                ctx,
+                &signature.parameters[index],
+                value,
+            )?;
+            value
+        };
         ctx.builder.build_store(slot, value)?;
     }
     ctx.builder.build_return(Some(&storage))?;
     Ok(function)
+}
+
+/// Failed path copies release already-initialized snapshot fields before reporting failure.
+fn copy_path_or_abort_snapshot<'context>(
+    ctx: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+    storage: PointerValue<'context>,
+    drop_snapshot: FunctionValue<'context>,
+    value: BasicValueEnum<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let copy = super::native_path_values::copy(ctx, value)?;
+    let failed = ctx
+        .context
+        .append_basic_block(function, "snapshot.path.failed");
+    let ready = ctx
+        .context
+        .append_basic_block(function, "snapshot.path.ready");
+    let missing = ctx.builder.build_is_null(copy, "snapshot.path.missing")?;
+    ctx.builder
+        .build_conditional_branch(missing, failed, ready)?;
+    ctx.builder.position_at_end(failed);
+    ctx.builder
+        .build_call(drop_snapshot, &[storage.into()], "")?;
+    ctx.builder
+        .build_return(Some(&copy.get_type().const_null()))?;
+    ctx.builder.position_at_end(ready);
+    Ok(copy)
 }

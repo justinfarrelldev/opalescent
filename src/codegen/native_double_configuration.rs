@@ -57,10 +57,11 @@ pub fn configure<'context>(
     }
     let (key, signature) = signature(env, target)?;
     if matches!(*behavior, StubBehavior::Return(_))
-        && !signature
-            .return_types
-            .iter()
-            .all(|core| *core == CoreType::Unit || native_double_rules::supported(core))
+        && !signature.return_types.iter().all(|core| {
+            *core == CoreType::Unit
+                || (native_double_rules::supported(core)
+                    && !super::native_path_values::is_path(core))
+        })
     {
         return Err(CodegenError::new(
             "stored double results require supported concrete value lowering",
@@ -85,7 +86,7 @@ pub fn configure<'context>(
     for (index, value) in values.into_iter().enumerate() {
         super::binding_store::retain_new_binding_value_if_needed(
             ctx,
-            &signature.parameters[index],
+            &super::native_path_values::snapshot_core(&signature.parameters[index]),
             value,
         )?;
         store(ctx, typed, index, value)?;

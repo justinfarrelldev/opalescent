@@ -60,6 +60,9 @@ pub(super) fn equal<'context>(
             actual.into_pointer_value(),
             expected.into_pointer_value(),
         ),
+        CoreType::Generic { .. } if crate::codegen::native_path_values::is_path(core) => {
+            equal(codegen, env, &CoreType::String, actual, expected)
+        }
         CoreType::Generic { ref name, .. } => nominal_equal(codegen, env, name, actual, expected),
         _ => scalar_equal(codegen, actual, expected),
     }

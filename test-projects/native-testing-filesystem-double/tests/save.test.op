@@ -1,0 +1,45 @@
+import save from ../src/app
+import path_from from standard
+
+double AtomicWrite replaces write_text_atomic_sync from standard
+    as used by ../src/app
+
+scenario typed filesystem boundary:
+    it should compare builtin path values rather than allocation identity:
+        f(): void =>
+            expect path_from('café.txt') to be path_from('café.txt')
+            expect path_from('café.txt') not to be path_from('other.txt')
+            return void
+
+    it should retain path values in mismatch diagnostics:
+        f(): void =>
+            expect path_from('café.txt') to be path_from('other.txt')
+            return void
+
+    it should match independent path values and retain their argument history:
+        f(): void errors inferred =>
+            let writer = new AtomicWrite
+            stub writer(path_from('/__opal_testing_missing__/café.txt'), 'Draft') returns void
+            propagate save('Draft')
+            expect writer to have been called once
+            expect writer to have been called with (path_from('/__opal_testing_missing__/café.txt'), 'Draft')
+            verify writer
+            restore writer
+            return void
+
+    it should preserve nominal filesystem application errors:
+        f(): void errors inferred =>
+            let writer = new AtomicWrite
+            stub writer(path_from('/__opal_testing_missing__/café.txt'), 'Draft') fails with FilesystemFullError
+            guard save('Draft') else filesystem_error =>
+                print('filesystem application guard handled')
+                propagate filesystem_error
+            expect false to be true
+            return void
+
+    it should fail unexpected filesystem calls before executing the operation:
+        f(): void errors inferred =>
+            let writer = new AtomicWrite
+            propagate save('unconfigured')
+            restore writer
+            return void

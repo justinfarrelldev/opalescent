@@ -17,6 +17,31 @@ pub fn capture<'context>(
     core: &CoreType,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let value = codegen_expression(ctx, env, expression, Some(core))?;
+    if super::native_path_values::is_path(core) {
+        let copy = super::native_path_values::copy(ctx, value)?;
+        let function = ctx
+            .builder
+            .get_insert_block()
+            .and_then(inkwell::basic_block::BasicBlock::get_parent)
+            .ok_or_else(|| CodegenError::new("path capture has no native caller"))?;
+        let failed = ctx
+            .context
+            .append_basic_block(function, "path.snapshot.failed");
+        let ready = ctx
+            .context
+            .append_basic_block(function, "path.snapshot.ready");
+        let missing = ctx.builder.build_is_null(copy, "path.snapshot.missing")?;
+        ctx.builder
+            .build_conditional_branch(missing, failed, ready)?;
+        ctx.builder.position_at_end(failed);
+        let identity = super::native_double_configuration::infrastructure(
+            ctx,
+            "could not allocate owned path snapshot",
+        )?;
+        super::native_abort::emit_native_abort(ctx, env, identity, &[])?;
+        ctx.builder.position_at_end(ready);
+        return hold(ctx, env, copy.into(), &CoreType::String, false);
+    }
     hold(ctx, env, value, core, borrowed(expression, core))
 }
 
@@ -140,7 +165,7 @@ fn drop_body<'context>(
         let value = super::native_double_rules::argument(ctx, plan.logical, raw, index, false)?;
         super::binding_store::release_binding_value_if_needed(
             ctx,
-            core,
+            &super::native_path_values::snapshot_core(core),
             value,
             "release double argument",
         )?;

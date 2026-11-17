@@ -89,6 +89,7 @@ fn is_stdlib_import_source(import_source: &str) -> bool {
             | "math"
             | "process"
             | "standard.numeric"
+            | "standard.errors"
             | "standard.system"
             | "standard.terminal"
             | "standard.terminal.chords"
@@ -545,6 +546,14 @@ mod tests {
         let from_file = PathBuf::from("/tmp/main.op");
         let resolved = resolve_import_path(&from_file, "standard").expect("stdlib resolves");
         assert_eq!(resolved, PathBuf::from("__stdlib__/standard"));
+    }
+
+    #[test]
+    fn resolve_import_path_error_families_use_standard_sentinel() {
+        let from_file = PathBuf::from("/tmp/main.op");
+        let resolved = resolve_import_path(&from_file, "standard.errors")
+            .expect("error family module resolves");
+        assert_eq!(resolved, PathBuf::from("__stdlib__/standard.errors"));
     }
 
     #[test]

@@ -517,6 +517,67 @@ fn standard_double_edges_intercept_before_special_lowering_and_preserve_original
 }
 
 #[test]
+fn filesystem_double_paths_compare_by_value_and_keep_nominal_errors_ordinary() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("test-projects/native-testing-filesystem-double");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("filesystem double");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value =
+        serde_json::from_str(&output.text).expect("filesystem double report");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 3_u64);
+    assert!(report.to_string().contains("café.txt"));
+    assert!(report.to_string().contains("other.txt"));
+    let application = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["identity"]["test"] == "preserve nominal filesystem application errors")
+        .expect("ordinary application error");
+    assert_eq!(application["execution"]["outcome"], "application_error");
+    let trace = application["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("application guard trace");
+    assert_eq!(
+        std::fs::read_to_string(trace).expect("filesystem guard stdout"),
+        "filesystem application guard handled\n"
+    );
+    assert!(
+        report
+            .to_string()
+            .contains("unexpected invocation of active double")
+    );
+}
+
+#[test]
+fn case_listing_rejects_unsupported_argument_history_without_building() {
+    let directory = tempfile::tempdir().expect("snapshot policy project");
+    std::fs::create_dir_all(directory.path().join("src")).expect("source root");
+    std::fs::create_dir_all(directory.path().join("tests")).expect("test root");
+    std::fs::write(directory.path().join("src/input.types.op"),"##\n    Description: An ordinary nominal value, not a snapshot capability.\n##\npublic type Input:\n    value: int64\n").expect("nominal type");
+    std::fs::write(directory.path().join("src/io.op"),"import type Input from ./input.types\n##\n    Description: A borrowed nominal boundary.\n##\npublic let operation = f(ref input: Input): void =>\n    return void\n").expect("boundary");
+    std::fs::write(directory.path().join("src/app.op"),"import operation from ./io\nimport type Input from ./input.types\n##\n    Description: The importing module.\n##\npublic let apply = f(ref input: Input): void =>\n    operation(ref input)\n    return void\n").expect("import edge");
+    std::fs::write(directory.path().join("tests/history.test.op"),"import apply from ../src/app\nimport type Input from ../src/input.types\ndouble Write replaces operation from ../src/io\n    as used by ../src/app\nscenario unsupported snapshots:\n    it should reject opaque layout inspection: f(): void =>\n        let writer = new Write\n        let input: Input = new Input:\n            value: 1\n        expect writer to have been called with (input)\n        return void\n").expect("history assertion");
+    let output = execute(&[
+        "--root".to_owned(),
+        directory.path().display().to_string(),
+        "--list".to_owned(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("checked listing");
+    assert_eq!(output.exit_code, 2_i32);
+    assert!(output.text.contains("owned snapshots"));
+    assert!(!directory.path().join("target").exists());
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

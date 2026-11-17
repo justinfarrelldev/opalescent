@@ -58,6 +58,7 @@ pub(crate) mod native_doubles;
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
+pub(crate) mod native_path_values;
 /// Synchronous monotonic assertion polling in native artifacts.
 pub mod native_polling;
 /// Fully checked source graph to reusable native case descriptor artifact.

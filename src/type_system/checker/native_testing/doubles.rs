@@ -11,7 +11,6 @@ use crate::type_system::checker::helpers::{
 };
 use crate::type_system::errors::TypeError;
 use crate::type_system::types::CoreType;
-use alloc::collections::BTreeSet;
 
 impl TypeChecker {
     /// Register the generated nominal type and concrete application signature.
@@ -166,7 +165,7 @@ impl TypeChecker {
         }
         for (index, (argument, expected)) in arguments.iter().zip(&signature.parameters).enumerate()
         {
-            if !self.native_equality_supported(expected, &mut BTreeSet::new()) {
+            if !crate::type_system::native_double_signature::supports_argument_snapshot(expected) {
                 return Err(native_error(
                     argument.span(),
                     "this argument type does not support owned snapshots and typed exact matching; count-only history or a replacement/spy fallback remains available",

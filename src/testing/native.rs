@@ -33,6 +33,8 @@ mod lifecycle_runtime_tests;
 #[cfg(test)]
 mod nominal_type_tests;
 #[cfg(test)]
+mod path_value_runtime_tests;
+#[cfg(test)]
 mod runtime_tests;
 #[cfg(test)]
 mod snapshot_runtime_tests;

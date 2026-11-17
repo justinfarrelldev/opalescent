@@ -184,6 +184,11 @@ fn render<'context>(
         CoreType::Array(ref element) => {
             array(ctx, env, snapshot, element, value.into_pointer_value())
         }
+        CoreType::Generic { .. } if crate::codegen::native_path_values::is_path(core) => {
+            text(ctx, snapshot, "FilesystemPath(\"")?;
+            append(ctx, snapshot, value.into_pointer_value())?;
+            text(ctx, snapshot, "\")")
+        }
         CoreType::Generic { ref name, .. } => nominal(ctx, env, snapshot, name, value),
         CoreType::Boolean
         | CoreType::Int8

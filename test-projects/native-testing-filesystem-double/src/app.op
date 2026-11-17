@@ -1,0 +1,10 @@
+import path_from, write_text_atomic_sync from standard
+import type FilesystemPathErrors from standard.errors
+
+##
+    Description: A genuine atomic-write edge, never invoked by configured tests.
+##
+public let save = f(text: string): void errors FilesystemPathErrors, WriteFailureError, IsADirectoryError, FilesystemFullError =>
+    let path = path_from('/__opal_testing_missing__/café.txt')
+    propagate write_text_atomic_sync(path, text)
+    return void
