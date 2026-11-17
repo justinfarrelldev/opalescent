@@ -1,5 +1,6 @@
 /* One reusable native artifact, one fresh process per selected case attempt. */
 #include "opal_testing_worker.h"
+#include "opal_testing_doubles.h"
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -96,6 +97,7 @@ int main(int argc, char **argv) {
     int failed = opal_test_run_case(descriptor, &result);
     int status = finish_result(&transport, failed, &result);
     opal_test_set_phase_observer(NULL, NULL);
+    opal_test_doubles_end();
     opal_test_attempt_end();
     if (fclose(stream)) return 2;
     return status;

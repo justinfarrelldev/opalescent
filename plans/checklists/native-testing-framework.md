@@ -161,8 +161,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Snapshot C runtime tests verify source-buffer independence, signed/unsigned/floating value bits, UTF-8 codepoint-safe bounded truncation, missing-storage infrastructure failures and preservation of earlier primary identities.
 - [x] Diagnostic safety review: bounded Unicode type labels/message sizing, no unknown foreign/resource layout dereferences, no variant payload reads, no unconstrained empty-array scalar fabrication; array reads require checked in-range indices and stop when the owned buffer fills.
 - [x] Snapshot verification: 1,803 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, direct runtime Clang analyzer, Cppcheck and file-length gates passed.
-- [ ] Owned value snapshot increment commit and unchanged gates.
+- [x] Owned value snapshots committed as `333a056`; all unchanged pre-commit gates passed, including production integration and extension checks.
 - [ ] Complete attachments and executable double history matchers; audit cross-width numeric compatibility and the entire matcher acceptance matrix.
+- [x] Attempt-local double engine RED/GREEN: immutable typed descriptors, exact canonical edge activation/conflicts, inactive-original selection, explicit restore, default unexpected-call aborts, duplicate/overlapping rule rejection, exact-before-fallback precedence, repeatable rules and explicit unused-rule verification.
+- [x] Double engine records arrival counts and compiler-cloned owned argument history (never arbitrary borrowed addresses); count-only descriptors remain valid without snapshots; deliberately configured application-error selections complete normally rather than recording harness failures.
+- [x] Framework rule/fallback/history memory uses compiler-provided ordinary value-release helpers and is disposed after worker result serialization; no user cleanup, resource discovery, rollback or ownership protocol is added.
+- [x] Real C regression verifies edge isolation, activation conflicts, exact returns, application-error selections, original/replacement fallback, duplicate rejection, unused rules, restore/reactivation, preserved history, count-only support and untouched selection outputs on abort.
+- [x] Double engine verification: 1,804 library tests passed serially (8 existing ignored); strict lint, C GCC/Clang warnings, direct double-engine Clang analysis, Cppcheck, file-length gates and AddressSanitizer/UndefinedBehaviorSanitizer with leak detection passed.
+- [ ] Attempt-local double engine commit and unchanged gates.
+- [ ] Connect double descriptors, nominal activation/configuration/verification/history operations and typed native dispatchers to compiler-resolved import edges before special lowering; the C engine alone is not executable source-double completion.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.

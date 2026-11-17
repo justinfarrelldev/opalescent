@@ -25,6 +25,8 @@ mod double_resolution_tests;
 
 #[cfg(test)]
 mod checking_tests;
+#[cfg(test)]
+mod double_runtime_tests;
 pub mod identity;
 #[cfg(test)]
 mod lifecycle_runtime_tests;

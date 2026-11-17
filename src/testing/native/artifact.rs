@@ -175,6 +175,14 @@ const TEST_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../runtime/opal_testing_lifecycle.c"),
     ),
     (
+        "opal_testing_doubles.h",
+        include_str!("../../../runtime/opal_testing_doubles.h"),
+    ),
+    (
+        "opal_testing_doubles.c",
+        include_str!("../../../runtime/opal_testing_doubles.c"),
+    ),
+    (
         "opal_testing_polling.h",
         include_str!("../../../runtime/opal_testing_polling.h"),
     ),
