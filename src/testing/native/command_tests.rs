@@ -231,6 +231,15 @@ fn compiled_products_use_field_equality_and_variants_use_nominal_tags() {
     assert_eq!(output.exit_code, 1_i32);
     let report: serde_json::Value =
         serde_json::from_str(&output.text).expect("JSON product results");
+    let diagnostic_text = report.to_string();
+    assert!(
+        diagnostic_text.contains("Document{"),
+        "product fields must be captured before lexical cleanup"
+    );
+    assert!(
+        diagnostic_text.contains("Status.Open"),
+        "variant diagnostics must capture genuine observed identity"
+    );
     assert_eq!(report["totals"]["passed"], 2_u64);
     assert_eq!(report["totals"]["failed"], 2_u64);
 }
@@ -248,7 +257,10 @@ fn compiled_polling_evaluates_configuration_once_and_retains_latest_observation(
     assert_eq!(output.exit_code, 1_i32);
     let report: serde_json::Value = serde_json::from_str(&output.text).expect("polling results");
     assert_eq!(report["totals"]["passed"], 3_u64);
-    assert_eq!(report["totals"]["failed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 4_u64);
+    let snapshots = report.to_string();
+    assert!(snapshots.contains("actual (int64) -42"));
+    assert!(snapshots.contains("[[41, 42"));
     let passed = report["cases"]
         .as_array()
         .expect("cases")

@@ -1,0 +1,18 @@
+let observe_number = f(): int64 =>
+    print('number observed')
+    return -42
+
+let observe_numbers = f(): int64[][] =>
+    print('numbers observed')
+    return [[41, 42]]
+
+scenario latest typed observations:
+    it should retain the latest numeric observation:
+        f(): void =>
+            expect eventually observe_number() to be 7 within 0 seconds
+            return void
+
+    it should retain the latest nested array observation:
+        f(): void =>
+            expect eventually observe_numbers() to be [[7, 8]] within 0 seconds
+            return void

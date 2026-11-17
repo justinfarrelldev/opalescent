@@ -3,6 +3,74 @@
 #include "opal_testing_runtime.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <inttypes.h>
+
+typedef struct { size_t length; int full; char text[2048]; } OpalTestSnapshot;
+void *opal_test_snapshot_new(void) { return calloc(1, sizeof(OpalTestSnapshot)); }
+int opal_test_snapshot_available(void *value) {
+    OpalTestSnapshot *snapshot = value;
+    return snapshot && !snapshot->full && snapshot->length < sizeof(snapshot->text) - 8;
+}
+void opal_test_snapshot_text(void *value, const char *text) {
+    OpalTestSnapshot *snapshot = value;
+    if (!snapshot || !text || snapshot->full) return;
+    size_t room = sizeof(snapshot->text) - snapshot->length - 8;
+    size_t count = 0;
+    while (count < room && text[count]) ++count;
+    int truncated = text[count] != 0;
+    if (truncated) {
+        while (count && (((unsigned char)text[count] & 0xc0) == 0x80)) --count;
+    }
+    memcpy(snapshot->text + snapshot->length, text, count);
+    snapshot->length += count;
+    if (truncated) {
+        memcpy(snapshot->text + snapshot->length, "...", 3);
+        snapshot->length += 3;
+        snapshot->text[snapshot->length] = 0;
+        /* Stop traversal without inventing a length or retaining source memory. */
+        snapshot->full = 1;
+    } else snapshot->text[snapshot->length] = 0;
+}
+void opal_test_snapshot_scalar(void *value, uint64_t bits, int kind) {
+    char text[96];
+    if (kind == 3) {
+        double number;
+        memcpy(&number, &bits, sizeof(number));
+        (void)snprintf(text, sizeof(text), "%.17g", number);
+    } else if (kind == 2) {
+        (void)snprintf(text, sizeof(text), "%s", bits ? "true" : "false");
+    } else if (kind == 1) {
+        (void)snprintf(text, sizeof(text), "%" PRIu64, bits);
+    } else {
+        int64_t number;
+        memcpy(&number, &bits, sizeof(number));
+        (void)snprintf(text, sizeof(text), "%" PRId64, number);
+    }
+    opal_test_snapshot_text(value, text);
+}
+uint64_t opal_test_snapshot_failure(void *actual, void *expected,
+    const char *matcher, const char *type, const char *file,
+    uint64_t offset, uint64_t length) {
+    OpalTestSnapshot *left = actual;
+    OpalTestSnapshot *right = expected;
+    /* Two bounded UTF-8 values, two bounded compiler type labels and punctuation. */
+    char message[6144];
+    uint64_t identity;
+    if (!left || !right) {
+        identity = opal_test_record_failure(OPAL_TEST_FAILURE_INFRASTRUCTURE,
+            "could not allocate owned assertion snapshots", file, offset, length);
+    } else {
+        (void)snprintf(message, sizeof(message),
+            "%s failed: actual (%s) %s; expected (%s) %s", matcher, type,
+            left->text, type, right->text);
+        identity = opal_test_record_failure(OPAL_TEST_FAILURE_ASSERTION,
+            message, file, offset, length);
+    }
+    free(left);
+    free(right);
+    return identity;
+}
 
 typedef struct {
     int active;

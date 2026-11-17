@@ -156,7 +156,7 @@ fn nominal_equal<'context>(
 }
 
 /// Read ordinary product storage using its checked field layout and position.
-fn product_field<'context>(
+pub(super) fn product_field<'context>(
     codegen: &CodegenContext<'context>,
     value: BasicValueEnum<'context>,
     structure: inkwell::types::StructType<'context>,

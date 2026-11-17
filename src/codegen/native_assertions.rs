@@ -8,7 +8,9 @@ use crate::ast::testing::{Comparison, Expectation, Matcher, TestingStatement};
 use crate::ast::{AstNode, Expr};
 use crate::type_system::types::CoreType;
 use inkwell::values::{BasicValueEnum, IntValue};
-use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
+use inkwell::{FloatPredicate, IntPredicate};
+#[path = "native_value_snapshots.rs"]
+mod snapshots;
 #[path = "native_string_assertions.rs"]
 mod strings;
 #[path = "native_value_equality.rs"]
@@ -103,7 +105,21 @@ fn lower_expectation<'context>(
         .builder
         .build_conditional_branch(passed, continuation, failure)?;
     codegen.builder.position_at_end(failure);
-    let identity = record_assertion_failure(codegen, env, expectation)?;
+    let fallback = if actual.is_float_value() {
+        CoreType::Float64
+    } else if actual.is_int_value() && actual.into_int_value().get_type().get_bit_width() == 1 {
+        CoreType::Boolean
+    } else {
+        CoreType::Int64
+    };
+    let identity = snapshots::failure(
+        codegen,
+        env,
+        expectation,
+        actual_type.as_ref().unwrap_or(&fallback),
+        actual,
+        Some(expected),
+    )?;
     emit_native_abort(codegen, env, identity, &[])?;
     codegen.builder.position_at_end(continuation);
     Ok(())
@@ -224,70 +240,4 @@ fn scalar_compare<'context>(
             "numeric matcher requires ordinary numeric operands",
         )),
     }
-}
-
-/// Record original source coordinates without executing operand expressions again.
-fn record_assertion_failure<'context>(
-    codegen: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    expectation: &Expectation,
-) -> Result<IntValue<'context>, CodegenError> {
-    super::native_polling::retry_mismatch(codegen, env)?;
-    let llvm = codegen.context;
-    let pointer = llvm.i8_type().ptr_type(AddressSpace::default());
-    let signature = llvm.i64_type().fn_type(
-        &[
-            llvm.i32_type().into(),
-            pointer.into(),
-            pointer.into(),
-            llvm.i64_type().into(),
-            llvm.i64_type().into(),
-        ],
-        false,
-    );
-    let name = "opal_test_record_failure";
-    let record = codegen
-        .module
-        .get_function(name)
-        .unwrap_or_else(|| codegen.module.add_function(name, signature, None));
-    if record.get_type() != signature {
-        return Err(CodegenError::new(
-            "native failure runtime ABI declaration mismatch",
-        ));
-    }
-    let message = codegen
-        .builder
-        .build_global_string_ptr("expectation failed", "expect.message")?
-        .as_pointer_value();
-    let file = codegen
-        .builder
-        .build_global_string_ptr(&env.current_source_path, "expect.file")?
-        .as_pointer_value();
-    let offset = u64::try_from(expectation.span.start.offset)
-        .map_err(|error| CodegenError::new(error.to_string()))?;
-    let length = u64::try_from(
-        expectation
-            .span
-            .end
-            .offset
-            .saturating_sub(expectation.span.start.offset),
-    )
-    .map_err(|error| CodegenError::new(error.to_string()))?;
-    Ok(codegen
-        .builder
-        .build_call(
-            record,
-            &[
-                llvm.i32_type().const_int(1, false).into(),
-                message.into(),
-                file.into(),
-                llvm.i64_type().const_int(offset, false).into(),
-                llvm.i64_type().const_int(length, false).into(),
-            ],
-            "expect.failure",
-        )?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new("native failure runtime did not return an identity"))?
-        .into_int_value())
 }

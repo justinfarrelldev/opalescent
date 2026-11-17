@@ -155,8 +155,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Ordinary observation application errors propagate immediately through the unchanged application-error ABI and still run separate after-hook boundaries; clock/wait errors use the independent native abort channel.
 - [x] Added `test-projects/native-testing-polling/` minimal numeric, owned-string, array, zero-deadline/latest-string and real ParseError observation fixtures. Real CLI traces prove once-only expected/deadline evaluation, three observations, fresh final diagnostics and no application-error retry.
 - [x] Polling increment verification: 1,802 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, polling Clang analysis, Cppcheck and file-length gates passed.
-- [ ] Polling control-flow increment commit and unchanged gates.
-- [ ] Complete owned scalar/array/product/variant diagnostics (including final non-string polling observations), attachments and double history matchers.
+- [x] Polling control flow committed as `0a92fcd`; all unchanged pre-commit gates passed, including production integration and extension checks.
+- [x] Owned typed diagnostics RED/GREEN: scalar bit-preserving snapshots, UTF-8 strings, bounded recursive array traversal, declared product fields and genuine variant identities are copied into framework-owned failure text before lexical cleanup. Rendering never participates in equality and never reevaluates application expressions.
+- [x] Final non-string polling diagnostics now retain latest signed numeric and nested-array observations; source fixtures prove immediate-deadline snapshots as well as existing owned-string behavior.
+- [x] Snapshot C runtime tests verify source-buffer independence, signed/unsigned/floating value bits, UTF-8 codepoint-safe bounded truncation, missing-storage infrastructure failures and preservation of earlier primary identities.
+- [x] Diagnostic safety review: bounded Unicode type labels/message sizing, no unknown foreign/resource layout dereferences, no variant payload reads, no unconstrained empty-array scalar fabrication; array reads require checked in-range indices and stop when the owned buffer fills.
+- [x] Snapshot verification: 1,803 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, direct runtime Clang analyzer, Cppcheck and file-length gates passed.
+- [ ] Owned value snapshot increment commit and unchanged gates.
+- [ ] Complete attachments and executable double history matchers; audit cross-width numeric compatibility and the entire matcher acceptance matrix.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.

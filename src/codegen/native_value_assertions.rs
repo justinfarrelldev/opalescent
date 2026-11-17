@@ -1,7 +1,5 @@
 //! Composite assertions reuse ordinary lexical ownership and declared value ABI.
-use super::{
-    CodegenContext, CodegenEnv, CodegenError, emit_native_abort, record_assertion_failure,
-};
+use super::{CodegenContext, CodegenEnv, CodegenError, emit_native_abort};
 use crate::ast::{
     Expr,
     testing::{Expectation, Matcher, SequenceRelation},
@@ -35,8 +33,10 @@ pub(super) fn lower<'context>(
     };
     let _scope = env.enter_scope();
     let actual = capture(codegen, env, &expectation.actual, core)?;
-    let mut passed = if let Some(expected) = expected {
-        let value = capture(codegen, env, expected, core)?;
+    let expected_value = expected
+        .map(|expected| capture(codegen, env, expected, core))
+        .transpose()?;
+    let mut passed = if let Some(value) = expected_value {
         super::value_equality::equal(codegen, env, core, actual, value)?
     } else if let Matcher::Variant {
         ref variant,
@@ -90,7 +90,8 @@ pub(super) fn lower<'context>(
         .builder
         .build_conditional_branch(passed, ready, failed)?;
     codegen.builder.position_at_end(failed);
-    let identity = record_assertion_failure(codegen, env, expectation)?;
+    let identity =
+        super::snapshots::failure(codegen, env, expectation, core, actual, expected_value)?;
     emit_native_abort(codegen, env, identity, &[])?;
     codegen.builder.position_at_end(ready);
     env.exit_scope_cleanup(codegen, &[])

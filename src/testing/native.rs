@@ -32,6 +32,8 @@ mod lifecycle_runtime_tests;
 mod nominal_type_tests;
 #[cfg(test)]
 mod runtime_tests;
+#[cfg(test)]
+mod snapshot_runtime_tests;
 
 #[cfg(test)]
 mod case_tests;

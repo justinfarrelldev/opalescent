@@ -59,4 +59,13 @@ uint64_t opal_test_record_failure(OpalTestFailureKind kind, const char *message,
 void opal_test_record_secondary_application_error(uint64_t originating_failure,
     const char *error);
 
+/* Owned, bounded value rendering for diagnostics only, never equality. */
+void *opal_test_snapshot_new(void);
+int opal_test_snapshot_available(void *snapshot);
+void opal_test_snapshot_text(void *snapshot, const char *text);
+void opal_test_snapshot_scalar(void *snapshot, uint64_t bits, int kind);
+uint64_t opal_test_snapshot_failure(void *actual, void *expected,
+    const char *matcher, const char *type, const char *file,
+    uint64_t offset, uint64_t length);
+
 #endif
