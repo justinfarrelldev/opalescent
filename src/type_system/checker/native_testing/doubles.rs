@@ -252,6 +252,7 @@ impl TypeChecker {
                     ));
                 }
                 let errors = self.resolve_error_types(&[name], reference.span)?;
+                self.validate_native_mock_error_variant(reference, &errors)?;
                 if errors.len() != 1
                     || !errors.iter().all(|error| {
                         signature

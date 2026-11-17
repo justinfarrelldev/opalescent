@@ -92,7 +92,11 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Native application typing retains ordinary grammar and test-only import availability checks.
 - [x] Minimal typed-double project added at `test-projects/native-testing-doubles`, covering World-owned activation, exact returns, nominal application errors, ordinary guards and verification.
 - [x] Canonical source typing verification: 1,737 library tests passed (8 existing ignored); strict all-target/all-feature lint and file-length gates passed.
-- [ ] Canonical source typing increment commit and unchanged pre-commit gates.
+- [x] Canonical source typing committed as `cd0ae13`; all unchanged pre-commit gates passed.
+
+- [x] Invalid mock error value RED/GREEN: reject a bare source sum family or a variant requiring unsupplied payload fields; replacements retain ordinary typed payload construction.
+- [x] Error-value validation verification: 1,738 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Mock error value validation increment commit and unchanged pre-commit gates.
 
 ## Remaining integration work
 
@@ -101,7 +105,8 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Resolve cross-module nominal application type/error collisions for same-spelled declarations and imported aliases.
 - [ ] Complete the nominal type audit through generic ADT imports/examples, remaining annotation paths and executable lowering.
 - [ ] Preserve local source aliases in diagnostics/suggestions and source-facing type names in reflection when lowering canonical identities.
-- [ ] Verify every mocked application error reference is a constructible allowed variant, including payload requirements.
+- [x] Reject source mock error references that omit a variant or its required payload.
+- [ ] Audit built-in mocked error constructors against their supported executable ABI; reject unsupported foreign/resource-bearing payloads explicitly.
 - [ ] Complete all remaining static validation and compiler acceptance tests.
 - [ ] Implement native artifact lowering and executable test artifact builds.
 - [ ] Implement the internal test-abort channel separately from application errors.

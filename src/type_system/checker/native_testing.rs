@@ -3,6 +3,7 @@ extern crate alloc;
 mod assertions;
 mod contracts;
 mod doubles;
+mod error_variants;
 mod examples;
 mod handles;
 mod inference;

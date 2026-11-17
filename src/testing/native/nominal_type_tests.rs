@@ -58,6 +58,32 @@ fn source_error_aliases_cannot_be_reinterpreted_as_same_spelled_standard_familie
 }
 
 #[test]
+fn mock_errors_cannot_invent_missing_variant_or_required_payload_values() {
+    let directory = tempfile::tempdir().expect("fixture");
+    nominal_sources(directory.path());
+    for (declaration, reference) in [
+        ("public type BoundaryError:\n    Broken\n", "AllowedError"),
+        (
+            "public type BoundaryError:\n    Broken:\n        message: string\n",
+            "AllowedError.Broken",
+        ),
+    ] {
+        std::fs::write(directory.path().join("left.types.op"), declaration).expect("error shape");
+        let source = format!(
+            "import type BoundaryError as AllowedError from ./left.types\ndouble Writer replaces operation from ./io\n    as used by ./app\nscenario invalid mock errors:\n    it should require an actual constructible error variant: f(): void =>\n        let writer = new Writer\n        stub writer(1) fails with {reference}\n        return void\n"
+        );
+        std::fs::write(directory.path().join("case.test.op"), source).expect("case");
+        let project =
+            NativeTestProject::load(directory.path(), &[directory.path().join("case.test.op")])
+                .expect("sources");
+        assert!(
+            check_project(&project).is_err(),
+            "mock errors must not fabricate a variant or payload for {reference}"
+        );
+    }
+}
+
+#[test]
 fn public_layout_fields_retain_canonical_source_type_identities() {
     let directory = tempfile::tempdir().expect("fixture");
     nominal_sources(directory.path());
