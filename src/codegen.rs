@@ -49,6 +49,8 @@ pub mod types;
 pub mod values;
 
 #[cfg(test)]
+mod native_cleanup_call_tests;
+#[cfg(test)]
 mod native_function_tests;
 #[cfg(test)]
 mod native_guard_call_tests;

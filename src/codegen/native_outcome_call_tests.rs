@@ -152,6 +152,14 @@ fn emit_entry<'context>(
 
 /// Link and execute real machine code rather than interpreting callback data.
 pub(super) fn execute_module(codegen: &CodegenContext<'_>) {
+    execute_module_with_sources(codegen, &[]);
+}
+
+/// Link native LLVM with explicit test-only runtime/fixture translation units.
+pub(super) fn execute_module_with_sources(
+    codegen: &CodegenContext<'_>,
+    sources: &[std::path::PathBuf],
+) {
     let directory = tempfile::tempdir().expect("artifact directory");
     let object = directory.path().join("calls.o");
     let executable = directory.path().join("calls");
@@ -164,6 +172,9 @@ pub(super) fn execute_module(codegen: &CodegenContext<'_>) {
     let linked = std::process::Command::new("cc")
         .arg("-no-pie")
         .arg(&object)
+        .args(sources)
+        .arg("-I")
+        .arg(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime"))
         .arg("-o")
         .arg(&executable)
         .output()

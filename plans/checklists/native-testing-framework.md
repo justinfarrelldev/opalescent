@@ -115,8 +115,16 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Real linked machine-code regressions: a parsed Opalescent guard cannot catch a native abort, can catch a deliberate application error, and non-fallible source calls propagate abort without default values.
 - [x] An uninstrumented source boundary rejects native abort transport explicitly instead of dropping it.
 - [x] Current verification: 1,753 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Native source-call integration increment commit and unchanged pre-commit gates.
-- [ ] Implement/link `opal_test_record_secondary_application_error` and verify lexical cleanup errors remain secondary during test abort propagation.
+- [x] Native source-call integration committed as `49cc629`; all unchanged pre-commit gates passed.
+- [x] Implement and explicitly link `opal_test_record_secondary_application_error` in test artifacts; compiled existing lexical cleanup runs once and remains secondary to the originating abort.
+
+- [x] Test-only runtime failure-state RED/GREEN: owned immutable diagnostics, nonzero identities, preserved primary/parent identities, current lifecycle phase and one-attempt worker policy.
+- [x] Diagnostic view stability RED/GREEN: retained failure views survive vector growth until attempt memory release.
+- [x] Allocation/identity failures have a static infrastructure diagnostic rather than fabricated application values or ordinary harness process exit.
+- [x] Host-native integration links generated LLVM, the test runtime and an existing lexical cleanup scaffold; cleanup failure does not erase the assertion failure.
+- [x] Runtime verification: 1,755 library tests passed (8 existing ignored), strict Rust lint, file-length gates, GCC/Clang warning checks and Cppcheck passed; the new runtime also passes direct Clang analysis.
+- [ ] Recheck the whole-runtime Clang analyzer baseline separately: unchanged `runtime/opal_io.c` reports existing `unix.Malloc` findings; do not claim this aggregate task passed.
+- [ ] Native failure-runtime increment commit and unchanged pre-commit gates.
 
 ## Remaining integration work
 
