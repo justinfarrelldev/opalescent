@@ -23,9 +23,9 @@ pub(super) fn emit_function_default_return<'context>(
     function: FunctionValue<'context>,
     forwarded_error: Option<PointerValue<'context>>,
 ) -> Result<(), CodegenError> {
-    let return_type = function.get_type().get_return_type();
+    let return_type = codegen_context.application_return_type(function);
     if return_type.is_none() {
-        let _ret = codegen_context.builder.build_return(None)?;
+        let _ret = codegen_context.emit_application_return(None)?;
         return Ok(());
     }
     let Some(return_basic_type) = return_type else {
@@ -42,7 +42,8 @@ pub(super) fn emit_function_default_return<'context>(
                     return_struct_type,
                     error_ptr,
                 )?;
-                let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+                let _ret = codegen_context
+                    .emit_application_return(Some(aggregate.as_basic_value_enum()))?;
                 return Ok(());
             }
         }
@@ -118,10 +119,12 @@ pub(super) fn uses_aggregate_result_dispatch(function: FunctionValue<'_>) -> boo
                 })
 }
 
-pub(super) fn caller_returns_error_aggregate(function: FunctionValue<'_>) -> bool {
-    function
-        .get_type()
-        .get_return_type()
+pub(super) fn caller_returns_error_aggregate<'context>(
+    codegen_context: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+) -> bool {
+    codegen_context
+        .application_return_type(function)
         .is_some_and(|return_type| {
             return_type.is_struct_type()
                 && crate::codegen::error_abi::is_error_abi_struct_type(

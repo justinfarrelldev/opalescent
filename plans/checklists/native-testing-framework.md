@@ -102,8 +102,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Native call branching RED/GREEN: explicit abort/completed edges precede application-result extraction and leave abort scope exits to existing cleanup emission.
 - [x] Host-executable LLVM regression: an integer-producing callee's abort crosses a string-producing caller unchanged, linked as a real native executable.
 - [x] Refactor native call regression into emission/linking helpers; strict lint passes.
-- [ ] Internal LLVM outcome primitive increment commit and unchanged pre-commit gates.
+- [x] Internal LLVM outcome primitive committed as `ecaa1bc`; 1,742 library tests passed (8 existing ignored), and all unchanged pre-commit gates passed.
 - [ ] Integrate the outcome primitive into all native source function declarations, ordinary/higher-order calls, returns, guard/propagate paths, lexical scope exits and compiled callback wrappers.
+
+- [x] Registered native function/source-return RED/GREEN: ordinary integer, void, application-error, implicit void, propagation and guard-error forwarding emit completed outcomes using explicit original ABI metadata.
+- [x] Production declarations/returns remain unchanged in the same LLVM context; conflicting declarations and variadic native ABI paths are rejected.
+- [x] Source-return integration verification: 1,749 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Native function/source-return increment commit and unchanged pre-commit gates.
 
 ## Remaining integration work
 

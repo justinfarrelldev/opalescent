@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
-use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
+use inkwell::values::{BasicMetadataValueEnum, BasicValue, FunctionValue, IntValue, PointerValue};
 
 pub fn declare_external_imported_function<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -130,7 +130,7 @@ pub fn emit_default_return(
             .builder
             .get_insert_block()
             .and_then(inkwell::basic_block::BasicBlock::get_parent)
-            .and_then(|function| function.get_type().get_return_type());
+            .and_then(|function| codegen_context.application_return_type(function));
         if let Some(return_type) = function_return_type {
             if return_type.is_struct_type()
                 && crate::codegen::error_abi::is_error_abi_struct_type(
@@ -140,12 +140,11 @@ pub fn emit_default_return(
                 let success_aggregate =
                     crate::codegen::error_abi::build_void_success_aggregate(codegen_context)?;
                 let _ret = codegen_context
-                    .builder
-                    .build_return(Some(&success_aggregate))?;
+                    .emit_application_return(Some(success_aggregate.as_basic_value_enum()))?;
                 return Ok(());
             }
         }
-        let _ret = codegen_context.builder.build_return(None)?;
+        let _ret = codegen_context.emit_application_return(None)?;
         return Ok(());
     }
 

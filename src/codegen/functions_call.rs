@@ -595,7 +595,7 @@ pub fn codegen_propagate_expression<'context>(
             let forward_error = error_field
                 .is_pointer_value()
                 .then(|| error_field.into_pointer_value())
-                .filter(|_| caller_returns_error_aggregate(current_fn));
+                .filter(|_| caller_returns_error_aggregate(codegen_context, current_fn));
             let early_return = codegen_context
                 .context
                 .append_basic_block(current_fn, env.next_name("propagate.ret").as_str());
@@ -1115,7 +1115,7 @@ fn resolve_callee_function<'context>(
                             expr,
                             None,
                         )?;
-                        codegen_context.builder.build_return(Some(&result))?;
+                        codegen_context.emit_application_return(Some(result))?;
                         Ok(())
                     }
                     crate::ast::LambdaBody::Block(stmts) => {

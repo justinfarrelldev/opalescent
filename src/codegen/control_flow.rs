@@ -91,8 +91,11 @@ fn llvm_basic_type_to_core_type(llvm_type: inkwell::types::BasicTypeEnum<'_>) ->
     CoreType::Unit
 }
 
-fn current_return_core_types<'context>(function: FunctionValue<'context>) -> Vec<CoreType> {
-    let Some(return_type) = function.get_type().get_return_type() else {
+fn current_return_core_types<'context>(
+    codegen_context: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+) -> Vec<CoreType> {
+    let Some(return_type) = codegen_context.application_return_type(function) else {
         return Vec::new();
     };
     if return_type.is_struct_type() {
@@ -713,14 +716,14 @@ pub fn codegen_return_statement<'context>(
     let transferred_names = collect_transferred_return_identifier_names(values);
     if values.is_empty() {
         cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-        let _ret = codegen_context.builder.build_return(None)?;
+        let _ret = codegen_context.emit_application_return(None)?;
         return Ok(());
     }
     let expected_return_types = if let Some(return_types) = env.current_function_return_types.last()
     {
         return_types.clone()
     } else {
-        current_return_core_types(current_function(codegen_context)?)
+        current_return_core_types(codegen_context, current_function(codegen_context)?)
     };
     if values.len() == 1 {
         let value = codegen_expression(
@@ -731,7 +734,7 @@ pub fn codegen_return_statement<'context>(
         )?;
         if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
             cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-            let _ret = codegen_context.builder.build_return(None)?;
+            let _ret = codegen_context.emit_application_return(None)?;
             return Ok(());
         }
         if expected_return_types.first() == Some(&CoreType::String) {
@@ -748,7 +751,7 @@ pub fn codegen_return_statement<'context>(
             env,
             transferred_names.as_slice(),
         )?;
-        let _ret = codegen_context.builder.build_return(Some(&value))?;
+        let _ret = codegen_context.emit_application_return(Some(value))?;
         return Ok(());
     }
     let lowered = values
@@ -800,7 +803,7 @@ pub fn codegen_return_statement<'context>(
         env,
         transferred_names.as_slice(),
     )?;
-    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+    let _ret = codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
     Ok(())
 }
 
@@ -813,7 +816,8 @@ fn codegen_error_aware_return_statement<'context>(
     if values.is_empty() {
         let aggregate = build_void_success_aggregate(codegen_context)?;
         cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+        let _ret =
+            codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
         return Ok(());
     }
 
@@ -838,7 +842,8 @@ fn codegen_error_aware_return_statement<'context>(
                 )?
             };
             cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-            let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+            let _ret =
+                codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
             return Ok(());
         }
 
@@ -863,7 +868,8 @@ fn codegen_error_aware_return_statement<'context>(
                     )?
                 };
                 cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-                let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+                let _ret = codegen_context
+                    .emit_application_return(Some(aggregate.as_basic_value_enum()))?;
                 return Ok(());
             }
         }
@@ -901,7 +907,8 @@ fn codegen_error_aware_return_statement<'context>(
         if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
             let aggregate = build_void_success_aggregate(codegen_context)?;
             cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-            let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+            let _ret =
+                codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
             return Ok(());
         }
         value
@@ -936,7 +943,7 @@ fn codegen_error_aware_return_statement<'context>(
         env,
         transferred_names.as_slice(),
     )?;
-    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+    let _ret = codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
     Ok(())
 }
 

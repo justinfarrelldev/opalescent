@@ -1180,7 +1180,7 @@ fn codegen_guard_error_propagation_statement<'context>(
     }
 
     let current_fn = current_function(codegen_context)?;
-    let Some(return_type) = current_fn.get_type().get_return_type() else {
+    let Some(return_type) = codegen_context.application_return_type(current_fn) else {
         return Err(CodegenError::new(String::from(
             "guard error propagation requires caller to return an error aggregate",
         )));
@@ -1207,7 +1207,7 @@ fn codegen_guard_error_propagation_statement<'context>(
         loaded_error.into_pointer_value(),
     )?;
     cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+    let _ret = codegen_context.emit_application_return(Some(aggregate.as_basic_value_enum()))?;
     Ok(())
 }
 

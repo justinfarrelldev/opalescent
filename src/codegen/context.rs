@@ -1,5 +1,6 @@
 //! LLVM code generation context management.
 
+use super::native_functions::NativeFunctionAbi;
 use inkwell::OptimizationLevel;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -7,6 +8,9 @@ use inkwell::module::Module;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
+extern crate alloc;
+use alloc::collections::BTreeMap;
+use core::cell::RefCell;
 
 /// Error type for code generation context creation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +20,10 @@ pub enum CodegenError {
 }
 
 /// Shared LLVM handles used by code generation passes.
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Native ABI metadata changes only through validated declarations, unlike public LLVM handles"
+)]
 pub struct CodegenContext<'context> {
     /// Owning LLVM context for all IR allocations.
     pub context: &'context Context,
@@ -27,6 +35,8 @@ pub struct CodegenContext<'context> {
     pub target_machine: Option<TargetMachine>,
     /// Target triple for cross-compilation support.
     pub target: crate::build_system::targets::TargetTriple,
+    /// Explicit test-build declarations; never inferred from LLVM struct shapes.
+    pub(super) native_functions: RefCell<BTreeMap<String, NativeFunctionAbi<'context>>>,
 }
 
 impl<'context> CodegenContext<'context> {
@@ -62,6 +72,7 @@ impl<'context> CodegenContext<'context> {
             builder,
             target_machine: Some(target_machine),
             target: target.clone(),
+            native_functions: RefCell::new(BTreeMap::new()),
         })
     }
 

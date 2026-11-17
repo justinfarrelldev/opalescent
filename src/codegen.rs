@@ -32,6 +32,8 @@ pub mod functions_call;
 pub mod functions_stdlib;
 #[doc = "Generic monomorphization naming and specialization cache wiring."]
 pub mod monomorphization;
+/// Explicit test-build function declarations and ordinary result emission.
+pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
 #[doc = "LLVM optimization pass pipeline configuration."]
@@ -46,6 +48,8 @@ pub mod string_ownership;
 pub mod types;
 pub mod values;
 
+#[cfg(test)]
+mod native_function_tests;
 #[cfg(test)]
 mod native_outcome_call_tests;
 #[cfg(test)]

@@ -33,7 +33,7 @@ pub(crate) fn current_error_return_type<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> Result<Option<StructType<'context>>, CodegenError> {
     let function = current_function(codegen_context)?;
-    let Some(return_type) = function.get_type().get_return_type() else {
+    let Some(return_type) = codegen_context.application_return_type(function) else {
         return Ok(None);
     };
     if !return_type.is_struct_type() {
