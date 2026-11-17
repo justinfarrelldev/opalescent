@@ -1,0 +1,65 @@
+import format, join from ../src/app
+import int64_to_string from standard
+
+double Format replaces int64_to_string from standard
+    as used by ../src/app
+
+double Join replaces string_join from standard
+    as used by ../src/app
+
+scenario canonical standard boundaries:
+    it should preserve inactive standard operations:
+        f(): void errors inferred =>
+            expect format(7) to be '7'
+            expect propagate join(['a', 'b']) to be 'a::b'
+            return void
+
+    it should intercept one numeric conversion edge without global replacement:
+        f(): void errors inferred =>
+            let writer = new Format
+            stub writer(7) returns 'fake 7'
+            expect format(7) to be 'fake 7'
+            expect int64_to_string(7) to be '7'
+            expect writer to have been called with (7)
+            verify writer
+            restore writer
+            return void
+
+    it should intercept before specialized string array lowering:
+        f(): void errors inferred =>
+            let writer = new Join
+            stub writer(['a', 'b'], '::') returns 'stubbed'
+            expect propagate join(['a', 'b']) to be 'stubbed'
+            expect writer to have been called once
+            expect writer to have been called with (['a', 'b'], '::')
+            verify writer
+            restore writer
+            return void
+
+    it should bypass its own interception while spying on a specialized operation:
+        f(): void errors inferred =>
+            let writer = new Join
+            spy writer using original
+            expect propagate join(['c', 'd']) to be 'c::d'
+            expect writer to have been called once
+            expect writer to have been called with (['c', 'd'], '::')
+            restore writer
+            return void
+
+    it should preserve a deliberately configured nominal standard application error:
+        f(): void =>
+            let writer = new Join
+            stub writer(['a'], '::') fails with AllocationFailureError
+            let observed = guard join(['a']) into unexpected else 'recovered'
+            expect observed to be 'recovered'
+            expect writer to have been called with (['a'], '::')
+            verify writer
+            restore writer
+            return void
+
+    it should abort an unconfigured standard boundary:
+        f(): void errors inferred =>
+            let writer = new Join
+            expect propagate join(['a']) to be 'a'
+            restore writer
+            return void

@@ -62,6 +62,7 @@ pub mod native_outcome;
 pub mod native_polling;
 /// Fully checked source graph to reusable native case descriptor artifact.
 pub mod native_project;
+pub(crate) mod native_standard_adapters;
 /// Typed setup/example construction and ordinary value-drop boundaries.
 pub mod native_value_callbacks;
 #[doc = "LLVM optimization pass pipeline configuration."]

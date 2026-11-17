@@ -14,7 +14,6 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::expressions_array::{
     codegen_array_at_call, codegen_string_at_call, infer_expression_core_type,
-    load_array_data_ptr_for_element_type, load_array_length_from_value,
     materialize_owned_runtime_array_from_raw_elements,
 };
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
@@ -27,9 +26,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::IntPredicate;
 use inkwell::types::BasicMetadataTypeEnum;
-use inkwell::values::{
-    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
-};
+use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
 
 #[path = "functions_call/array.rs"]
 mod array;
@@ -59,12 +56,10 @@ use self::error_propagation::{
 };
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, expected_argument_core_type,
-    infer_guard_binding_core_type, normalize_guard_success_value_for_core_type,
-    uses_aggregate_result_dispatch,
+    infer_guard_binding_core_type, lower_array_argument,
+    normalize_guard_success_value_for_core_type, uses_aggregate_result_dispatch,
 };
-use self::string_array_calls::{
-    extract_error_abi_success_value, maybe_lower_specialized_string_array_call,
-};
+use self::string_array_calls::maybe_lower_specialized_string_array_call;
 pub(crate) use self::tail::declare_external_imported_function;
 pub(crate) use self::using_cleanup::emit_cleanup_aware_error_return;
 use self::using_cleanup::{
@@ -101,38 +96,6 @@ pub fn emit_c_main_wrapper<'context>(
     tail::emit_c_main_wrapper(codegen_context, entry_function)
 }
 
-fn lower_array_argument<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    argument: &Expr,
-    element_core_type: &CoreType,
-) -> Result<(PointerValue<'context>, IntValue<'context>), CodegenError> {
-    let argument_value = codegen_expression(
-        codegen_context,
-        env,
-        argument,
-        Some(&CoreType::Array(Box::new(element_core_type.clone()))),
-    )?;
-    let argument_value = extract_error_abi_success_value(codegen_context, env, argument_value)?;
-    if !argument_value.is_pointer_value() {
-        return Err(CodegenError::new(String::from(
-            "array argument should lower to pointer value",
-        )));
-    }
-
-    let array_payload = argument_value.into_pointer_value();
-    let length_value =
-        load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
-    let data_ptr = load_array_data_ptr_for_element_type(
-        codegen_context,
-        env,
-        array_payload,
-        element_core_type,
-        "call.arg",
-    )?;
-    Ok((data_ptr, length_value))
-}
-
 #[doc = "Lower a function call expression."]
 #[expect(
     clippy::too_many_lines,
@@ -144,8 +107,31 @@ pub fn codegen_call_expression<'context>(
     callee: &Expr,
     generic_args: Option<&[Type]>,
     args: &[Expr],
-    _expected_type: Option<&CoreType>,
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if let Expr::Identifier { ref name, span, id } = *callee {
+        if let Some(target) = env.native_double_calls.get(name).cloned() {
+            // Compiler-private aliases contain a dot, so source bindings cannot shadow them.
+            let alias = env.next_name("__native_double_call");
+            if let Some(signature) = env.imported_signatures.get(name).cloned() {
+                env.imported_signatures.insert(alias.clone(), signature);
+            }
+            env.imported_functions.insert(alias.clone(), target);
+            let native = Expr::Identifier {
+                name: alias,
+                span,
+                id,
+            };
+            return codegen_call_expression(
+                codegen_context,
+                env,
+                &native,
+                generic_args,
+                args,
+                expected_type,
+            );
+        }
+    }
     if let Expr::Identifier { ref name, .. } = *callee {
         let imported_name = env.imported_functions.get(name).cloned();
         let direct_intrinsic = is_array_intrinsic_name(name.as_str());

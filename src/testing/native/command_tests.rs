@@ -494,6 +494,29 @@ fn compiled_managed_rules_capture_values_before_mutation_and_retain_repeated_res
 }
 
 #[test]
+fn standard_double_edges_intercept_before_special_lowering_and_preserve_original_bypass() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-standard-doubles");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("standard double adapter");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value =
+        serde_json::from_str(&output.text).expect("standard adapter report");
+    assert_eq!(report["totals"]["passed"], 5_u64);
+    assert_eq!(report["totals"]["failed"], 1_u64);
+    assert!(
+        report
+            .to_string()
+            .contains("unexpected invocation of active double")
+    );
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

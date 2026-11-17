@@ -1,0 +1,13 @@
+import int64_to_string, string_join from standard
+
+##
+    Description: Numeric conversion keeps its canonical standard import edge.
+##
+public let format = f(value: int64): string =>
+    return int64_to_string(value)
+
+##
+    Description: Joining exercises compiler-specialized string-array lowering.
+##
+public let join = f(values: string[]): string errors AllocationFailureError =>
+    return propagate string_join(values, '::')

@@ -192,9 +192,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Rule payload and argument-snapshot release callbacks are distinct: history never reads nonexistent result slots, while stored results retain ordinary return ownership for every repeated invocation. Replacement payload release remains separate and never reads uninitialized application fields.
 - [x] `native-testing-double-managed` proves expected-argument capture before result-side mutation, COW preservation of configured/observed arrays, repeated managed result returns, and after-hook history access after body abort has released its original string values.
 - [x] Managed snapshot increment verification: 1,811 library tests passed serially (8 existing ignored); strict Rust lint and file-length gates passed.
-- [ ] Managed rule/history increment commit and unchanged gates.
+- [x] Managed rule/history committed as `add476a`; all unchanged pre-commit gates passed, including production integration and extension checks.
 - [ ] Complete explicit FilesystemPath snapshots/equality, supported record/variant snapshot policy, full history diagnostics and polling integration. Unsupported data layouts still produce compilation diagnostics or remain count-only fallbacks; no borrowed-address histories or fabricated results are introduced.
-- [ ] Compile standard-library interception adapters before special lowering and finish indirect/foreign boundary diagnostics. Source-edge wrappers are operational, but full executable typed doubles are not complete.
+- [x] Standard original-call adapter RED/GREEN: construct typed compiler-only forwarding containers with existing borrowed parameter, return/error and ordinary standard-library lowering; native metadata stays explicit and production C ABIs are unchanged.
+- [x] Explicit import-edge call metadata routes through private unshadowable compiler aliases before special/intrinsic lowering, while original bridges use isolated environments without interception and cannot recurse into their own spies.
+- [x] `native-testing-standard-doubles` proves inactive conversion/join behavior, numeric and specialized string-array interception, other-edge isolation, managed results/history, original-spy bypass, ordinary configured nominal allocation errors and unconfigured standard-call aborts.
+- [x] Standard adapter verification: 1,812 library tests passed serially (8 existing ignored); strict Rust lint and file-length gates passed. Legacy array-argument lowering was separated into its existing helper module without changing its ABI or weakening gates.
+- [ ] Standard adapter increment commit and unchanged gates.
+- [ ] Verify filesystem/terminal/process standard adapters with their support libraries and editor acceptance; complete FilesystemPath data snapshots and indirect/foreign boundary diagnostic audit. Full executable typed-double and acceptance work is not complete.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.

@@ -5,17 +5,54 @@
 )]
 extern crate alloc;
 
+use super::string_array_calls::extract_error_abi_success_value;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::CodegenEnv;
+use crate::codegen::expressions::{CodegenEnv, codegen_expression};
+use crate::codegen::expressions_array::{
+    load_array_data_ptr_for_element_type, load_array_length_from_value,
+};
 use crate::type_system::types::CoreType;
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::IntPredicate;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
+
+/// Lower the unchanged legacy data/length array-argument ABI in one helper.
+pub(super) fn lower_array_argument<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    argument: &Expr,
+    element_core_type: &CoreType,
+) -> Result<(PointerValue<'context>, inkwell::values::IntValue<'context>), CodegenError> {
+    let argument_value = codegen_expression(
+        codegen_context,
+        env,
+        argument,
+        Some(&CoreType::Array(Box::new(element_core_type.clone()))),
+    )?;
+    let argument_value = extract_error_abi_success_value(codegen_context, env, argument_value)?;
+    if !argument_value.is_pointer_value() {
+        return Err(CodegenError::new(String::from(
+            "array argument should lower to pointer value",
+        )));
+    }
+    let array_payload = argument_value.into_pointer_value();
+    let length_value =
+        load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
+    let data_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_payload,
+        element_core_type,
+        "call.arg",
+    )?;
+    Ok((data_ptr, length_value))
+}
 
 #[doc = "Emit early-return default for propagate error path."]
 pub(super) fn emit_function_default_return<'context>(

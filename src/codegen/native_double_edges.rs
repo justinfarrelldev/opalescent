@@ -20,18 +20,25 @@ pub fn install<'context>(
         if declaration.edge.importing_module != env.current_source_path {
             continue;
         }
-        let source =
-            super::native_project::symbol("source", &declaration.edge.imported_function.0)?;
-        let original = ctx.module.get_function(&source).ok_or_else(|| CodegenError::new("double boundary requires a compiled native source or explicit standard-library adapter"))?;
+        let signature = checked
+            .double_signatures
+            .get(&declaration.identity)
+            .ok_or_else(|| CodegenError::new("edge has no checked double signature"))?;
+        let identity = &declaration.edge.imported_function.0;
+        let original = if identity.module == "standard" || identity.module.starts_with("standard.")
+        {
+            super::native_standard_adapters::emit(ctx, env, declaration, signature)?
+        } else {
+            let source = super::native_project::symbol("source", identity)?;
+            ctx.module.get_function(&source).ok_or_else(|| {
+                CodegenError::new("double boundary requires a compiled native source declaration")
+            })?
+        };
         if ctx.native_function_outcome(original).is_none() {
             return Err(CodegenError::new(
                 "double boundary cannot silently intercept an unsupported foreign ABI",
             ));
         }
-        let signature = checked
-            .double_signatures
-            .get(&declaration.identity)
-            .ok_or_else(|| CodegenError::new("edge has no checked double signature"))?;
         let dispatcher = emit(ctx, &declaration.edge, original, signature)?;
         let symbol = dispatcher
             .get_name()
@@ -40,6 +47,8 @@ pub fn install<'context>(
             .to_owned();
         for alias in &declaration.import_names {
             env.imported_functions.insert(alias.clone(), symbol.clone());
+            env.native_double_calls
+                .insert(alias.clone(), symbol.clone());
         }
     }
     Ok(())
