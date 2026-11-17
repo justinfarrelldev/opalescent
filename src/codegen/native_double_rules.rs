@@ -18,6 +18,18 @@ pub struct RuleLayout<'context> {
     pub logical: StructType<'context>,
     /// Unchanged ordinary application return/error ABI, absent for plain void.
     pub application: Option<BasicTypeEnum<'context>>,
+    /// Explicit target-native replacement function ABI.
+    pub replacement: inkwell::types::PointerType<'context>,
+}
+
+impl RuleLayout<'_> {
+    /// Replacement pointers occupy the final explicitly generated payload field.
+    pub fn replacement_index(self) -> Result<u32, CodegenError> {
+        self.payload
+            .count_fields()
+            .checked_sub(1)
+            .ok_or_else(|| CodegenError::new("replacement payload has no function pointer field"))
+    }
 }
 
 /// Compiler-only pure C callback headers.
@@ -85,13 +97,19 @@ pub fn layout<'context>(
         &signature.error_types,
     )?
     .get_return_type();
+    let replacement = super::native_outcome::NativeOutcomeType::new(ctx.context, application)
+        .llvm_type()
+        .fn_type(&parameters, false)
+        .ptr_type(AddressSpace::default());
     let mut payload = logical.clone();
     payload.extend(application);
+    payload.push(replacement.into());
     Ok(RuleLayout {
         payload: ctx.context.struct_type(&payload, false),
         physical: ctx.context.struct_type(&physical, false),
         logical: ctx.context.struct_type(&logical, false),
         application,
+        replacement,
     })
 }
 
@@ -128,27 +146,7 @@ fn emit_callbacks<'context>(
     let plan = layout(ctx, signature)?;
     let matches = matching(ctx, env, &format!("{name}.match"), signature, plan, true)?;
     let overlap = matching(ctx, env, &format!("{name}.overlap"), signature, plan, false)?;
-    let pointer = ctx.context.i8_type().ptr_type(AddressSpace::default());
-    let release = c_function(
-        ctx,
-        &format!("{name}.drop"),
-        ctx.context.void_type().fn_type(&[pointer.into()], false),
-    )?;
-    if release.count_basic_blocks() == 0 {
-        release.set_linkage(inkwell::module::Linkage::Private);
-        ctx.builder
-            .position_at_end(ctx.context.append_basic_block(release, "entry"));
-        let free = c_function(
-            ctx,
-            "free",
-            ctx.context.void_type().fn_type(&[pointer.into()], false),
-        )?;
-        let argument = release
-            .get_first_param()
-            .ok_or_else(|| CodegenError::new("rule release omitted its owned pointer"))?;
-        ctx.builder.build_call(free, &[argument.into()], "")?;
-        ctx.builder.build_return(None)?;
-    }
+    let release = free_callback(ctx, &format!("{name}.drop"))?;
     let snapshot = copy_arguments(ctx, &format!("{name}.snapshot"), signature, plan)?;
     Ok(RuleCallbacks {
         matches,
@@ -156,6 +154,45 @@ fn emit_callbacks<'context>(
         release,
         snapshot,
     })
+}
+
+/// Release only framework allocation memory, preserving the current source builder.
+pub fn free_callback<'context>(
+    ctx: &CodegenContext<'context>,
+    name: &str,
+) -> Result<FunctionValue<'context>, CodegenError> {
+    let pointer = ctx.context.i8_type().ptr_type(AddressSpace::default());
+    let release = c_function(
+        ctx,
+        name,
+        ctx.context.void_type().fn_type(&[pointer.into()], false),
+    )?;
+    if release.count_basic_blocks() != 0 {
+        return Ok(release);
+    }
+    let previous = ctx.builder.get_insert_block();
+    release.set_linkage(inkwell::module::Linkage::Private);
+    ctx.builder
+        .position_at_end(ctx.context.append_basic_block(release, "entry"));
+    let result = (|| {
+        let free = c_function(
+            ctx,
+            "free",
+            ctx.context.void_type().fn_type(&[pointer.into()], false),
+        )?;
+        let argument = release
+            .get_first_param()
+            .ok_or_else(|| CodegenError::new("value release omitted its owned pointer"))?;
+        ctx.builder.build_call(free, &[argument.into()], "")?;
+        ctx.builder.build_return(None)?;
+        Ok(())
+    })();
+    if let Some(previous) = previous {
+        ctx.builder.position_at_end(previous);
+    } else {
+        ctx.builder.clear_insertion_position();
+    }
+    result.map(|()| release)
 }
 
 /// Read one checked argument position, dereferencing a borrow only during the call.

@@ -1,0 +1,19 @@
+import type ReplacementInput from ./replacement_input.types
+
+##
+    Description: Fallible application boundary keeps its existing ABI.
+##
+public let operation = f(value: int64): int64 errors ParseError =>
+    return value
+
+##
+    Description: A fallible void operation has no invented source result.
+##
+public let signal = f(): void errors ParseError =>
+    return void
+
+##
+    Description: Borrowed nominal arguments permit count-only replacements.
+##
+public let opaque = f(ref input: ReplacementInput): int64 errors ParseError =>
+    return input.value + 0

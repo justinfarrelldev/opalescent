@@ -427,6 +427,33 @@ fn compiled_scalar_rules_snapshot_borrows_and_reject_duplicates_unused_rules_and
 }
 
 #[test]
+fn compiled_replacements_adapt_success_preserve_errors_and_propagate_test_aborts() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-replacements");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("compiled replacement fallback");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("replacement report");
+    assert_eq!(report["totals"]["passed"], 4_u64);
+    assert_eq!(report["totals"]["failed"], 1_u64);
+    let aborted = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"]
+                == "propagate replacement assertion aborts before application guards"
+        })
+        .expect("aborted replacement");
+    assert_eq!(aborted["execution"]["outcome"], "assertion_failed");
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

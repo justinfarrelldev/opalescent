@@ -1,0 +1,21 @@
+import operation as imported_operation, signal as imported_signal, opaque as imported_opaque from ./io
+import type ReplacementInput from ./replacement_input.types
+
+##
+    Description: The importing module owns the replaceable edge.
+##
+public let apply = f(value: int64): int64 errors ParseError =>
+    return propagate imported_operation(value)
+
+##
+    Description: Preserve the ordinary void error ABI across this edge.
+##
+public let apply_signal = f(): void errors ParseError =>
+    propagate imported_signal()
+    return void
+
+##
+    Description: Retain original storage for a borrowed nominal argument.
+##
+public let apply_opaque = f(ref input: ReplacementInput): int64 errors ParseError =>
+    return propagate imported_opaque(ref input)

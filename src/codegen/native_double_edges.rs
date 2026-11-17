@@ -93,15 +93,7 @@ fn emit_body<'context>(
     ctx.builder
         .position_at_end(llvm.append_basic_block(function, "entry"));
     let plan = super::native_double_rules::layout(ctx, signature)?;
-    let arguments = ctx
-        .builder
-        .build_alloca(plan.physical, "double.arguments")?;
-    for (index, value) in function.get_param_iter().enumerate() {
-        super::native_double_configuration::store(ctx, arguments, index, value)?;
-    }
-    let actual = ctx
-        .builder
-        .build_pointer_cast(arguments, pointer, "double.actual.arguments")?;
+    let actual = pack_arguments(ctx, function, plan.physical)?;
     let selection_type = llvm.struct_type(&[llvm.i32_type().into(), pointer.into()], false);
     let selection = ctx
         .builder
@@ -146,10 +138,10 @@ fn emit_body<'context>(
         "double.original.selected",
     )?;
     let forward = llvm.append_basic_block(function, "double.original");
-    let unsupported = llvm.append_basic_block(function, "double.typed.rule.required");
+    let selected = llvm.append_basic_block(function, "double.typed.rule.required");
     ctx.builder
-        .build_conditional_branch(is_original, forward, unsupported)?;
-    ctx.builder.position_at_end(unsupported);
+        .build_conditional_branch(is_original, forward, selected)?;
+    ctx.builder.position_at_end(selected);
     let stored = llvm.append_basic_block(function, "double.stored.application");
     let invalid = llvm.append_basic_block(function, "double.unsupported.selection");
     let is_stored = ctx.builder.build_int_compare(
@@ -163,6 +155,19 @@ fn emit_body<'context>(
     ctx.builder.position_at_end(stored);
     return_stored(ctx, function, selection, plan, signature.parameters.len())?;
     ctx.builder.position_at_end(invalid);
+    let replacement = llvm.append_basic_block(function, "double.replacement");
+    let unsupported = llvm.append_basic_block(function, "double.invalid.selection");
+    let is_replacement = ctx.builder.build_int_compare(
+        IntPredicate::EQ,
+        kind,
+        llvm.i32_type().const_int(4, false),
+        "double.replacement.selected",
+    )?;
+    ctx.builder
+        .build_conditional_branch(is_replacement, replacement, unsupported)?;
+    ctx.builder.position_at_end(replacement);
+    super::native_double_replacements::invoke(ctx, function, selection, signature)?;
+    ctx.builder.position_at_end(unsupported);
     let failure = unsupported_rule(ctx, pointer)?;
     super::native_abort::emit_native_abort(ctx, &mut env, failure, &[])?;
     ctx.builder.position_at_end(forward);
@@ -178,6 +183,23 @@ fn emit_body<'context>(
         .ok_or_else(|| CodegenError::new("native original omitted its explicit outcome"))?;
     ctx.builder.build_return(Some(&outcome))?;
     Ok(())
+}
+
+/// Pack already-evaluated physical arguments once, without extending source borrows.
+fn pack_arguments<'context>(
+    ctx: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+    physical: inkwell::types::StructType<'context>,
+) -> Result<inkwell::values::PointerValue<'context>, CodegenError> {
+    let arguments = ctx.builder.build_alloca(physical, "double.arguments")?;
+    for (index, value) in function.get_param_iter().enumerate() {
+        super::native_double_configuration::store(ctx, arguments, index, value)?;
+    }
+    Ok(ctx.builder.build_pointer_cast(
+        arguments,
+        ctx.context.i8_type().ptr_type(AddressSpace::default()),
+        "double.actual.arguments",
+    )?)
 }
 
 /// Stored results use explicit checked application metadata, including ordinary errors.

@@ -1,0 +1,5 @@
+##
+    Description: A nominal value outside the initial scalar history subset.
+##
+public type ReplacementInput:
+    value: int64

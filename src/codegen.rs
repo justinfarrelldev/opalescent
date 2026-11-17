@@ -50,6 +50,7 @@ pub mod native_descriptors;
 pub(crate) mod native_double_configuration;
 pub(crate) mod native_double_edges;
 pub(crate) mod native_double_history;
+pub(crate) mod native_double_replacements;
 pub(crate) mod native_double_rules;
 pub(crate) mod native_doubles;
 /// Explicit test-build function declarations and ordinary result emission.

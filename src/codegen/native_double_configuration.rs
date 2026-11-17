@@ -41,6 +41,15 @@ pub fn configure<'context>(
     arguments: Option<&[Expr]>,
     behavior: &StubBehavior,
 ) -> Result<(), CodegenError> {
+    if let StubBehavior::Replacement(ref replacement) = *behavior {
+        return super::native_double_replacements::configure(
+            ctx,
+            env,
+            target,
+            arguments,
+            replacement,
+        );
+    }
     let (key, signature) = signature(env, target)?;
     if matches!(*behavior, StubBehavior::Return(_))
         && !signature

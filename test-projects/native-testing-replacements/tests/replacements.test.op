@@ -1,0 +1,87 @@
+import apply, apply_signal, apply_opaque from ../src/app
+import type ReplacementInput from ../src/replacement_input.types
+
+double Write replaces operation from ../src/io
+    as used by ../src/app
+
+double Signal replaces signal from ../src/io
+    as used by ../src/app
+
+double Opaque replaces opaque from ../src/io
+    as used by ../src/app
+
+let void_success = f(): void =>
+    print('void replacement success')
+    return void
+
+let opaque_success = f(ref input: ReplacementInput): int64 =>
+    return input.value + 5
+
+let success = f(value: int64): int64 =>
+    print('replacement success')
+    return value + 5
+
+let application_failure = f(value: int64): int64 errors ParseError =>
+    print('replacement application error')
+    let parsed = propagate string_to_int32('invalid')
+    return parsed as int64
+
+let assertion_failure = f(value: int64): int64 =>
+    print('replacement assertion abort')
+    expect false to be true
+    return value
+
+scenario typed replacement fallbacks:
+    it should adapt nonfallible replacements without widening application errors:
+        f(): void errors inferred =>
+            let writer = new Write
+            stub writer(1) returns 9
+            stub writer using success
+            expect propagate apply(1) to be 9
+            expect propagate apply(2) to be 7
+            expect writer to have been called exactly 2 times
+            expect writer to have been called with (2)
+            verify writer
+            restore writer
+            return void
+
+    it should preserve declared application errors from replacement functions:
+        f(): void =>
+            let writer = new Write
+            stub writer using application_failure
+            let observed = guard apply(2) into unexpected else 42
+            expect observed to be 42
+            expect writer to have been called once
+            restore writer
+            return void
+
+    it should adapt a nonfallible void replacement without inventing a result:
+        f(): void errors inferred =>
+            let writer = new Signal
+            stub writer using void_success
+            propagate apply_signal()
+            expect writer to have been called once
+            expect writer to have been called with ()
+            restore writer
+            return void
+
+    it should allow count only replacements without snapshotting borrowed nominal addresses:
+        f(): void errors inferred =>
+            let writer = new Opaque
+            stub writer using opaque_success
+            let input: ReplacementInput = new ReplacementInput:
+                value: 3
+            expect propagate apply_opaque(ref input) to be 8
+            expect writer to have been called once
+            verify writer
+            restore writer
+            return void
+
+    it should propagate replacement assertion aborts before application guards:
+        f(): void =>
+            let writer = new Write
+            stub writer using assertion_failure
+            let observed = guard apply(2) into unexpected else 42
+            expect observed to be 42
+            restore writer
+            return void
