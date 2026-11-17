@@ -48,6 +48,40 @@ fn support_imports_select_test_mode_but_their_application_dependencies_do_not() 
 }
 
 #[test]
+fn test_modules_can_import_ordinary_helpers_from_explicit_test_support_modules() {
+    let directory = tempfile::tempdir().expect("fixture directory");
+    std::fs::write(
+        directory.path().join("case.test.op"),
+        "import world Workspace from ./support\nimport helper from ./support\n",
+    )
+    .expect("test imports");
+    std::fs::write(directory.path().join("support.op"), "world Workspace:\n    setup: f(): int64 =>\n        return 1\npublic let helper = f(): int64 =>\n    return 1\n").expect("test support");
+    let loaded =
+        NativeTestProject::load(directory.path(), &[directory.path().join("case.test.op")]);
+    assert!(loaded.is_ok(), "{loaded:?}");
+}
+
+#[test]
+fn application_dependencies_cannot_import_explicit_test_support() {
+    let directory = tempfile::tempdir().expect("fixture directory");
+    std::fs::write(
+        directory.path().join("case.test.op"),
+        "import world Workspace from ./support\nimport leak from ./application\n",
+    )
+    .expect("test imports");
+    std::fs::write(directory.path().join("support.op"), "world Workspace:\n    setup: f(): int64 =>\n        return 1\npublic let helper = f(): int64 =>\n    return 1\n").expect("test support");
+    std::fs::write(
+        directory.path().join("application.op"),
+        "import helper from ./support\npublic let leak = f(): int64 =>\n    return helper()\n",
+    )
+    .expect("production dependency");
+    assert!(
+        NativeTestProject::load(directory.path(), &[directory.path().join("case.test.op")])
+            .is_err()
+    );
+}
+
+#[test]
 fn world_declarations_cannot_bypass_types_file_restrictions() {
     let directory = tempfile::tempdir().expect("fixture directory");
     std::fs::write(

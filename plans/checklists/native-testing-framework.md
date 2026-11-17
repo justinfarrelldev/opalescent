@@ -57,7 +57,13 @@ Unchecked phases are not implemented or verified.
 - [x] Matcher typing RED/GREEN: scalar equality, numeric/string/empty/ordered-array operations and genuine nominal variants; unsupported operand types fail checking.
 - [x] `errors inferred` RED/GREEN on managed callbacks: collect only escaping nominal application errors; handled errors and assertion failures do not widen the set; nested ordinary helpers retain explicit rules.
 - [x] Inference uses the existing guard/propagate and explicit `using` error paths without introducing cleanup or ownership machinery.
-- [ ] Matcher/error-inference increment full verification and unchanged pre-commit gates.
+- [x] Matcher/error-inference committed as `830b869`; all unchanged pre-commit gates passed.
+- [x] Test-support helper import RED/GREEN: establish explicit test-support closure before ordinary dependencies, permitting normal helper imports from tests without enabling test grammar in application dependencies.
+- [x] Body signature contract RED/GREEN: nominal order/reference modes, missing/extra parameters and a final mutable context slot.
+- [x] Generated test context has typed runner metadata fields; ordinary application grammar/type mapping remains unchanged.
+- [x] Current verification: 1,703 library tests passed (8 existing ignored); strict lint/file-length gates being rechecked before commits.
+- [ ] Support-module loading fix commit and unchanged pre-commit gates.
+- [ ] Body/context contract increment commit and unchanged pre-commit gates.
 
 ## Remaining integration warning
 

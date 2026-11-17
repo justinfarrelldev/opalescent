@@ -8,7 +8,7 @@ use crate::lexer::{Lexer, ModuleMode};
 use crate::module_loader::{is_types_file, resolve_import_path, validate_module_file_role};
 use crate::parser::Parser;
 use crate::type_system::errors::TypeError;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
@@ -76,7 +76,7 @@ pub enum NativeLoadError {
         error: Box<TypeError>,
     },
     /// One module must not be parsed in conflicting production/test roles.
-    #[error("test-only module {0:?} must be reached through an explicit World/double import")]
+    #[error("ordinary application code cannot import test-only support module {0:?}")]
     ModeConflict(PathBuf),
     /// Generated module identities cannot silently collapse non-UTF-8 paths.
     #[error("module path has no portable UTF-8 identity: {0:?}")]
@@ -101,43 +101,49 @@ impl NativeTestProject {
     /// Returns original frontend, import, file-role and filesystem diagnostics.
     pub fn load(root: &Path, test_files: &[PathBuf]) -> Result<Self, NativeLoadError> {
         let root = canonical_path(root)?;
-        let mut modes = BTreeMap::new();
-        let mut pending = BTreeMap::new();
+        let mut pending_tests = BTreeSet::new();
+        let mut pending_applications = BTreeSet::new();
         let mut roots = Vec::new();
         for test_file in test_files {
             let path = canonical_path(test_file)?;
-            modes.insert(path.clone(), ModuleMode::Test);
-            pending.insert(path.clone(), ModuleMode::Test);
+            pending_tests.insert(path.clone());
             roots.push(path);
         }
         let mut modules = BTreeMap::new();
-        while let Some((path, mode)) = pending.pop_first() {
-            let source = std::fs::read_to_string(&path).map_err(|error| NativeLoadError::Io {
-                path: path.clone(),
-                error,
-            })?;
-            let ast = parse_module(&path, &source, mode)?;
-            let dependencies = module_dependencies(&path, &ast)?;
-            for (dependency, dependency_mode) in dependencies {
-                if let Some(previous_mode) = modes.get(&dependency) {
-                    if *previous_mode != dependency_mode {
-                        return Err(NativeLoadError::ModeConflict(dependency));
-                    }
+        // Establish the complete explicit test-support closure first. A test
+        // may then import an ordinary helper from one of those support modules
+        // without making grammar selection depend on traversal/source order.
+        while let Some(path) = pending_tests.pop_first() {
+            if modules.contains_key(&path) {
+                continue;
+            }
+            let module = load_source_module(&root, &path, ModuleMode::Test)?;
+            for (dependency, mode) in module_dependencies(&path, &module.ast)? {
+                if mode == ModuleMode::Test {
+                    pending_tests.insert(dependency);
                 } else {
-                    modes.insert(dependency.clone(), dependency_mode);
-                    pending.insert(dependency, dependency_mode);
+                    pending_applications.insert(dependency);
                 }
             }
-            let identity = relative_module_identity(&root, &path)?;
-            modules.insert(
-                path.clone(),
-                LoadedModule {
-                    path,
-                    identity,
-                    source,
-                    ast,
-                },
-            );
+            modules.insert(path, module);
+        }
+        pending_applications.retain(|path| !modules.contains_key(path));
+        while let Some(path) = pending_applications.pop_first() {
+            if modules.contains_key(&path) {
+                continue;
+            }
+            let module = load_source_module(&root, &path, ModuleMode::Application)?;
+            for (dependency, _) in module_dependencies(&path, &module.ast)? {
+                if modules.get(&dependency).is_some_and(|dependency_module| {
+                    matches!(dependency_module.ast, LoadedModuleAst::Test(_))
+                }) {
+                    return Err(NativeLoadError::ModeConflict(dependency));
+                }
+                if !modules.contains_key(&dependency) {
+                    pending_applications.insert(dependency);
+                }
+            }
+            modules.insert(path, module);
         }
         Ok(Self {
             root,
@@ -145,6 +151,26 @@ impl NativeTestProject {
             test_files: roots,
         })
     }
+}
+
+/// Read one source exactly once after its module role has been established.
+fn load_source_module(
+    root: &Path,
+    path: &Path,
+    mode: ModuleMode,
+) -> Result<LoadedModule, NativeLoadError> {
+    let source = std::fs::read_to_string(path).map_err(|error| NativeLoadError::Io {
+        path: path.to_owned(),
+        error,
+    })?;
+    let ast = parse_module(path, &source, mode)?;
+    let identity = relative_module_identity(root, path)?;
+    Ok(LoadedModule {
+        path: path.to_owned(),
+        identity,
+        source,
+        ast,
+    })
 }
 
 /// Canonicalize at the I/O boundary, preserving the original error path.
