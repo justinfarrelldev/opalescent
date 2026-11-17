@@ -1,0 +1,244 @@
+import backspace_at_cursor, buffer_cursor, move_down from ../src/buffer
+import apply_text_input, apply_named_key from ../src/input
+import initial_editor_state from ../src/state
+
+import type EditorMode, EditorStatus, EditorTermination from ../src/editor.types
+import type TerminalNamedKey from standard.terminal
+import type FailedSaveExample from ./editor_examples.types
+
+import path_from, write_text_sync, read_text_sync from standard
+import temporary_directory_create, temporary_directory_file from standard.testing
+import temporary_directory_remove from standard.testing
+import type TemporaryDirectory from standard.testing
+
+##
+    Description:
+        Two lines containing a non-ASCII character.
+
+        The first line has four Unicode scalar values. Cursor coordinates
+        must not count the bytes used to encode the accented character.
+##
+world TwoLineDocument:
+    setup: f(): string[] =>
+        return ['café', '!']
+
+##
+    Description:
+        A private real directory for one test attempt.
+
+        Cleanup is explicitly declared. The framework calls it but does
+        not verify whether external resources remain afterward.
+##
+world Workspace:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+
+    cleanup:
+        f(mutable ref directory: TemporaryDirectory): void errors inferred =>
+            propagate temporary_directory_remove(mutable ref directory)
+            return void
+
+double AtomicWrite replaces write_text_atomic_sync from standard
+    as used by ../src/buffer
+
+##
+    Description:
+        Controls the final atomic write made by buffer.op.
+
+        Input handling, command execution, and buffer serialization remain
+        real. Tests that do not request this World use the real writer.
+##
+world ControlledWrites:
+    setup: f(): AtomicWrite =>
+        return new AtomicWrite
+
+    cleanup:
+        f(mutable ref writer: AtomicWrite): void =>
+            restore writer
+            return void
+
+##
+    Description:
+        Removing a line boundary must preserve the text on both sides.
+
+        The cursor should end at the join in scalar coordinates.
+##
+scenario joining adjacent lines:
+    unit under test: backspace_at_cursor
+    kind: unit
+    worlds: TwoLineDocument
+
+    it should join both lines and leave the cursor after the accented word:
+        f(ref document: TwoLineDocument): void errors inferred =>
+            let cursor = buffer_cursor(1, 0)
+
+            let updated_lines, updated_cursor = propagate backspace_at_cursor(
+                document.state,
+                cursor
+            )
+
+            expect updated_lines to contain exactly ['café!'] in order
+            expect updated_lines.length to be less than document.state.length
+            expect updated_cursor.line to be 0
+            expect updated_cursor.column to be 4
+
+            return void
+
+##
+    Description:
+        Moving down onto a shorter line must keep the cursor within it.
+
+        This checks buffer coordinates, not terminal display-cell widths.
+##
+scenario moving onto a shorter line:
+    unit under test: move_down
+    kind: unit
+    worlds: TwoLineDocument
+
+    it should clamp the cursor to the end of the destination line:
+        f(ref document: TwoLineDocument): void errors inferred =>
+            let cursor = buffer_cursor(0, 4)
+            let result = propagate move_down(document.state, cursor)
+
+            expect result.line to be 1
+            expect result.column to be 1
+            expect result.column to be less than cursor.column
+
+            return void
+
+##
+    Description:
+        A real edit followed by a write command must persist the edited
+        document, clear the dirty flag, and leave the editor open.
+
+        No write double is active for this test.
+##
+scenario saving an edited document:
+    unit under test: apply_named_key
+    kind: integration
+    worlds: TwoLineDocument, Workspace
+
+    it should save the edited lines and remain open for further editing:
+        f(
+            ref document: TwoLineDocument,
+            ref workspace: Workspace
+        ): void errors inferred =>
+            let path = temporary_directory_file(ref workspace.state, 'note.txt')
+            propagate write_text_sync(path_from(path), 'café\n!')
+
+            let initial = initial_editor_state(path, true, true)
+            let editing = initial with:
+                mode: new EditorMode.Insert
+                cursor: buffer_cursor(1, 1)
+
+            let updated_lines: edited_lines, transition: edit =
+                propagate apply_text_input(
+                    document.state,
+                    editing,
+                    ' Reviewed'
+                )
+
+            expect edited_lines to contain exactly ['café', '! Reviewed'] in order
+            expect edit.state.dirty to be true
+
+            let command = edit.state with:
+                mode: new EditorMode.Command
+                command_text: 'w'
+
+            let updated_lines, transition = propagate apply_named_key(
+                path,
+                edited_lines,
+                command,
+                new TerminalNamedKey.Enter
+            )
+
+            let saved_text = propagate read_text_sync(path_from(path))
+
+            expect saved_text to be 'café\n! Reviewed'
+            expect saved_text not to end with '\n'
+            expect updated_lines to contain exactly ['café', '! Reviewed'] in order
+            expect transition.state.status to be the Written variant of EditorStatus
+            expect transition.state.dirty to be false
+            expect transition.state.saved to be true
+            expect transition.state.running to be true
+            expect transition.state.mode to be the Normal variant of EditorMode
+            expect transition.state.command_text to be empty
+            expect transition.should_bell to be false
+
+            return void
+
+##
+    Description:
+        Failed saves must leave the unsaved document available.
+
+        Write-and-quit permits closing only after saving succeeds.
+        A full filesystem must not cause either command to discard edits.
+
+        Only the final atomic write is replaced. The previous file contents
+        remain real and are checked after the command.
+##
+scenario preserving unsaved work after a write failure:
+    unit under test: apply_named_key
+    kind: integration
+    worlds: TwoLineDocument, Workspace, ControlledWrites
+
+    before each test:
+        f(mutable ref writes: ControlledWrites): void =>
+            stub writes.state:
+                otherwise fail the test
+
+            return void
+
+    after each test:
+        f(ref writes: ControlledWrites): void =>
+            verify writes.state
+            return void
+
+    it should keep the document open when the filesystem is full:
+        examples of FailedSaveExample:
+            example write without quitting:
+                command_text: 'w'
+
+            example write before quitting:
+                command_text: 'wq'
+
+        f(
+            ref document: TwoLineDocument,
+            ref workspace: Workspace,
+            mutable ref writes: ControlledWrites,
+            ref example: FailedSaveExample
+        ): void errors inferred =>
+            let path = temporary_directory_file(ref workspace.state, 'note.txt')
+            propagate write_text_sync(path_from(path), 'Previous saved contents')
+
+            let initial = initial_editor_state(path, true, true)
+            let command = initial with:
+                dirty: true
+                mode: new EditorMode.Command
+                command_text: example.command_text
+
+            stub writes.state(path_from(path), 'café\n!')
+                fails with FilesystemFullError
+
+            let updated_lines, transition = propagate apply_named_key(
+                path,
+                document.state,
+                command,
+                new TerminalNamedKey.Enter
+            )
+
+            expect updated_lines to contain exactly ['café', '!'] in order
+            expect transition.state.running to be true
+            expect transition.state.dirty to be true
+            expect transition.state.saved to be false
+            expect transition.state.status to be the WriteFailed variant of EditorStatus
+            expect transition.state.termination to be the Running variant of EditorTermination
+            expect transition.state.mode to be the Normal variant of EditorMode
+            expect transition.state.command_text to be empty
+            expect transition.should_bell to be true
+            expect writes.state to have been called once
+
+            let unchanged_text = propagate read_text_sync(path_from(path))
+            expect unchanged_text to be 'Previous saved contents'
+
+            return void

@@ -681,6 +681,23 @@ fn explicit_workspaces_support_io_cleanup_after_abort_and_no_implicit_cleanup() 
 }
 
 #[test]
+fn specification_editor_conformance_runs_five_independent_cases() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/terminal-simple-editor");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+        "--jobs".to_owned(),
+        "2".to_owned(),
+    ])
+    .expect("editor conformance");
+    assert_eq!(output.exit_code, 0_i32, "{}", output.text);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("report");
+    assert_eq!(report["totals"]["passed"], 5_u64);
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

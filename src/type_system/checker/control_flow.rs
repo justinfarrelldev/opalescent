@@ -240,10 +240,11 @@ impl TypeChecker {
                 span: TypeError::span_from_span(span),
             });
         };
-        let variant_owner = format!("{family_name}.{member_name}");
+        let canonical_family = self.native_constructor_owner(family_name);
+        let variant_owner = format!("{canonical_family}.{member_name}");
         let is_registered_variant = self
             .adt_variants
-            .get(family_name)
+            .get(&canonical_family)
             .is_some_and(|variants| variants.iter().any(|candidate| candidate == &variant_owner));
         if !is_registered_variant {
             return Err(TypeError::ConstraintSolvingFailed {
@@ -251,7 +252,7 @@ impl TypeChecker {
                 span: TypeError::span_from_span(span),
             });
         }
-        Ok((family_name.clone(), variant_owner, span))
+        Ok((canonical_family, variant_owner, span))
     }
 
     /// Return an expression with transparent parentheses removed.
