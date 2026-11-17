@@ -36,6 +36,8 @@ pub mod monomorphization;
 pub(crate) mod native_abort;
 /// Typed native assertion operations and source-aware failure sites.
 pub(crate) mod native_assertions;
+/// Typed native callback boundaries for the lifecycle runtime.
+pub mod native_callbacks;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
@@ -54,6 +56,8 @@ pub mod values;
 
 #[cfg(test)]
 mod native_assertion_tests;
+#[cfg(test)]
+mod native_callback_tests;
 #[cfg(test)]
 mod native_cleanup_call_tests;
 #[cfg(test)]

@@ -77,3 +77,21 @@ do not replace its type binding.
 Native lowering must consume these canonical identities while preserving source
 names for reflection and diagnostics, and must keep the production artifact ABI
 separate. The lowerer must not infer LLVM layouts from aliases' spelling.
+
+## Native execution boundaries
+
+`codegen/native_outcome.rs` preserves the original application return ABI inside
+an independent completed/aborted channel. `codegen/native_functions.rs` registers
+that ABI explicitly per function; native calls branch before ordinary guard/error
+handling. `codegen/native_abort.rs` invokes existing lexical scope exits without
+adding resource discovery or synthesized cleanup.
+
+`runtime/opal_testing_runtime.{c,h}` owns attempt failure diagnostics only.
+`runtime/opal_testing_lifecycle.{c,h}` invokes compiler-generated wrappers in
+descriptor order, retaining initialized World slots and entered hook scopes.
+These slots are lifecycle bookkeeping, not an acquired-resource ledger.
+
+The uniform wrapper ABI returns an integer status with explicit failure/error
+outputs, avoiding C aggregate-return ABI assumptions. Argument-free void bridges
+are emitted by `codegen/native_callbacks.rs`; typed argument and state-value
+wrapper generation remains tracked in the delivery checklist.

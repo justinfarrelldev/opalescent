@@ -131,8 +131,17 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Host-native evaluation probes verify actual/expected expressions run once in source order on success and failure.
 - [x] Refactor assertions and calls to share existing lexical abort exits; production contexts still reject test operations.
 - [x] Scalar assertion verification: 1,760 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Scalar assertion lowering increment commit and unchanged pre-commit gates.
+- [x] Scalar assertion lowering committed as `be0e45c`; all unchanged pre-commit gates passed.
 - [ ] Complete string/array/product/variant matcher lowering, owned operand diagnostics, polling and double history matchers.
+
+- [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
+- [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.
+- [x] Lifecycle drops only ordinary compiled value memory; no external-resource registry, rollback synthesis or leak proof is introduced. Worker case reuse is rejected.
+- [x] Compiled callback wrapper RED/GREEN: C-compatible scalar status/out parameters distinguish completed application errors from internal aborts without reading inactive application values.
+- [x] Actual parsed/type-checked Opalescent assertion and propagated application-error bodies run through generated LLVM wrappers and the C lifecycle; after-hook failure remains secondary.
+- [x] Current verification: 1,763 library tests passed (8 existing ignored); strict lint, GCC/Clang warning checks and direct new-runtime Clang analysis passed.
+- [ ] Lifecycle/wrapper increment commit and unchanged pre-commit gates.
+- [ ] Generate full case descriptors, typed World/example/context argument wrapper plans and setup/state-value wrappers from `CheckedNativeProject`; connect artifact builds and worker entry selection.
 
 ## Remaining integration work
 

@@ -58,7 +58,7 @@ fn observation_signature() -> CoreType {
 
 /// Register real external fixture function signatures before checking source.
 fn register_observation_signatures(checker: &mut crate::type_system::checker::TypeChecker) {
-    let (tokens, lex_errors) = crate::lexer::Lexer::new("let read_actual = f(): int64 =>\n    return 7\nlet read_expected = f(): int64 =>\n    return 7\n").tokenize();
+    let (tokens, lex_errors) = crate::lexer::Lexer::new("type CallbackError:\n    Failed\nlet error_from_application = f(): void errors CallbackError =>\n    return void\nlet read_actual = f(): int64 =>\n    return 7\nlet read_expected = f(): int64 =>\n    return 7\n").tokenize();
     assert!(lex_errors.is_empty());
     let (program, parse_errors) = crate::parser::Parser::new(tokens).parse();
     assert!(parse_errors.is_empty());
@@ -75,7 +75,7 @@ fn register_observation_signatures(checker: &mut crate::type_system::checker::Ty
 }
 
 /// Extract and type-check a real managed callback through the test frontend.
-fn callback_statements(source: &str) -> Vec<Stmt> {
+pub(super) fn callback_statements(source: &str) -> Vec<Stmt> {
     let (tokens, lex_errors) = crate::lexer::Lexer::new_test_module(source).tokenize();
     assert!(lex_errors.is_empty(), "{lex_errors:?}");
     let (module, parse_errors) = crate::parser::Parser::new(tokens).parse_test_module();
