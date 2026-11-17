@@ -1,0 +1,21 @@
+scenario matching ordinary UTF-8 strings:
+    it should compare values and fixed sequence relations:
+        f(): void =>
+            let actual = 'café draft'
+            expect actual to be 'café draft'
+            expect actual not to be 'cafe draft'
+            expect actual to contain 'fé'
+            expect actual not to contain 'missing'
+            expect actual to start with 'café'
+            expect actual to end with 'draft'
+            expect actual not to end with '\n'
+            expect '' to be empty
+            expect actual not to be empty
+            expect actual to contain ''
+            return void
+
+    it should retain captured values when string equality fails:
+        f(): void =>
+            let actual = 'café actual'
+            expect actual to be 'different expected'
+            return void

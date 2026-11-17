@@ -151,6 +151,58 @@ fn canonical_association_filters_and_report_files_preserve_case_totals() {
 }
 
 #[test]
+fn compiled_string_matchers_preserve_utf8_values_and_owned_failure_diagnostics() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-matchers");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("native string matchers");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("JSON results");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 2_u64);
+    let failed = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["module"] == "tests/strings.test.op"
+                && case["execution"]["outcome"] == "assertion_failed"
+        })
+        .expect("intentional mismatch");
+    let message = failed["execution"]["attempts"][0]["result"]["failures"][0]["message"]
+        .as_str()
+        .expect("owned diagnostic");
+    assert!(message.contains("café actual"));
+    assert!(message.contains("different expected"));
+    assert!(message.contains("string"));
+    let observed = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["identity"]["test"] == "evaluate both operands once in source order")
+        .expect("observation mismatch");
+    let stdout = observed["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("capture path");
+    assert_eq!(
+        std::fs::read_to_string(stdout)
+            .expect("evaluation trace")
+            .lines()
+            .collect::<Vec<_>>(),
+        ["actual evaluated", "expected evaluated"]
+    );
+    let captured = observed["execution"]["attempts"][0]["result"]["failures"][0]["message"]
+        .as_str()
+        .expect("owned managed string snapshot");
+    assert!(captured.contains("observed actual 41"));
+    assert!(captured.contains("observed expected 42"));
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

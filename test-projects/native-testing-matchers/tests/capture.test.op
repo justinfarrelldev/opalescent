@@ -1,0 +1,28 @@
+let observe_actual = f(): string =>
+    print('actual evaluated')
+    return 'observed actual {41}'
+
+let observe_expected = f(): string =>
+    print('expected evaluated')
+    return 'observed expected {42}'
+
+world Text:
+    setup: f(): string =>
+        return 'before {41}'
+
+let replace_text = f(mutable ref text: Text): string =>
+    text.state = 'after replacement'
+    return 'before 41'
+
+scenario capturing ordinary string operands:
+    it should evaluate both operands once in source order:
+        f(): void =>
+            expect observe_actual() to be observe_expected()
+            return void
+
+    it should retain the actual value before expected mutates its original slot:
+        worlds: Text
+        f(mutable ref text: Text): void =>
+            expect text.state to be replace_text(mutable ref text)
+            expect text.state to be 'after replacement'
+            return void

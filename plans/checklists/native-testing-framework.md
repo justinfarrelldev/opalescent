@@ -132,7 +132,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Refactor assertions and calls to share existing lexical abort exits; production contexts still reject test operations.
 - [x] Scalar assertion verification: 1,760 library tests passed (8 existing ignored); strict lint and file-length gates passed.
 - [x] Scalar assertion lowering committed as `be0e45c`; all unchanged pre-commit gates passed.
-- [ ] Complete string/array/product/variant matcher lowering, owned operand diagnostics, polling and double history matchers.
+- [x] String matcher RED/GREEN: compiled value equality/inequality, containment, prefix, suffix and emptiness follow ordinary UTF-8 string semantics, including negation and empty-fragment cases.
+- [x] String operands are evaluated once in source order and held by existing lexical ownership bindings; expected-expression aborts and mutation cannot invalidate the captured actual value.
+- [x] String diagnostics own source-aware actual/expected typed values before lexical cleanup; display is bounded at valid UTF-8 boundaries and explicitly marks truncation.
+- [x] Added `test-projects/native-testing-matchers/` minimal string vocabulary, managed operand evaluation trace and mutable-World snapshot fixtures; real CLI reports expected passes/failures and retains values after abort cleanup.
+- [x] String increment verification: 1,799 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, matcher Clang analysis, Cppcheck and file-length gates passed.
+- [ ] String matcher increment commit and unchanged gates.
+- [ ] Complete array/product/variant matcher lowering, remaining owned operand diagnostics, polling and double history matchers.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.
@@ -204,7 +210,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] CLI regressions cover stable example selection, skipped totals, subject/World/category filters, JSON report files, World documentation, actual no-build listing and source compilation errors.
 - [x] Actual `cargo run -- test` native smoke evidence: basic fixture reports 3 passes; lifecycle fixture reports one pass and one assertion failure; retry selection retains two failed attempts with distinct native PIDs.
 - [x] CLI increment verification: 1,798 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Native CLI/report increment commit and unchanged gates.
+- [x] Native CLI/report integration committed as `b1e39ed`; all unchanged pre-commit gates passed, including production integration and extension checks.
 - [ ] Complete structured per-callback outcomes/timings, attachments, declared/activated double reporting, full configured build targets/profiles and artifact cache; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work

@@ -9,6 +9,8 @@ use crate::ast::testing::{Comparison, Expectation, Matcher, TestingStatement};
 use crate::type_system::types::CoreType;
 use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
+#[path = "native_string_assertions.rs"]
+mod strings;
 
 /// Lower an operation only in an explicitly registered native source function.
 ///
@@ -47,6 +49,9 @@ fn lower_expectation<'context>(
         return Err(CodegenError::new(
             "eventual assertion requires native polling lowering",
         ));
+    }
+    if operand_core_type(env, &expectation.actual) == Some(CoreType::String) {
+        return strings::lower(codegen, env, expectation);
     }
     let (Matcher::Equal {
         expected: ref expected_expression,
@@ -103,6 +108,25 @@ fn lower_expectation<'context>(
 /// casts whose LLVM integer representation alone does not retain signedness.
 fn operand_core_type(env: &CodegenEnv<'_>, expression: &Expr) -> Option<CoreType> {
     infer_expression_core_type(env, expression).or_else(|| match *expression {
+        Expr::Literal {
+            value: crate::ast::LiteralValue::String(_),
+            ..
+        }
+        | Expr::StringInterpolation { .. } => Some(CoreType::String),
+        Expr::Call { ref callee, .. } => {
+            if let Expr::Identifier { ref name, .. } = **callee {
+                if let Some(&CoreType::Function {
+                    ref return_types, ..
+                }) = env.imported_signatures.get(name)
+                {
+                    return_types.first().cloned()
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
         Expr::Cast {
             ref target_type, ..
         } => super::functions_call::ast_type_to_core_type_for_signature(target_type).ok(),
