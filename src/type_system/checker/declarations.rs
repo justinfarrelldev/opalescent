@@ -834,7 +834,7 @@ impl TypeChecker {
                     read_count: 0,
                     is_pure: false,
                 });
-                checker.register_parameter_ownership(param, core_type);
+                checker.register_parameter_ownership(param, core_type)?;
             }
 
             checker.type_check_stmt_with_return(params.body, Some(return_core_types.as_slice()))

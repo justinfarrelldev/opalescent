@@ -63,7 +63,18 @@ Unchecked phases are not implemented or verified.
 - [x] Generated test context has typed runner metadata fields; ordinary application grammar/type mapping remains unchanged.
 - [x] Current verification: 1,703 library tests passed (8 existing ignored); strict lint and file-length gates passed.
 - [x] Support-module loading fix committed as `089a9e8`; all unchanged pre-commit gates passed.
-- [ ] Body/context contract increment commit and unchanged pre-commit gates.
+- [x] Body/context contracts committed as `385b63c`; all unchanged pre-commit gates passed.
+- [x] Source-to-checker integration RED/GREEN: load ordinary dependency interfaces, register nominal aliases, check setup/cleanup/hooks/bodies and validate example records/constants before execution.
+- [x] Minimal project fixture now passes the integrated static pipeline (native lowering/execution still pending).
+- [x] Lifecycle contract tests cover dependency setup, activation-only use, ordered cleanup subsets and legal omitted cleanup.
+- [x] State-reference RED/GREEN: readonly World mutation rejected; mutable `.state` updates permitted; `.state` borrows remain projections of the original handle; overlapping mutable borrows and by-value World helper parameters rejected.
+- [x] Compiler callback constraints are solved at each managed boundary, preserving ordinary source diagnostics.
+- [ ] Integrated checking increment full verification and unchanged pre-commit gates.
+
+Static pipeline limitation still to implement: doubles currently produce an explicit
+instrumentation-required diagnostic, rather than being silently ignored. Typed
+double resolution/configuration, native abort transport and artifact lowering remain
+required work; the goal is not complete.
 
 ## Remaining integration warning
 

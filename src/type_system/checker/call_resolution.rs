@@ -189,6 +189,7 @@ impl TypeChecker {
         args: &[Expr],
         span: Span,
     ) -> Result<ResolvedCallType, TypeError> {
+        self.validate_native_world_call_borrows(args)?;
         let callee_type = self.type_check_expr(callee)?;
         match callee_type {
             CoreType::Function {
@@ -454,6 +455,7 @@ impl TypeChecker {
         if !matches!(member.as_str(), "push" | "pop") {
             return Ok(());
         }
+        self.validate_native_world_mutation(object)?;
 
         let Expr::Identifier {
             ref name,

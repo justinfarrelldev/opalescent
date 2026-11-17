@@ -653,7 +653,7 @@ impl Parser {
         clippy::too_many_lines,
         reason = "Infix parsing keeps all precedence branches localized for maintainability"
     )]
-    fn parse_infix(&mut self, left: Expr) -> ParseResult<Expr> {
+    pub(super) fn parse_infix(&mut self, left: Expr) -> ParseResult<Expr> {
         let token = self.current_token().clone();
 
         match token.token_type {

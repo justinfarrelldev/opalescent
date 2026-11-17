@@ -3,6 +3,10 @@
 //! This is separate from the legacy Rust function-pointer testing API. Test
 //! declarations are parsed by the normal lexer/parser in explicit module mode.
 pub mod cases;
+pub mod checking;
+
+#[cfg(test)]
+mod checking_tests;
 pub mod identity;
 
 #[cfg(test)]

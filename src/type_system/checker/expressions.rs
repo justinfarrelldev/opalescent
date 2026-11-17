@@ -32,7 +32,7 @@ use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
     /// Resolve a generic ADT field type against concrete owner type arguments.
-    fn resolve_generic_adt_field_type(
+    pub(super) fn resolve_generic_adt_field_type(
         &self,
         owner_name: &str,
         owner_type_args: &[CoreType],
@@ -866,7 +866,7 @@ impl TypeChecker {
                     read_count: 0,
                     is_pure: false,
                 });
-                checker.register_parameter_ownership(param, core_type);
+                checker.register_parameter_ownership(param, core_type)?;
             }
             match *body {
                 LambdaBody::Expression(ref expr) => {

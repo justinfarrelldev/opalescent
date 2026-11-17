@@ -96,6 +96,116 @@ fn final_context_follows_injected_worlds_without_becoming_a_world_requirement() 
 }
 
 #[test]
+fn world_state_mutability_follows_the_handle_reference_mode() {
+    for (mode, valid) in [("ref", false), ("mutable ref", true)] {
+        let mut checker = TypeChecker::new();
+        let world = checker
+            .register_native_test_world(
+                "First",
+                "tests/worlds.op::First",
+                CoreType::Int64,
+                Span::single(Position::start()),
+            )
+            .expect("handle");
+        let callback = parse_callback(&format!(
+            "f({mode} first: First): void =>\n        first.state = 2\n        return void\n"
+        ));
+        let result = checker.type_check_native_case_callback(&callback, &[world], None);
+        assert_eq!(result.is_ok(), valid, "{mode}: {result:?}");
+    }
+}
+
+#[test]
+fn world_state_can_be_borrowed_by_helpers_without_erasing_reference_modes() {
+    for (mode, operation, valid) in [
+        ("ref", "observe(ref first.state)", true),
+        ("mutable ref", "change(mutable ref first.state)", true),
+        ("ref", "change(mutable ref first.state)", false),
+    ] {
+        let mut checker = TypeChecker::new();
+        let world = checker
+            .register_native_test_world(
+                "First",
+                "tests/worlds.op::First",
+                CoreType::Int64,
+                Span::single(Position::start()),
+            )
+            .expect("handle");
+        let helper_source = "let observe = f(ref state: int64): void =>\n    print(state)\n    return void\nlet change = f(mutable ref state: int64): void =>\n    print(state)\n    return void\n";
+        let (tokens, _) = Lexer::new(helper_source).tokenize();
+        let (program, parse_errors) = Parser::new(tokens).parse();
+        assert!(parse_errors.is_empty(), "{parse_errors:?}");
+        let errors = checker
+            .type_check_program(&program.expect("helpers"))
+            .expect_err("no program entry");
+        assert!(
+            errors.iter().all(|error| matches!(
+                *error,
+                crate::type_system::errors::TypeError::MissingEntryPoint { .. }
+            )),
+            "{errors:?}"
+        );
+        let callback = parse_callback(&format!(
+            "f({mode} first: First): void =>\n        {operation}\n        return void\n"
+        ));
+        let result = checker.type_check_native_case_callback(&callback, &[world], None);
+        assert_eq!(result.is_ok(), valid, "{operation}: {result:?}");
+    }
+}
+
+#[test]
+fn mutable_and_immutable_borrows_of_the_same_world_state_cannot_overlap() {
+    let mut checker = TypeChecker::new();
+    let world = checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let (tokens, _) = Lexer::new("let two = f(mutable ref left: int64, ref right: int64): void =>\n    print(left + right)\n    return void\n").tokenize();
+    let (program, parse_errors) = Parser::new(tokens).parse();
+    assert!(parse_errors.is_empty());
+    let errors = checker
+        .type_check_program(&program.expect("helper"))
+        .expect_err("no entry");
+    assert!(errors.iter().all(|error| matches!(
+        *error,
+        crate::type_system::errors::TypeError::MissingEntryPoint { .. }
+    )));
+    let callback = parse_callback(
+        "f(mutable ref first: First): void =>\n        two(mutable ref first.state, ref first.state)\n        return void\n",
+    );
+    assert!(
+        checker
+            .type_check_native_case_callback(&callback, &[world], None)
+            .is_err(),
+        "overlapping mutable World-state borrows must be rejected"
+    );
+}
+
+#[test]
+fn ordinary_helpers_cannot_take_generated_world_handles_by_value() {
+    let mut checker = TypeChecker::new();
+    checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let helper = parse_callback(
+        "f(first: First): void =>\n        print(first.state)\n        return void\n",
+    );
+    assert!(
+        checker.type_check_native_callback(&helper, &[]).is_err(),
+        "generated World parameters must remain second-class references even in ordinary helpers"
+    );
+}
+
+#[test]
 fn user_code_cannot_construct_a_runner_owned_world_handle() {
     let mut checker = TypeChecker::new();
     checker

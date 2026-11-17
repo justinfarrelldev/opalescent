@@ -87,11 +87,17 @@ impl Parser {
             });
         };
 
-        let target = Expr::Identifier {
+        let mut target = Expr::Identifier {
             name,
             span: target_token.span,
             id: self.next_node_id(),
         };
+        // In test modules, a generated World accessor is part of the borrow
+        // target: `ref workspace.state`, not `(ref workspace).state`.
+        while self.module_mode == crate::lexer::ModuleMode::Test && self.check(&TokenType::Dot) {
+            target = self.parse_infix(target)?;
+        }
+        let target_end = target.span().end;
         Ok(Expr::BorrowArgument {
             target: Box::new(target),
             borrow_kind: if is_mutable {
@@ -99,7 +105,7 @@ impl Parser {
             } else {
                 BorrowKind::Ref
             },
-            span: Span::new(start_span.start, target_token.span.end),
+            span: Span::new(start_span.start, target_end),
             id: self.next_node_id(),
         })
     }

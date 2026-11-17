@@ -682,6 +682,7 @@ impl TypeChecker {
         value: &Expr,
         span: Span,
     ) -> Result<(), TypeError> {
+        self.validate_native_world_mutation(target)?;
         if let Expr::Identifier {
             ref name,
             span: target_span,

@@ -179,7 +179,8 @@ impl TypeChecker {
         &mut self,
         parameter: &Parameter,
         core_type: &CoreType,
-    ) {
+    ) -> Result<(), TypeError> {
+        self.validate_native_world_parameter_mode(parameter, core_type)?;
         match parameter.borrow_kind {
             BorrowKind::Owned => {
                 self.clear_binding_ownership(parameter.name.as_str());
@@ -197,6 +198,7 @@ impl TypeChecker {
                 );
             }
         }
+        Ok(())
     }
 
     /// Register an owner binding when its type contains an affine resource.
@@ -423,6 +425,15 @@ impl TypeChecker {
         self.type_check_expr(target.as_ref())
     }
 
+    /// Inspect an existing second-class reference mode without adding new
+    /// lifetime or ownership rules for generated test handles.
+    pub(super) fn binding_borrow_kind(&self, name: &str) -> Option<BorrowKind> {
+        self.ownership
+            .borrows
+            .get(name)
+            .map(|binding| binding.borrow_kind)
+    }
+
     /// Validate that a borrow argument names an in-scope non-moved binding.
     fn validate_borrow_target(
         &self,
@@ -430,6 +441,9 @@ impl TypeChecker {
         expected: BorrowKind,
         span: Span,
     ) -> Result<(), TypeError> {
+        if self.validate_native_world_state_borrow(target, expected, span)? {
+            return Ok(());
+        }
         let Expr::Identifier { ref name, .. } = *target else {
             return Err(Self::borrow_escape_error(
                 "temporary borrow",

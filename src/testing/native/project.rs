@@ -257,7 +257,7 @@ fn parse_module(
 }
 
 /// Extract direct dependencies without invoking any source-level callback.
-fn module_dependencies(
+pub(super) fn module_dependencies(
     path: &Path,
     ast: &LoadedModuleAst,
 ) -> Result<Vec<(PathBuf, ModuleMode)>, NativeLoadError> {

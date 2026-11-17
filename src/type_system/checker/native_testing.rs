@@ -2,7 +2,9 @@
 extern crate alloc;
 mod assertions;
 mod contracts;
+mod examples;
 mod inference;
+mod mutation;
 use super::TypeChecker;
 use crate::ast::testing::ManagedCallback;
 use crate::ast::{AstNode, BorrowKind, Expr};
@@ -202,7 +204,15 @@ impl TypeChecker {
         let result = self.type_check_expr(&callback.function);
         let active = self.native_testing.active.take();
         self.native_testing.active = previous;
-        let core_type = result?;
+        let core_type = match result {
+            Ok(core_type) => core_type,
+            Err(error) => {
+                self.clear_constraints();
+                return Err(error);
+            }
+        };
+        let substitution = self.solve_constraints()?;
+        let core_type = substitution.apply(&core_type);
         if let Some(active) = active {
             for (binding, (name, span)) in active.required {
                 if !active.used.contains(&binding) {
@@ -235,6 +245,15 @@ impl TypeChecker {
         } else {
             Ok(())
         }
+    }
+
+    /// Resolve a source signature type using the current module's ordinary type
+    /// declarations/imports plus generated native test nominal handles.
+    pub(crate) fn native_source_core_type(
+        &self,
+        source_type: &crate::ast::Type,
+    ) -> Result<CoreType, TypeError> {
+        self.ast_type_to_core_type_with_generics(source_type, &[])
     }
 
     /// Resolve generated handles and imported source type aliases only in test
