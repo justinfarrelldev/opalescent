@@ -151,7 +151,7 @@ fn emit_entry<'context>(
 }
 
 /// Link and execute real machine code rather than interpreting callback data.
-fn execute_module(codegen: &CodegenContext<'_>) {
+pub(super) fn execute_module(codegen: &CodegenContext<'_>) {
     let directory = tempfile::tempdir().expect("artifact directory");
     let object = directory.path().join("calls.o");
     let executable = directory.path().join("calls");

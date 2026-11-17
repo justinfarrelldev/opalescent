@@ -108,7 +108,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Registered native function/source-return RED/GREEN: ordinary integer, void, application-error, implicit void, propagation and guard-error forwarding emit completed outcomes using explicit original ABI metadata.
 - [x] Production declarations/returns remain unchanged in the same LLVM context; conflicting declarations and variadic native ABI paths are rejected.
 - [x] Source-return integration verification: 1,749 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Native function/source-return increment commit and unchanged pre-commit gates.
+- [x] Native function/source-return integration committed as `e16491c`; all unchanged pre-commit gates passed.
+
+- [x] Native source-call RED/GREEN: select declared ABI metadata, branch on test abort before application error handling, and propagate the original identity without an application value.
+- [x] Abort call edges use existing lexical cleanup/RC scope exits, preserve transferred argument bindings, and retain the primary failure identity.
+- [x] Real linked machine-code regressions: a parsed Opalescent guard cannot catch a native abort, can catch a deliberate application error, and non-fallible source calls propagate abort without default values.
+- [x] An uninstrumented source boundary rejects native abort transport explicitly instead of dropping it.
+- [x] Current verification: 1,753 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Native source-call integration increment commit and unchanged pre-commit gates.
+- [ ] Implement/link `opal_test_record_secondary_application_error` and verify lexical cleanup errors remain secondary during test abort propagation.
 
 ## Remaining integration work
 

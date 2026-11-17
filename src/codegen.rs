@@ -51,6 +51,8 @@ pub mod values;
 #[cfg(test)]
 mod native_function_tests;
 #[cfg(test)]
+mod native_guard_call_tests;
+#[cfg(test)]
 mod native_outcome_call_tests;
 #[cfg(test)]
 mod native_outcome_tests;

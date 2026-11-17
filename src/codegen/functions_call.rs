@@ -41,6 +41,8 @@ mod error_propagation;
 #[path = "functions_call_helpers.rs"]
 #[doc = "Helper utilities for call-expression lowering internals."]
 mod functions_call_helpers;
+#[path = "functions_call/native.rs"]
+mod native;
 #[path = "functions_call/string_array_calls.rs"]
 mod string_array_calls;
 #[path = "functions_call/tail.rs"]
@@ -411,7 +413,9 @@ pub fn codegen_call_expression<'context>(
             }
         }
 
-        if uses_aggregate_result_dispatch(function) {
+        if codegen_context.native_function_outcome(function).is_none()
+            && uses_aggregate_result_dispatch(function)
+        {
             if let Some(return_type) = function.get_type().get_return_type() {
                 if return_type.is_struct_type() {
                     let result_struct_type = return_type.into_struct_type();
@@ -475,21 +479,28 @@ pub fn codegen_call_expression<'context>(
 
         let call_args = lowered_args;
 
-        let call = codegen_context.builder.build_call(
-            function,
-            call_args.as_slice(),
-            env.next_name("call").as_str(),
-        )?;
-        let mut call_result = call.try_as_basic_value().basic().map_or_else(
-            || {
+        let mut call_result = if codegen_context.native_function_outcome(function).is_some() {
+            native::lower_native_call(
+                codegen_context,
+                env,
+                function,
+                call_args.as_slice(),
+                &cleanup_records,
+            )?
+        } else {
+            let call = codegen_context.builder.build_call(
+                function,
+                call_args.as_slice(),
+                env.next_name("call").as_str(),
+            )?;
+            call.try_as_basic_value().basic().unwrap_or_else(|| {
                 codegen_context
                     .context
                     .struct_type(&[], false)
                     .const_zero()
                     .as_basic_value_enum()
-            },
-            |value| value,
-        );
+            })
+        };
 
         if let Expr::Identifier { ref name, .. } = *callee {
             let runtime_name = env

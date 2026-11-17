@@ -6,7 +6,7 @@ use crate::type_system::types::CoreType;
 use inkwell::context::Context;
 
 /// Parse an ordinary function body without rewriting its source text.
-fn body(source: &str) -> Stmt {
+pub(super) fn body(source: &str) -> Stmt {
     let (tokens, lex_errors) = crate::lexer::Lexer::new(source).tokenize();
     assert!(lex_errors.is_empty());
     let (program, parse_errors) = crate::parser::Parser::new(tokens).parse();
@@ -228,6 +228,40 @@ fn implicit_void_completion_uses_original_application_abi() {
         .module
         .verify()
         .expect("valid implicit completed results");
+}
+
+#[test]
+fn source_calls_cannot_drop_abort_transport_at_an_uninstrumented_boundary() {
+    let llvm = Context::create();
+    let codegen = CodegenContext::new(&llvm, "unsupported_boundary");
+    let original = llvm.i64_type().fn_type(&[], false);
+    codegen
+        .declare_native_test_function("step", original, None)
+        .expect("native callee");
+    let caller = codegen.module.add_function("ordinary", original, None);
+    codegen
+        .builder
+        .position_at_end(llvm.append_basic_block(caller, "entry"));
+    let mut environment = CodegenEnv::new(false);
+    environment
+        .current_function_return_types
+        .push(vec![CoreType::Int64]);
+    environment.imported_signatures.insert(
+        "step".to_owned(),
+        CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: Vec::new(),
+            return_types: vec![CoreType::Int64],
+            error_types: Vec::new(),
+        },
+    );
+    let error = super::statements::codegen_statement(
+        &codegen,
+        &mut environment,
+        &body("let ordinary = f(): int64 =>\n    return step()\n"),
+    )
+    .expect_err("unsupported boundary");
+    assert!(error.message.contains("uninstrumented"), "{error:?}");
 }
 
 #[test]
