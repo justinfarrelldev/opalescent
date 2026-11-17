@@ -1,0 +1,31 @@
+import apply from ../src/app
+import type BoundaryError as OperationError from ../src/boundary.types
+
+double Write replaces operation from ../src/io
+    as used by ../src/app
+
+world Writes:
+    setup: f(): Write =>
+        return new Write
+    cleanup: f(mutable ref writer: Write): void =>
+        restore writer
+        return void
+
+scenario applying a configured operation:
+    unit under test: apply
+    worlds: Writes
+
+    it should return the configured typed value: f(mutable ref writes: Writes): void errors inferred =>
+        stub writes.state(1) returns 9
+        expect propagate apply(1) to be 9
+        expect writes.state to have been called once
+        verify writes.state
+        return void
+
+    it should preserve ordinary guarded application errors: f(mutable ref writes: Writes): void =>
+        stub writes.state(2) fails with OperationError.Broken
+        let observed = guard apply(2) into unexpected else 7
+        expect observed to be 7
+        expect writes.state to have been called with (2)
+        verify writes.state
+        return void

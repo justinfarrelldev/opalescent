@@ -224,6 +224,16 @@ fn ordinary_helpers_cannot_take_generated_world_handles_by_value() {
 }
 
 #[test]
+fn context_parameter_names_do_not_shadow_the_generated_context_type() {
+    let mut checker = TypeChecker::new();
+    let callback = parse_callback(
+        "f(mutable ref TestContext: TestContext): void =>\n        let inspect = f(mutable ref metadata: TestContext): void =>\n            print(metadata.failed)\n            return void\n        inspect(mutable ref TestContext)\n        return void\n",
+    );
+    let result = checker.type_check_native_case_callback(&callback, &[], None);
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
 fn generic_owned_parameters_cannot_be_used_to_copy_injected_world_handles() {
     let mut checker = TypeChecker::new();
     let world = checker

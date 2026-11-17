@@ -1,0 +1,7 @@
+import type BoundaryError from ./boundary.types
+
+##
+Description: A concrete application operation with a declared nominal error.
+##
+public let operation = f(value: int64): int64 errors BoundaryError =>
+    return value + 1

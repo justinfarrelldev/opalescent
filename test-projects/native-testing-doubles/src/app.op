@@ -1,0 +1,8 @@
+import operation as step from ./io
+import type BoundaryError from ./boundary.types
+
+##
+Description: Exercises the source import edge through an ordinary alias.
+##
+public let apply = f(value: int64): int64 errors BoundaryError =>
+    return propagate step(value)

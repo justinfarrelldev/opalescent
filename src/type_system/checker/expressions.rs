@@ -26,7 +26,6 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::substitution::Substitution;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
-use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String, vec::Vec};
 
@@ -743,7 +742,7 @@ impl TypeChecker {
         span: Span,
     ) -> Result<CoreType, TypeError> {
         let source_type = self.type_check_expr(expr)?;
-        let target_core_type = ast_type_to_core_type(target_type).map_err(TypeError::from)?;
+        let target_core_type = self.native_annotation_type(target_type)?;
         // Validate the cast according to language spec (math.md)
         // Invalid casts remain errors; unsafe casts are collected as warnings.
         self.validate_cast_with_warnings(&source_type, &target_core_type, span)?;

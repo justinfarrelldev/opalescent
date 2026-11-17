@@ -147,17 +147,22 @@ impl ModuleCompilation {
         let mut checker = TypeChecker::new();
         checker.set_current_module_path(module.path.display().to_string());
         for interface in self.interfaces.values() {
-            checker.register_module_interface(interface.clone());
+            checker.native_register_source_interface(interface.clone());
         }
         register_import_interfaces(&mut checker, &module.path, program, &self.interfaces)?;
+        checker.native_enable_source_type_identities(program, &module.identity);
         Ok(checker)
     }
 
-    /// Application sources use the existing ordinary checking pipeline unchanged.
+    /// Application sources retain ordinary grammar/availability and receive
+    /// canonical artifact type identities without enabling test operations.
     fn prepare_application(&mut self, module: &LoadedModule) -> Result<(), NativeCheckError> {
         let program = ordinary_program(module);
         let mut checker = self.checker(module, &program)?;
-        check_ordinary_program(&mut checker, &program, &module.path)?;
+        let (prerequisites, values) = ordinary_checking_phases(&program);
+        check_ordinary_program(&mut checker, &prerequisites, &module.path)?;
+        checker.native_sync_source_type_metadata();
+        check_ordinary_program(&mut checker, &values, &module.path)?;
         self.interfaces.insert(
             module.path.clone(),
             checked_interface(&checker, &module.path)?,
@@ -188,6 +193,7 @@ impl ModuleCompilation {
             .map_err(|error| type_error(&module.path, error))?;
         let (prerequisites, values) = ordinary_checking_phases(&program);
         check_ordinary_program(&mut checker, &prerequisites, &module.path)?;
+        checker.native_sync_source_type_metadata();
         declarations::declare_aliases(
             module,
             &mut checker,
@@ -362,7 +368,7 @@ fn register_import_interfaces(
             if let Some(interface) = interfaces.get(&resolved) {
                 let mut source_view = interface.clone();
                 source_view.module_path.clone_from(source);
-                checker.register_module_interface(source_view);
+                checker.native_register_source_interface(source_view);
             }
         }
     }

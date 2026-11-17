@@ -1,0 +1,5 @@
+##
+Description: A nominal error family for the operation boundary fixture.
+##
+public type BoundaryError:
+    Broken

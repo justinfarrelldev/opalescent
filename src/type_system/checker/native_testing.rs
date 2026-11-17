@@ -8,6 +8,7 @@ mod handles;
 mod inference;
 mod module_signatures;
 mod mutation;
+mod source_types;
 use super::TypeChecker;
 use crate::ast::testing::ManagedCallback;
 use crate::ast::{AstNode, BorrowKind, Expr};
@@ -23,11 +24,13 @@ use alloc::collections::{BTreeMap, BTreeSet};
 pub(super) struct NativeTestingState {
     /// Explicit artifact mode; ordinary applications never enable test operations.
     enabled: bool,
+    /// Native artifact type identities, separate from test grammar/availability.
+    source_types: Option<BTreeMap<String, String>>,
     /// Generated canonical handle names and their concrete state types.
     worlds: BTreeMap<String, CoreType>,
     /// Concrete signatures for attempt-local generated double handle types.
     doubles: BTreeMap<String, NativeDoubleSignature>,
-    /// Source aliases mapped to generated canonical nominal handle types.
+    /// Source aliases mapped to generated canonical nominal testing types.
     aliases: BTreeMap<String, CoreType>,
     /// Forward-declared generated kinds, independent of state/signature layout.
     kinds: BTreeMap<String, NativeHandleKind>,
@@ -81,6 +84,9 @@ impl TypeChecker {
         };
         self.environment_mut()
             .register_type("TestContext".to_owned(), context_type.clone());
+        self.native_testing
+            .aliases
+            .insert("TestContext".to_owned(), context_type.clone());
         self.symbol_table_mut().register(SymbolInfo {
             name: "TestContext".to_owned(),
             symbol_type: SymbolType::Type,
@@ -231,8 +237,19 @@ impl TypeChecker {
     /// Resolve generated handles and imported source type aliases only in test
     /// artifacts; ordinary application type mapping remains unchanged.
     pub(super) fn native_source_type(&self, local_name: &str) -> Option<CoreType> {
-        if !self.native_testing.enabled {
+        if !self.native_testing.enabled && self.native_testing.source_types.is_none() {
             return None;
+        }
+        if let Some(name) = self
+            .native_testing
+            .source_types
+            .as_ref()
+            .and_then(|names| names.get(local_name))
+        {
+            return Some(CoreType::Generic {
+                name: name.clone(),
+                type_args: Vec::new(),
+            });
         }
         self.native_testing
             .aliases

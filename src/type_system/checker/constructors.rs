@@ -99,7 +99,7 @@ impl TypeChecker {
                 .split_once('.')
                 .map_or_else(|| owner_name.to_owned(), |(owner, _)| owner.to_owned());
             return Ok(CoreType::Generic {
-                name: type_name,
+                name: self.native_constructor_owner(&type_name),
                 type_args: Vec::new(),
             });
         }
@@ -374,7 +374,7 @@ impl TypeChecker {
         }
 
         Ok(CoreType::Generic {
-            name: owner_name.to_owned(),
+            name: self.native_constructor_owner(owner_name),
             type_args: inferred_type_args,
         })
     }

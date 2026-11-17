@@ -148,12 +148,23 @@ impl TypeChecker {
         type_name: String,
         type_def: &TypeDef,
     ) -> Option<AdtLayoutManifest> {
+        let generic_bindings: Vec<_> = self
+            .adt_generic_params_for(&type_name)
+            .into_iter()
+            .flatten()
+            .map(|parameter| {
+                (
+                    parameter.name.clone(),
+                    CoreType::Variable(parameter.type_var.clone()),
+                )
+            })
+            .collect();
         let type_id = AdtTypeId::new(self.current_module_path.clone(), type_name);
         let kind = match *type_def {
             TypeDef::Product { ref fields, .. } => AdtLayoutManifestKind::Product {
                 fields: fields
                     .iter()
-                    .map(Self::field_manifest)
+                    .map(|field| self.field_manifest(field, &generic_bindings))
                     .collect::<Option<Vec<_>>>()?,
             },
             TypeDef::Sum { ref variants, .. } => AdtLayoutManifestKind::Sum {
@@ -166,7 +177,7 @@ impl TypeChecker {
                         let fields = variant
                             .fields
                             .iter()
-                            .map(Self::field_manifest)
+                            .map(|field| self.field_manifest(field, &generic_bindings))
                             .collect::<Option<Vec<_>>>()?;
                         Some(AdtVariantManifest {
                             name: variant.name.clone(),
@@ -180,7 +191,12 @@ impl TypeChecker {
             TypeDef::Alias {
                 ref target_type, ..
             } => AdtLayoutManifestKind::Alias {
-                target: ast_type_to_core_type(target_type).ok()?,
+                target: if self.native_source_type_identities_enabled() {
+                    self.ast_type_to_core_type_with_generics(target_type, &generic_bindings)
+                        .ok()?
+                } else {
+                    ast_type_to_core_type(target_type).ok()?
+                },
             },
             TypeDef::Opaque { .. } => AdtLayoutManifestKind::Opaque {
                 layout_public: false,
@@ -195,8 +211,17 @@ impl TypeChecker {
     }
 
     /// Convert one AST field into manifest field metadata.
-    fn field_manifest(field: &crate::ast::Field) -> Option<AdtFieldManifest> {
-        let core_type = ast_type_to_core_type(&field.type_annotation).ok()?;
+    fn field_manifest(
+        &self,
+        field: &crate::ast::Field,
+        generic_bindings: &[(String, CoreType)],
+    ) -> Option<AdtFieldManifest> {
+        let core_type = if self.native_source_type_identities_enabled() {
+            self.ast_type_to_core_type_with_generics(&field.type_annotation, generic_bindings)
+                .ok()?
+        } else {
+            ast_type_to_core_type(&field.type_annotation).ok()?
+        };
         Some(AdtFieldManifest {
             name: field.name.clone(),
             requires_drop: Self::core_type_requires_drop(&core_type),
@@ -432,6 +457,11 @@ impl TypeChecker {
                             item_span,
                         )?;
                     }
+                    self.validate_native_import_binding(
+                        &resolved_import_name,
+                        &symbol_to_register.core_type,
+                        item_span,
+                    )?;
                     self.register_imported_type_adt_fields(
                         source,
                         name,
@@ -491,6 +521,11 @@ impl TypeChecker {
                             }
                         }
                         let symbol_name = symbol.name.clone();
+                        self.validate_native_import_binding(
+                            &symbol_name,
+                            &symbol.core_type,
+                            import_span,
+                        )?;
                         self.register_imported_type_adt_fields(
                             source,
                             symbol_name.as_str(),
@@ -520,13 +555,15 @@ impl TypeChecker {
         source: &str,
         span: Span,
     ) -> Result<(), TypeError> {
+        let module_type = CoreType::Generic {
+            name: source.to_owned(),
+            type_args: Vec::new(),
+        };
+        self.validate_native_import_binding(alias_name, &module_type, span)?;
         self.symbol_table.register(SymbolInfo {
             name: alias_name.to_owned(),
             symbol_type: SymbolType::Constant,
-            core_type: CoreType::Generic {
-                name: source.to_owned(),
-                type_args: Vec::new(),
-            },
+            core_type: module_type,
             visibility: Visibility::Private,
             source_location: span,
             is_let_binding: false,

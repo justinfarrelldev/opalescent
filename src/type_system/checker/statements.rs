@@ -23,7 +23,6 @@ use crate::type_system::checker::{FallibleExpressionContext, TypeChecker};
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
-use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String, vec::Vec};
 
@@ -287,16 +286,14 @@ impl TypeChecker {
         let annotated_type = binding
             .type_annotation
             .as_ref()
-            .map(
-                |annotation| match ast_type_to_core_type(annotation).map_err(TypeError::from) {
-                    Ok(core_type) => Ok(core_type),
-                    Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
-                        name: type_name,
-                        type_args: Vec::new(),
-                    }),
-                    Err(other) => Err(other),
-                },
-            )
+            .map(|annotation| match self.native_annotation_type(annotation) {
+                Ok(core_type) => Ok(core_type),
+                Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+                    name: type_name,
+                    type_args: Vec::new(),
+                }),
+                Err(other) => Err(other),
+            })
             .transpose()?;
 
         let initializer_info = match initializer {
@@ -546,7 +543,7 @@ impl TypeChecker {
     ) -> Result<(), TypeError> {
         for (binding, value_type) in bindings.iter().zip(value_types.iter()) {
             if let Some(annotation) = binding.type_annotation.as_ref() {
-                let annotated = ast_type_to_core_type(annotation).map_err(TypeError::from)?;
+                let annotated = self.native_annotation_type(annotation)?;
                 if !self.types_compatible(&annotated, value_type) {
                     return Err(type_mismatch_error(
                         &annotated,

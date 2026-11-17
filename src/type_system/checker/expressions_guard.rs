@@ -23,7 +23,6 @@ use crate::token::Span;
 use crate::type_system::checker::{ActiveGuardErrorBinding, TypeChecker};
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
-use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{string::String, vec::Vec};
 
@@ -84,8 +83,7 @@ impl TypeChecker {
         } = self.classify_fallible_expression(expr, FallibleExpressionContext::Guard)?;
 
         if let Some(annotated_type_ast) = binding.annotation {
-            let annotated_type =
-                ast_type_to_core_type(annotated_type_ast).map_err(TypeError::from)?;
+            let annotated_type = self.native_annotation_type(annotated_type_ast)?;
             if !self.types_compatible(&success_type, &annotated_type) {
                 return Err(TypeError::GuardBindingTypeMismatch {
                     expected: success_type.to_string(),

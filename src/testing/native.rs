@@ -14,6 +14,8 @@ mod double_resolution_tests;
 #[cfg(test)]
 mod checking_tests;
 pub mod identity;
+#[cfg(test)]
+mod nominal_type_tests;
 
 #[cfg(test)]
 mod case_tests;

@@ -8,7 +8,6 @@ use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
-use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{format, vec::Vec};
 
@@ -176,7 +175,7 @@ impl TypeChecker {
         let Some(annotation) = binding.type_annotation.as_ref() else {
             return Ok(acquisition_type);
         };
-        let annotated_type = using_annotation_to_core_type(annotation)?;
+        let annotated_type = using_annotation_to_core_type(self, annotation)?;
         if self.types_compatible(&annotated_type, &acquisition_type) {
             return Ok(annotated_type);
         }
@@ -391,8 +390,11 @@ impl CleanupRegistration {
 }
 
 /// Resolve a `using` binding annotation into a core type.
-fn using_annotation_to_core_type(annotation: &Type) -> Result<CoreType, TypeError> {
-    match ast_type_to_core_type(annotation).map_err(TypeError::from) {
+fn using_annotation_to_core_type(
+    checker: &TypeChecker,
+    annotation: &Type,
+) -> Result<CoreType, TypeError> {
+    match checker.native_annotation_type(annotation) {
         Ok(core_type) => Ok(core_type),
         Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
             name: type_name,

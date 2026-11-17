@@ -433,7 +433,7 @@ impl TypeChecker {
         value: &Expr,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        let target_core_type = ast_type_to_core_type(target_type).map_err(TypeError::from)?;
+        let target_core_type = self.native_annotation_type(target_type)?;
         let source_type = self.constrained_alias_source_type(&target_core_type, span)?;
         let value_type = self.type_check_expr(value)?;
         let reconciled_value_type = if self.types_compatible(&source_type, &value_type) {

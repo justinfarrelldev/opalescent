@@ -15,6 +15,17 @@ fn minimal_fixture_checks_through_the_normal_type_checker() {
 }
 
 #[test]
+fn double_fixture_checks_nominal_errors_world_state_and_guarded_application_calls() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-doubles");
+    let project = NativeTestProject::load(&root, &[root.join("tests/operation.test.op")])
+        .expect("fixture source graph");
+    let checked = check_project(&project).expect("typed double fixture");
+    assert_eq!(checked.suite.cases.len(), 2);
+    assert_eq!(checked.world_states.len(), 1);
+    assert_eq!(checked.double_signatures.len(), 1);
+}
+
+#[test]
 fn invalid_world_injections_and_lifecycle_contracts_fail_compilation() {
     let directory = tempfile::tempdir().expect("fixture directory");
     for source in [

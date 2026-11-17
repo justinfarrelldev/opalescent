@@ -170,7 +170,7 @@ impl TypeChecker {
                     );
                 }
                 Ok(CoreType::Generic {
-                    name: name.clone(),
+                    name: self.native_constructor_owner(name),
                     type_args: resolved_args,
                 })
             }
@@ -297,17 +297,17 @@ impl TypeChecker {
 
                         let mut constraint_types = Vec::new();
                         for constraint in &declaration.constraints {
-                            let resolved_constraint =
-                                match ast_type_to_core_type(constraint).map_err(TypeError::from) {
-                                    Ok(core_type) => core_type,
-                                    Err(TypeError::TypeNotFound { type_name, .. }) => {
-                                        CoreType::Generic {
-                                            name: type_name,
-                                            type_args: Vec::new(),
-                                        }
+                            let resolved_constraint = match self.native_annotation_type(constraint)
+                            {
+                                Ok(core_type) => core_type,
+                                Err(TypeError::TypeNotFound { type_name, .. }) => {
+                                    CoreType::Generic {
+                                        name: type_name,
+                                        type_args: Vec::new(),
                                     }
-                                    Err(other) => return Err(other),
-                                };
+                                }
+                                Err(other) => return Err(other),
+                            };
                             constraint_types.push(resolved_constraint);
                         }
 
@@ -425,7 +425,7 @@ impl TypeChecker {
                 ..
             } => {
                 let inferred_type = if let Some(annotation) = binding.type_annotation.as_ref() {
-                    Some(ast_type_to_core_type(annotation).map_err(TypeError::from)?)
+                    Some(self.native_annotation_type(annotation)?)
                 } else {
                     self.lambda_signature_type(initializer)?
                 };
@@ -555,7 +555,7 @@ impl TypeChecker {
                     .map(|binding| binding.1.clone())
                     .collect::<Vec<CoreType>>();
                 let nominal_type = CoreType::Generic {
-                    name: name.clone(),
+                    name: self.native_nominal_type_name(name),
                     type_args: generic_type_args,
                 };
                 self.environment_mut()
@@ -617,7 +617,7 @@ impl TypeChecker {
                             name: qualified_name,
                             symbol_type: SymbolType::Constant,
                             core_type: CoreType::Generic {
-                                name: name.clone(),
+                                name: self.native_nominal_type_name(name),
                                 type_args: generic_bindings
                                     .iter()
                                     .map(|binding| binding.1.clone())

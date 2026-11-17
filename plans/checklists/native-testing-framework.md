@@ -83,13 +83,25 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Generic helper RED/GREEN: provisional interfaces preserve generic parameters; ordinary substitution preserves quantified callable schemes and avoids imported/local numeric type-variable collisions.
 - [x] Refactor: share generic signature/body binding resolution and isolate lexical reference-capture traversal, retaining parameter shadowing through control flow.
 - [x] Current verification: 1,728 library tests passed (8 existing ignored); strict all-target/all-feature lint passed.
-- [ ] Typed double checking increment commit and unchanged pre-commit gates.
+- [x] Typed double checking committed as `8db96e7`; all unchanged pre-commit gates passed.
+
+- [x] Nominal source typing RED/GREEN: same-spelled declarations in separate modules remain distinct through aliases, variant matchers and double error contracts.
+- [x] Source error alias RED/GREEN: a genuine error alias is not reinterpreted as an unrelated standard error family with the same spelling.
+- [x] Ordinary record annotation/layout RED/GREEN: source constructors, typed local bindings and public field manifests retain defining type identity.
+- [x] Context binding RED/GREEN: later foreign imports cannot replace the implicit runner context; callback parameter names do not shadow its generated type.
+- [x] Native application typing retains ordinary grammar and test-only import availability checks.
+- [x] Minimal typed-double project added at `test-projects/native-testing-doubles`, covering World-owned activation, exact returns, nominal application errors, ordinary guards and verification.
+- [x] Canonical source typing verification: 1,737 library tests passed (8 existing ignored); strict all-target/all-feature lint and file-length gates passed.
+- [ ] Canonical source typing increment commit and unchanged pre-commit gates.
 
 ## Remaining integration work
 
 - [x] Resolve and type-check double declarations and configurations in the integrated native source pipeline.
 - [ ] Implement supported test-build interception/instrumentation for checked double operations.
-- [ ] Audit and resolve cross-module nominal application type/error identity collisions, including same-spelled declarations and aliased imports.
+- [x] Resolve cross-module nominal application type/error collisions for same-spelled declarations and imported aliases.
+- [ ] Complete the nominal type audit through generic ADT imports/examples, remaining annotation paths and executable lowering.
+- [ ] Preserve local source aliases in diagnostics/suggestions and source-facing type names in reflection when lowering canonical identities.
+- [ ] Verify every mocked application error reference is a constructible allowed variant, including payload requirements.
 - [ ] Complete all remaining static validation and compiler acceptance tests.
 - [ ] Implement native artifact lowering and executable test artifact builds.
 - [ ] Implement the internal test-abort channel separately from application errors.

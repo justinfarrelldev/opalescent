@@ -52,3 +52,28 @@ quoted titles, bare scenario, inline callback tokenization, malformed titles,
 and unchanged ordinary identifiers. Quoted malformed titles stop on the
 original line rather than consuming later source. Normal multiline application
 strings retain their existing behavior.
+
+## Native typed source boundary
+
+`src/testing/native/checking.rs` checks application dependencies before test
+modules, publishes helper prototypes, resolves double signatures, then checks
+managed callbacks. `CheckedNativeProject` describes checked source, not an
+executable artifact.
+
+Native artifacts give ordinary source types module-qualified internal identities
+through `checker/native_testing/source_types.rs`. Application modules retain
+ordinary grammar and their test-only import prohibition: source-type identity
+mode is separate from test-operation mode. Internal names encode project-relative
+module bytes as hex, then append the source declaration name. Canonical schemas
+are compiler metadata; source aliases are installed only by actual imports.
+Ordinary production compilation does not enable this identity mode.
+
+Constructors, ordinary annotation sites, public layout fields and nominal error
+references use those identities. Named source error aliases take precedence over
+unrelated standard error-family spellings. The runner context is an implicit
+generated type: foreign imports cannot replace it, and callback parameter names
+do not replace its type binding.
+
+Native lowering must consume these canonical identities while preserving source
+names for reflection and diagnostics, and must keep the production artifact ABI
+separate. The lowerer must not infer LLVM layouts from aliases' spelling.

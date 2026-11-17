@@ -8,7 +8,6 @@ use crate::{
         error_families::{stdlib_error_core_type, stdlib_error_families, stdlib_error_family},
         errors::{TypeError, Warning},
         symbol_table::SymbolType,
-        type_mapping::ast_type_to_core_type,
         types::CoreType,
     },
 };
@@ -95,6 +94,9 @@ impl TypeChecker {
         {
             return true;
         }
+        if self.native_source_type_identities_enabled() {
+            return self.native_error_leaf_name(name).is_some();
+        }
         if self.environment.lookup_type(name, span).is_ok() {
             return Self::type_name_can_be_error_leaf(name);
         }
@@ -115,6 +117,25 @@ impl TypeChecker {
         span: Span,
         stack: &mut Vec<String>,
     ) -> Result<Vec<String>, TypeError> {
+        // A genuine type/variant alias outranks an unrelated standard-family
+        // spelling. The type checker has already resolved its defining identity.
+        if !self.error_sets.contains_key(name) {
+            if let Some(canonical) = self
+                .native_error_leaf_name(name)
+                .filter(|canonical| canonical != name)
+            {
+                return Ok(stdlib_error_family(&canonical).map_or_else(
+                    || vec![canonical.clone()],
+                    |family| {
+                        family
+                            .members
+                            .iter()
+                            .map(|member| (*member).to_owned())
+                            .collect()
+                    },
+                ));
+            }
+        }
         if let Some(family) = stdlib_error_family(name) {
             return Ok(family
                 .members
@@ -148,7 +169,10 @@ impl TypeChecker {
                 }
 
                 if self.is_error_leaf_name(member.name.as_str(), member.span) {
-                    leaves.insert(member.name.clone());
+                    leaves.insert(
+                        self.native_error_leaf_name(&member.name)
+                            .unwrap_or_else(|| member.name.clone()),
+                    );
                     continue;
                 }
 
@@ -177,7 +201,10 @@ impl TypeChecker {
         }
 
         if self.is_error_leaf_name(name, span) {
-            return Ok(vec![name.to_owned()]);
+            return Ok(vec![
+                self.native_error_leaf_name(name)
+                    .unwrap_or_else(|| name.to_owned()),
+            ]);
         }
 
         Err(TypeError::UndeclaredErrorType {
@@ -365,9 +392,7 @@ impl TypeChecker {
             return self.resolve_error_types(&[name.clone()], span);
         }
 
-        Ok(vec![
-            ast_type_to_core_type(ast_type).map_err(TypeError::from)?,
-        ])
+        Ok(vec![self.native_annotation_type(ast_type)?])
     }
 
     /// Return true when a source spelling should be linted as an error set rather than a leaf.
