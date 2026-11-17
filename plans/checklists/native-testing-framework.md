@@ -189,8 +189,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Implicit builtin lowering RED/GREEN: source environment metadata no longer turns implicit `print` into an unresolved C extern; ordinary logging works in native artifacts.
 - [x] Build-product directory reuse is rejected rather than overwrite a running artifact. No persistent cache is reused yet, so production cache entries cannot enter test builds.
 - [x] Worker increment verification: 1,784 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, worker Clang analysis and Cppcheck passed.
-- [ ] Native executable/worker increment commit and unchanged gates.
-- [ ] Complete CLI wiring, scheduler, structured callback outcomes/timings, artifact cache and configured build targets/profiles; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
+- [x] Native executable/worker committed as `b79f07d`; all unchanged pre-commit gates passed, including full integration and extension checks.
+- [x] Bounded fresh-process scheduler RED/GREEN: independent canonical cases use available capacity by default, configurable positive worker limits, monotonic hard deadlines and zero retries by default.
+- [x] Complete exclusion key sets are acquired before worker startup and released only after completion/termination; file/scenario/World/subject membership adds no locks.
+- [x] Retries retain prior failed attempts, launch new worker processes and report later success as flaky; stdout/stderr capture uses files rather than blocking unread pipes.
+- [x] Structured worker results are validated against exact case/attempt identities, native exit codes, body execution, diagnostic kinds/phases and primary/secondary identities. Incomplete/rejected transport cannot claim completed callbacks.
+- [x] Scheduler regressions use a two-sided readiness barrier to prove same-scenario overlap and distinct processes, occupancy instrumentation for exclusion-only serialization, fresh retry PIDs, timeout/crash phase retention and rejection of fabricated passes. Real compiled native case artifacts also run through the scheduler.
+- [x] Scheduler increment verification: 1,791 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Scheduler increment commit and unchanged gates.
+- [ ] Complete CLI discovery/selection/wiring, structured callback outcomes/timings, reporters, artifact cache and configured build targets/profiles; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work
 

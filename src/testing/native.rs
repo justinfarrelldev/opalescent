@@ -13,6 +13,9 @@ pub mod doubles;
 pub mod lowering;
 #[cfg(test)]
 mod lowering_tests;
+pub mod scheduler;
+#[cfg(test)]
+mod scheduler_tests;
 
 #[cfg(test)]
 mod double_resolution_tests;

@@ -40,6 +40,43 @@ fn built_worker_selects_independent_examples_from_one_native_executable() {
 }
 
 #[test]
+fn scheduler_executes_real_native_cases_with_bounded_fresh_workers() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
+    let project =
+        NativeTestProject::load(&root, &[root.join("tests/addition.test.op")]).expect("sources");
+    let checked = check_project(&project).expect("checked source");
+    let directory = tempfile::tempdir().expect("artifact output");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("native artifact");
+    let cases: Vec<_> = artifact
+        .cases
+        .iter()
+        .map(|identity| super::scheduler::ScheduledCase {
+            identity: identity.clone(),
+            exclusion_keys: Vec::new(),
+        })
+        .collect();
+    let options = super::scheduler::NativeRunOptions {
+        jobs: 2,
+        retries: 0,
+        timeout: std::time::Duration::from_secs(5),
+        working_directory: root,
+        output_directory: directory.path().join("attempts"),
+    };
+    let report =
+        super::scheduler::run_cases(&artifact, &cases, &options).expect("native scheduling");
+    assert_eq!(report.cases.len(), 3);
+    assert!(
+        report
+            .cases
+            .iter()
+            .all(|case| case.outcome == super::scheduler::CaseOutcome::Passed)
+    );
+    assert!(report.peak_workers <= 2);
+}
+
+#[test]
 fn worker_protocol_is_separate_from_stdout_and_preserves_unicode_identities() {
     let directory = tempfile::tempdir().expect("source and output");
     let path = directory.path().join("logs.test.op");
