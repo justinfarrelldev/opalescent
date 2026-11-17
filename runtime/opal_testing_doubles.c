@@ -31,6 +31,9 @@ typedef struct DoubleHandle {
 } DoubleHandle;
 
 static DoubleHandle *handles;
+static OpalTestDoubleObserver observer;
+static void *observer_context;
+void opal_test_set_double_observer(OpalTestDoubleObserver value, void *context) {observer = value; observer_context = context;}
 
 static uint64_t infrastructure(const char *message) {
     return opal_test_record_failure(OPAL_TEST_FAILURE_INFRASTRUCTURE,
@@ -71,6 +74,7 @@ uint64_t opal_test_double_activate(const OpalTestDoubleDescriptor *descriptor,
     handle->next = handles;
     handles = handle;
     *output = handle;
+    if (observer) observer(descriptor, 1, observer_context);
     return 0;
 }
 
@@ -78,6 +82,7 @@ uint64_t opal_test_double_restore(void *value) {
     DoubleHandle *handle = find_handle(value);
     if (!handle) return infrastructure("restore requires an activated nominal double handle");
     handle->active = 0;
+    if (observer) observer(handle->descriptor, 0, observer_context);
     return 0;
 }
 

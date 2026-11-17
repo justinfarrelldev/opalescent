@@ -70,6 +70,27 @@ pub(super) fn register(resolver: &mut ModuleResolver) {
             .expect("unique testing function");
         interface.register_function_borrow_kinds(name.to_owned(), borrows);
     }
+    interface
+        .register_symbol(ModuleResolver::module_symbol(
+            "attach_text".to_owned(),
+            SymbolType::Function,
+            CoreType::Function {
+                generic_params: vec![],
+                parameters: vec![
+                    named("__opal_testing::TestContext"),
+                    CoreType::String,
+                    CoreType::String,
+                ],
+                return_types: vec![CoreType::Unit],
+                error_types: vec![],
+            },
+            Visibility::Public,
+        ))
+        .expect("unique context attachment API");
+    interface.register_function_borrow_kinds(
+        "attach_text".to_owned(),
+        vec![BorrowKind::MutableRef, BorrowKind::Owned, BorrowKind::Owned],
+    );
     terminal::register(&mut interface);
     resolver.register_module_interface(interface);
 }

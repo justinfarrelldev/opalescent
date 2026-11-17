@@ -1,6 +1,7 @@
 /* One reusable native artifact, one fresh process per selected case attempt. */
 #include "opal_testing_worker.h"
 #include "opal_testing_doubles.h"
+#include "opal_testing_attachments.h"
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -46,6 +47,24 @@ static void callback_event(int finished, const OpalTestCallback *callback,
     fputs(",\"file\":", stream); json_text(stream, callback->file);
     fprintf(stream, ",\"offset\":%" PRIu64 ",\"length\":%" PRIu64 ",\"status\":%d,\"passed\":%s,\"duration_ms\":%" PRIu64 "}\n",
         callback->offset, callback->length, status, passed ? "true" : "false", duration_ms);
+    if (ferror(stream) || fflush(stream)) transport->failed = 1;
+}
+
+static void double_event(const OpalTestDoubleDescriptor *descriptor, int active, void *context) {
+    OpalTestTransport *transport = context;
+    FILE *stream = transport->stream;
+    fputs("{\"event\":\"double\",\"identity\":", stream); json_text(stream, descriptor->identity);
+    fputs(",\"edge\":", stream); json_text(stream, descriptor->edge);
+    fprintf(stream, ",\"active\":%s}\n", active ? "true" : "false");
+    if (ferror(stream) || fflush(stream)) transport->failed = 1;
+}
+
+static void attachment_event(const OpalTestAttachment *attachment, void *context) {
+    OpalTestTransport *transport = context;
+    FILE *stream = transport->stream;
+    fputs("{\"event\":\"attachment\",\"name\":", stream); json_text(stream, attachment->name);
+    fputs(",\"mime\":\"text/plain; charset=utf-8\",\"text\":", stream); json_text(stream, attachment->text);
+    fputs("}\n", stream);
     if (ferror(stream) || fflush(stream)) transport->failed = 1;
 }
 
@@ -107,6 +126,8 @@ int main(int argc, char **argv) {
         return infrastructure_failure(stream, "native worker could not begin its attempt");
     OpalTestTransport transport = {stream, 0, 0};
     opal_test_set_callback_observer(callback_event, &transport);
+    opal_test_set_attachment_observer(attachment_event, &transport);
+    opal_test_set_double_observer(double_event, &transport);
     opal_test_set_phase_observer(phase_event, &transport);
     phase_event(OPAL_TEST_PHASE_STARTUP, &transport);
     OpalTestLifecycleResult result;
@@ -114,6 +135,9 @@ int main(int argc, char **argv) {
     int status = finish_result(&transport, failed, &result);
     opal_test_set_phase_observer(NULL, NULL);
     opal_test_set_callback_observer(NULL, NULL);
+    opal_test_set_attachment_observer(NULL, NULL);
+    opal_test_set_double_observer(NULL, NULL);
+    opal_test_attachments_end();
     opal_test_doubles_end();
     opal_test_attempt_end();
     if (fclose(stream)) return 2;

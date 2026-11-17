@@ -99,6 +99,53 @@ pub(super) fn function_cases(
         .collect()
 }
 
+/// Render retained attempt data without evaluating application expressions or raw control codes.
+pub(super) fn attempt(
+    output: &mut String,
+    attempt: &crate::testing::native::scheduler::AttemptExecution,
+) -> Result<(), NativeCommandError> {
+    for callback in &attempt.callbacks {
+        writeln!(
+            output,
+            "  attempt {} callback {} phase {} {} duration_ms={}",
+            attempt.attempt,
+            callback.index,
+            callback.phase,
+            callback.outcome,
+            callback
+                .duration_ms
+                .map_or_else(|| "unavailable".to_owned(), |value| value.to_string())
+        )
+        .map_err(NativeCommandError::report)?;
+    }
+    for event in &attempt.double_events {
+        writeln!(
+            output,
+            "  double {}::{} {} {}",
+            event.identity.0.module,
+            event.identity.0.name,
+            if event.active {
+                "activated"
+            } else {
+                "restored"
+            },
+            serde_json::to_string(&event.edge).map_err(NativeCommandError::report)?
+        )
+        .map_err(NativeCommandError::report)?;
+    }
+    for attachment in &attempt.attachments {
+        writeln!(
+            output,
+            "  attachment {} ({}): {}",
+            serde_json::to_string(&attachment.name).map_err(NativeCommandError::report)?,
+            attachment.mime,
+            serde_json::to_string(&attachment.text).map_err(NativeCommandError::report)?
+        )
+        .map_err(NativeCommandError::report)?;
+    }
+    Ok(())
+}
+
 /// Text exposes the same association views and explicitly labeled duration semantics.
 pub(super) fn text(output: &mut String, report: &Report) -> Result<(), NativeCommandError> {
     for function in &report.by_function {

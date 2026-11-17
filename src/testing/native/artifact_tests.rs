@@ -86,7 +86,7 @@ fn scheduler_executes_real_native_cases_with_bounded_fresh_workers() {
 fn timeout_retains_completed_callback_metrics_and_marks_only_the_active_boundary_interrupted() {
     let directory = tempfile::tempdir().expect("timeout project");
     let source = directory.path().join("timeout.test.op");
-    std::fs::write(&source,"world Ready:\n    setup: f(): int64 =>\n        return 1\nscenario interrupted callback:\n    worlds: Ready\n    it should retain callback progress: f(ref ready: Ready): void =>\n        expect ready.state to be 1\n        while true:\n            continue\n        return void\n").expect("source");
+    std::fs::write(&source,"import attach_text from standard.testing\nworld Ready:\n    setup: f(): int64 =>\n        return 1\nscenario interrupted callback:\n    worlds: Ready\n    it should retain callback progress: f(ref ready: Ready, mutable ref context: TestContext): void =>\n        expect ready.state to be 1\n        attach_text(mutable ref context, 'before timeout', 'retained attachment')\n        while true:\n            continue\n        return void\n").expect("source");
     let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
     let checked = check_project(&project).expect("checked");
     let artifact =
@@ -115,6 +115,8 @@ fn timeout_retains_completed_callback_metrics_and_marks_only_the_active_boundary
     assert_eq!(last.phase, 4_u32);
     assert_eq!(last.outcome, "interrupted");
     assert!(last.duration_ms.is_none());
+    assert_eq!(attempt.attachments.len(), 1);
+    assert_eq!(attempt.attachments[0].text, "retained attachment");
 }
 
 #[test]

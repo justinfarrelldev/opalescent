@@ -38,6 +38,7 @@ pub(crate) mod native_abort;
 mod native_assertion_storage;
 /// Typed native assertion operations and source-aware failure sites.
 pub(crate) mod native_assertions;
+pub(crate) mod native_attachments;
 mod native_callback_boundary;
 /// Typed native callback boundaries for the lifecycle runtime.
 pub mod native_callbacks;

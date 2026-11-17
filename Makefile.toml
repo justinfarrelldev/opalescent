@@ -357,7 +357,7 @@ env = { RUST_LOG = "info" }
 [tasks.c-runtime-gcc-werror]
 description = "Syntax-check POSIX runtime C sources with GCC warnings as errors"
 script = [
-    "gcc -std=c11 -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c",
+    "gcc -std=c11 -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c runtime/opal_testing_attachments.c",
     "gcc -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
@@ -365,7 +365,7 @@ condition = { platforms = ["linux"] }
 [tasks.c-runtime-clang-werror]
 description = "Syntax-check POSIX runtime C sources with Clang warnings as errors"
 script = [
-    "clang -std=c11 -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c",
+    "clang -std=c11 -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c runtime/opal_testing_attachments.c",
     "clang -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
@@ -373,7 +373,7 @@ condition = { platforms = ["linux"] }
 [tasks.c-runtime-clang-analyzer]
 description = "Run Clang analyzer as an error gate; only reviewed bytes/fs checker false positives are disabled per source"
 script = [
-    "clang --analyze -std=c11 -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c",
+    "clang --analyze -std=c11 -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c runtime/opal_testing_attachments.c",
     "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer core.NonNullParamChecker -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.cstring.NullArg runtime/opal_bytes.c",
     "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.Malloc runtime/opal_fs.c",
     "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror runtime/opal_error.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
@@ -383,7 +383,7 @@ condition = { platforms = ["linux"] }
 [tasks.c-runtime-cppcheck]
 description = "Run Cppcheck for POSIX C11 runtime sources and fail on findings"
 script = [
-    "cppcheck --enable=warning,performance,portability --std=c11 --platform=unix64 --error-exitcode=1 -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c",
+    "cppcheck --enable=warning,performance,portability --std=c11 --platform=unix64 --error-exitcode=1 -Iruntime runtime/opal_testing_runtime.c runtime/opal_testing_lifecycle.c runtime/opal_testing_worker.c runtime/opal_testing_matchers.c runtime/opal_testing_polling.c runtime/opal_testing_doubles.c runtime/opal_testing_values.c runtime/opal_testing_workspace.c runtime/opal_testing_terminal.c runtime/opal_testing_screen.c runtime/opal_testing_attachments.c",
     "cppcheck --enable=warning,performance,portability --std=c11 --platform=unix64 --error-exitcode=1 -D_POSIX_C_SOURCE=200809L -DPRId64=\"ld\" -DPRIu64=\"lu\" -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }

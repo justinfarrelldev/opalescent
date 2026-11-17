@@ -5,7 +5,6 @@ use super::{
     ScheduledCase, SchedulerReport, WorkerResult, WorkerStatus,
 };
 use alloc::collections::{BTreeSet, VecDeque};
-use serde::Deserialize;
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -63,26 +62,6 @@ struct Coordinator<'source> {
     attempts: Vec<Vec<AttemptExecution>>,
     /// Observed coordinator worker occupancy.
     peak: usize,
-}
-
-/// Parse tagged worker events independently from captured user output.
-#[derive(Deserialize)]
-#[serde(tag = "event", rename_all = "snake_case")]
-enum Event {
-    /// Synchronously flushed progress survives hard termination.
-    Phase {
-        /// Versioned native lifecycle phase number.
-        phase: u32,
-    },
-    /// Real source callback entry/completion, streamed before the terminal result.
-    Callback(super::metrics::CallbackEvent),
-    /// Complete normal lifecycle result.
-    Result(WorkerResult),
-    /// Worker initialization/selection/transport infrastructure error.
-    Infrastructure {
-        /// Worker initialization or protocol failure description.
-        message: String,
-    },
 }
 
 /// Schedule eligible independent cases, polling only bounded live child processes.
@@ -183,6 +162,8 @@ impl Coordinator<'_> {
                         exclusion_wait_ms: millis(pending.exclusion_wait),
                         last_phase: None,
                         callbacks: Vec::new(),
+                        attachments: Vec::new(),
+                        double_events: Vec::new(),
                         result: None,
                         infrastructure_message: Some(message),
                         stdout_path: PathBuf::new(),
@@ -314,7 +295,14 @@ fn finish(
     timed_out: bool,
     case: &ScheduledCase,
 ) -> AttemptExecution {
-    let (last_phase, mut result, mut message, mut callbacks) = transport(&running.transport);
+    let super::transport::Progress {
+        phase: last_phase,
+        mut result,
+        mut message,
+        mut callbacks,
+        attachments,
+        double_events,
+    } = super::transport::read(&running.transport);
     let outcome = if timed_out {
         CaseOutcome::TimedOut
     } else {
@@ -351,6 +339,8 @@ fn finish(
         exclusion_wait_ms: millis(running.pending.exclusion_wait),
         last_phase,
         callbacks,
+        attachments,
+        double_events,
         result,
         infrastructure_message: message,
         stdout_path: running.stdout.clone(),
@@ -434,52 +424,4 @@ fn diagnostics_valid(result: &WorkerResult) -> bool {
             && (failure.parent_failure_id == 0 || identities.contains(&failure.parent_failure_id))
             && identities.insert(failure.id)
     })
-}
-
-/// A partial final line is not a complete event and cannot claim cleanup completion.
-fn transport(
-    path: &Path,
-) -> (
-    Option<u32>,
-    Option<WorkerResult>,
-    Option<String>,
-    Vec<super::metrics::CallbackMetric>,
-) {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) => return (None, None, Some(error.to_string()), Vec::new()),
-    };
-    let mut phase = None;
-    let mut callbacks = Vec::new();
-    let mut result = None;
-    let mut message = None;
-    for line in text
-        .split_inclusive('\n')
-        .filter(|line| line.ends_with('\n'))
-    {
-        match serde_json::from_str::<Event>(line) {
-            Ok(Event::Phase { phase: current })
-                if (1..=7).contains(&current) && result.is_none() =>
-            {
-                phase = Some(current);
-            }
-            Ok(Event::Callback(current)) if result.is_none() => {
-                if !super::metrics::accept(&mut callbacks, current) {
-                    message = Some("invalid native callback boundary event".to_owned());
-                }
-            }
-            Ok(Event::Result(current)) if result.is_none() => result = Some(current),
-            Ok(Event::Infrastructure { message: current }) => message = Some(current),
-            Ok(_) => message = Some("invalid or duplicate native worker event".to_owned()),
-            Err(error) => message = Some(format!("malformed native worker event: {error}")),
-        }
-    }
-    if result.is_some()
-        && callbacks
-            .iter()
-            .any(|callback| callback.outcome == "running")
-    {
-        message = Some("worker claimed completion with an unfinished callback".to_owned());
-    }
-    (phase, result, message, callbacks)
 }

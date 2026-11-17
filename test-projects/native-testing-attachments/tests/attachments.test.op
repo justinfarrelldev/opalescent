@@ -1,0 +1,16 @@
+import attach_text from standard.testing
+
+scenario owned diagnostic attachments:
+    after each test:
+        f(mutable ref context: TestContext): void =>
+            if context.failed:
+                attach_text(mutable ref context, 'after failure', 'retained after body abort')
+            return void
+
+    it should capture attachment contents before source mutation:
+        f(mutable ref context: TestContext): void =>
+            let mutable contents: string = 'café original'
+            attach_text(mutable ref context, 'before mutation', contents)
+            contents = 'changed'
+            expect false to be true
+            return void

@@ -2,6 +2,7 @@
 extern crate alloc;
 pub mod metrics;
 mod processes;
+mod transport;
 use super::artifact::NativeTestArtifact;
 use super::identity::CaseIdentity;
 use alloc::collections::BTreeSet;
@@ -161,6 +162,28 @@ pub struct WorkerResult {
     pub failures: Vec<WorkerFailure>,
 }
 
+/// Owned attempt diagnostic attachment, independent of source variable lifetimes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticAttachment {
+    /// User-supplied descriptive name.
+    pub name: String,
+    /// Explicit text media type.
+    pub mime: String,
+    /// Captured UTF-8 contents, never a borrowed source address.
+    pub text: String,
+}
+
+/// Successful attempt-local activation/restoration, with canonical static identities.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoubleBoundaryEvent {
+    /// Canonical declaration identity, not the source alias spelling.
+    pub identity: super::identity::DoubleIdentity,
+    /// Complete canonical source import edge.
+    pub edge: super::identity::ResolvedImportEdge,
+    /// True on activation, false on explicit restore.
+    pub active: bool,
+}
+
 /// A fresh worker process and its retained outcome/transport artifacts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttemptExecution {
@@ -181,6 +204,12 @@ pub struct AttemptExecution {
     /// Validated source callback outcomes/timings, including interrupted boundaries.
     #[serde(default)]
     pub callbacks: Vec<metrics::CallbackMetric>,
+    /// Synchronously captured attachments survive incomplete worker results.
+    #[serde(default)]
+    pub attachments: Vec<DiagnosticAttachment>,
+    /// Actual activation/restore events, retained even if the worker later crashes.
+    #[serde(default)]
+    pub double_events: Vec<DoubleBoundaryEvent>,
     /// Present only for validated complete worker transport.
     pub result: Option<WorkerResult>,
     /// Protocol/launch diagnostics, never relabeled as an assertion.

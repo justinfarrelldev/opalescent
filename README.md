@@ -188,7 +188,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)
-- [ ] Rich testing DSLs such as `describe`/`it`, snapshots, and property tests (`stdlib-proposals/testing-framework/`)
+- [x] Compiled native testing: scenarios, nominal Worlds, named examples, typed assertions/doubles, parallel fresh workers, reports and production-binary PTY tests ([guide](docs/native-testing.md)). Snapshot/property-testing DSLs remain deferred.
 - [ ] Final memory-model design beyond the current reference-counted runtime (`memory-model-proposals/`)
 - [ ] Final public package registry and publishing flow
 
@@ -303,7 +303,7 @@ Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must 
 | `opal build` | working | Build the current `opal.toml` project. |
 | `opal fmt [--check] [--config <path>] [--output <path>] <file>` / `opal fmt --project [path] [--check] [--config <path>]` | working, but not perfect | Format one Opalescent source file or every `.op` file in a project. Needs additional work done in the future. |
 | `opal doc <file.op>` | working | Generate Markdown documentation from doc comments. |
-| `opal test [--filter <pattern>] [--target <triple>]` | stub | CLI is wired up but runs against an empty test suite; no project test discovery is implemented. |
+| `opal test [--root <project>] [--filter <pattern>] [--target <triple>]` | implemented | Discovers/checks native tests, runs fresh workers in parallel, and emits text/JSON/JUnit reports. Host execution; see the [testing guide](docs/native-testing.md). |
 | `opal bench` | stub | Runs two hard-coded micro-benchmarks (`parse` and `typecheck` on `"let x = 1"`); project-level benchmark discovery is not implemented. |
 | `opal watch <file.op>` | working | Recompile and run when a source file changes. |
 | `opal lsp --stdio` | stub | Creates the LSP server instance and prints a startup message, but no stdio message loop is wired up; the server cannot respond to editor requests. |

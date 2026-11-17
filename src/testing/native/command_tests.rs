@@ -510,6 +510,29 @@ fn standard_double_edges_intercept_before_special_lowering_and_preserve_original
         serde_json::from_str(&output.text).expect("standard adapter report");
     assert_eq!(report["totals"]["passed"], 5_u64);
     assert_eq!(report["totals"]["failed"], 1_u64);
+    let mut activated = false;
+    let mut restored = false;
+    for case in report["cases"].as_array().expect("cases") {
+        let declared = case["declared_doubles"]
+            .as_array()
+            .expect("artifact declarations");
+        for attempt in case["execution"]["attempts"].as_array().expect("attempts") {
+            for event in attempt["double_events"]
+                .as_array()
+                .expect("activation events")
+            {
+                activated |= event["active"] == true;
+                restored |= event["active"] == false;
+                assert!(
+                    declared
+                        .iter()
+                        .any(|item| item["identity"] == event["identity"]
+                            && item["edge"] == event["edge"])
+                );
+            }
+        }
+    }
+    assert!(activated && restored);
     assert!(
         report
             .to_string()
@@ -738,6 +761,35 @@ fn specification_editor_conformance_and_production_terminal_run_independent_case
     let names = String::from_utf8_lossy(&symbols.stdout);
     assert!(!names.contains("__opal_native_"));
     assert!(!names.contains("opal_test_attempt_begin"));
+}
+
+#[test]
+fn diagnostic_attachments_are_owned_and_survive_body_abort_and_after_hooks() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-attachments");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("attachments");
+    assert_eq!(output.exit_code, 1_i32, "{}", output.text);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("report");
+    let attempt = &report["cases"][0]["execution"]["attempts"][0];
+    let result = &attempt["result"];
+    let attachments = attempt["attachments"].as_array().expect("attachments");
+    assert_eq!(attachments.len(), 2);
+    assert_eq!(attachments[0]["name"], "before mutation");
+    assert_eq!(attachments[0]["text"], "café original");
+    assert_eq!(attachments[1]["name"], "after failure");
+    assert_eq!(
+        result["failures"]
+            .as_array()
+            .expect("primary failure")
+            .len(),
+        1
+    );
 }
 
 #[test]

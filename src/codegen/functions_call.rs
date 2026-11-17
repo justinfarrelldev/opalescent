@@ -134,6 +134,9 @@ pub fn codegen_call_expression<'context>(
     }
     if let Expr::Identifier { ref name, .. } = *callee {
         let imported_name = env.imported_functions.get(name).cloned();
+        if imported_name.as_deref() == Some("attach_text") && !env.variables.contains_key(name) {
+            return super::native_attachments::lower(codegen_context, env, args);
+        }
         let direct_intrinsic = is_array_intrinsic_name(name.as_str());
         let imported_intrinsic = imported_name
             .as_deref()

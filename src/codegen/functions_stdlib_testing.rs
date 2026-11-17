@@ -6,7 +6,8 @@ use inkwell::{AddressSpace, values::FunctionValue};
 pub(super) fn is_name(name: &str) -> bool {
     matches!(
         name,
-        "temporary_directory_create"
+        "attach_text"
+            | "temporary_directory_create"
             | "temporary_directory_file"
             | "temporary_directory_remove"
             | "application_executable"
@@ -40,6 +41,16 @@ pub(super) fn declare<'context>(
         .context
         .struct_type(&[pointer.into(), pointer.into()], false);
     let function = match name {
+        "attach_text" => ctx
+            .module
+            .get_function("opal_test_attach_text")
+            .unwrap_or_else(|| {
+                ctx.module.add_function(
+                    "opal_test_attach_text",
+                    integer.fn_type(&[pointer.into(), pointer.into(), pointer.into()], false),
+                    None,
+                )
+            }),
         "temporary_directory_create" => declare_fs_result_function(ctx, name, result, &[]),
         "temporary_directory_remove" | "terminal_process_stop" => {
             declare_fs_result_function(ctx, name, result, &[pointer.into()])

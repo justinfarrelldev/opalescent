@@ -26,6 +26,20 @@ actual setup/cleanup observations. A null setup was not entered; null cleanup
 means omitted or unentered, distinguished by `cleanup_declared`. Successful
 cleanup is not proof that external resources were released.
 
+`attach_text(mutable ref context, name, text)` from `standard.testing` copies an
+owned diagnostic attachment. It requires the callback's final mutable `TestContext`
+injection. Name/text operands are evaluated once; later source mutation cannot
+change the attachment. Attachment events are flushed immediately, so diagnostics
+created before a timeout/crash remain available without a terminal result.
+Allocation/configuration failure propagates an independent uncatchable test abort,
+not an application error or fabricated value.
+
+Canonical `declared_doubles` describe the immutable declarations available in the
+compiled artifact, not a claim that every case activates them. Each attempt's
+`double_events` records actual successful activation/restore transitions using
+resolved provider and import-edge identities. They also survive incomplete
+attempts. No process address or global linker-symbol identity is reported.
+
 Text, JSON and JUnit use the same canonical case/attempt records. JUnit retains
 attempt details in each testcase's diagnostic payload. No source expression or
 application operation is repeated to create any report. Coverage remains honestly

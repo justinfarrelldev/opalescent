@@ -39,10 +39,21 @@ struct CaseRecord {
     subjects: Vec<FunctionIdentity>,
     /// Actual lifecycle membership and provenance.
     worlds: Vec<WorldRequirement>,
+    /// Immutable double declarations in this artifact; actual activation is attempt data.
+    declared_doubles: Vec<DoubleDeclarationRecord>,
     /// Whether source selection includes this case.
     selected: bool,
     /// Executed attempts, absent for listing or selection skips.
     execution: Option<CaseExecution>,
+}
+
+/// Canonical static double boundary, independent from whether a case activates it.
+#[derive(Serialize)]
+struct DoubleDeclarationRecord {
+    /// Canonical declaration provider.
+    identity: crate::testing::native::identity::DoubleIdentity,
+    /// Canonical source import edge.
+    edge: crate::testing::native::identity::ResolvedImportEdge,
 }
 
 /// Overall case totals never sum function/World association totals.
@@ -204,6 +215,15 @@ pub(super) fn render(
                     origins: origins.iter().cloned().collect(),
                 })
                 .collect(),
+            declared_doubles: checked
+                .doubles
+                .declarations
+                .values()
+                .map(|declaration| DoubleDeclarationRecord {
+                    identity: declaration.identity.clone(),
+                    edge: declaration.edge.clone(),
+                })
+                .collect(),
             selected,
             execution,
         });
@@ -326,6 +346,7 @@ fn text(report: &Report) -> Result<String, NativeCommandError> {
         }
         if let Some(ref execution) = case.execution {
             for attempt in &execution.attempts {
+                views::attempt(&mut output, attempt)?;
                 if let Some(ref result) = attempt.result {
                     for failure in &result.failures {
                         writeln!(

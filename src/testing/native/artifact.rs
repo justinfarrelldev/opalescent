@@ -176,6 +176,14 @@ fn registry_source(
 /// Embedded test-only units are linked in addition to the unchanged application runtime.
 const TEST_SOURCES: &[(&str, &str)] = &[
     (
+        "opal_testing_attachments.h",
+        include_str!("../../../runtime/opal_testing_attachments.h"),
+    ),
+    (
+        "opal_testing_attachments.c",
+        include_str!("../../../runtime/opal_testing_attachments.c"),
+    ),
+    (
         "opal_testing_terminal.h",
         include_str!("../../../runtime/opal_testing_terminal.h"),
     ),

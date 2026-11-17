@@ -8,6 +8,8 @@ pub mod artifact_cache;
 mod artifact_cache_tests;
 #[cfg(test)]
 mod artifact_tests;
+#[cfg(test)]
+mod attachment_runtime_tests;
 pub mod cases;
 pub mod checking;
 pub mod command;

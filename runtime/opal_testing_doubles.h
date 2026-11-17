@@ -17,6 +17,9 @@ typedef struct {
     OpalTestDoubleDrop drop_snapshot;
 } OpalTestDoubleDescriptor;
 
+typedef void (*OpalTestDoubleObserver)(const OpalTestDoubleDescriptor *descriptor, int active, void *context);
+void opal_test_set_double_observer(OpalTestDoubleObserver observer, void *context);
+
 typedef enum {
     OPAL_TEST_DOUBLE_ORIGINAL = 0,
     OPAL_TEST_DOUBLE_RETURN = 1,

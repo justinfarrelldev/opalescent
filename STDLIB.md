@@ -857,6 +857,15 @@ let decode_with_leaf = f(text: string): Bytes errors HexDecodeError =>
 
 If a function lists an error type, the compiler expects callers to handle or propagate it.
 
+## Native testing helpers (test artifacts only)
+
+`standard.testing` provides explicit temporary-directory operations, the opaque
+normal-application executable descriptor, synchronous POSIX PTY process drivers,
+and `attach_text(mutable ref context, name, text)` diagnostics. These imports are
+rejected in production modules. World cleanup is explicit; none of these helpers
+implements leak protection or resource discovery. See the [native testing guide](docs/native-testing.md)
+for checked signatures, lifecycle, platform limits and runnable examples.
+
 ## Planned standard-library areas
 
 The following are proposal areas, not finished public APIs:
@@ -868,7 +877,7 @@ The following are proposal areas, not finished public APIs:
 - Serialization
 - Compression
 - UUIDs
-- Rich testing DSLs
+- Property testing and snapshot-testing extensions beyond the implemented native scenario/World framework
 - Expanded time/date APIs
 
 See `stdlib-proposals/` for design drafts.
