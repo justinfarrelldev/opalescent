@@ -53,92 +53,14 @@ impl TypeChecker {
         substitution.apply(field_type)
     }
 
-    /// Resolve lambda signature/core AST types with in-scope lambda generic bindings.
+    /// Resolve lambda signatures through the same nominal/generic mapping used
+    /// for ordinary function declarations, avoiding divergent alias semantics.
     fn ast_type_to_core_type_with_lambda_generics(
         &self,
         ast_type: &Type,
         generic_bindings: &[(alloc::string::String, CoreType)],
     ) -> Result<CoreType, TypeError> {
-        match *ast_type {
-            Type::Basic { ref name, .. } => {
-                if let Some(core_type) = generic_bindings
-                    .iter()
-                    .find_map(|binding| (&binding.0 == name).then_some(&binding.1))
-                {
-                    return Ok(core_type.clone());
-                }
-                match ast_type_to_core_type(ast_type).map_err(TypeError::from) {
-                    Ok(core_type) => Ok(core_type),
-                    Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
-                        name: type_name,
-                        type_args: Vec::new(),
-                    }),
-                    Err(other) => Err(other),
-                }
-            }
-            Type::Array {
-                ref element_type, ..
-            } => Ok(CoreType::Array(alloc::boxed::Box::new(
-                self.ast_type_to_core_type_with_lambda_generics(element_type, generic_bindings)?,
-            ))),
-            Type::Generic {
-                ref name,
-                ref type_args,
-                ..
-            } => {
-                let mut resolved_args = Vec::new();
-                for type_arg in type_args {
-                    resolved_args.push(
-                        self.ast_type_to_core_type_with_lambda_generics(
-                            type_arg,
-                            generic_bindings,
-                        )?,
-                    );
-                }
-                Ok(CoreType::Generic {
-                    name: name.clone(),
-                    type_args: resolved_args,
-                })
-            }
-            Type::Function {
-                ref parameters,
-                ref return_types,
-                ref errors,
-                ..
-            } => {
-                let mut resolved_params = Vec::new();
-                for parameter in parameters {
-                    resolved_params.push(
-                        self.ast_type_to_core_type_with_lambda_generics(
-                            parameter,
-                            generic_bindings,
-                        )?,
-                    );
-                }
-                let mut resolved_returns = Vec::new();
-                for return_type in return_types {
-                    resolved_returns.push(self.ast_type_to_core_type_with_lambda_generics(
-                        return_type,
-                        generic_bindings,
-                    )?);
-                }
-                let mut resolved_errors = Vec::new();
-                if let Some(ref error_types) = *errors {
-                    for error_type in error_types {
-                        resolved_errors.extend(self.resolve_error_annotation_type_with_generics(
-                            error_type,
-                            generic_bindings,
-                        )?);
-                    }
-                }
-                Ok(CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: resolved_params,
-                    return_types: resolved_returns,
-                    error_types: resolved_errors,
-                })
-            }
-        }
+        self.ast_type_to_core_type_with_generics(ast_type, generic_bindings)
     }
 
     /// Type check an expression and return its [`CoreType`]
@@ -490,7 +412,9 @@ impl TypeChecker {
         self.ensure_owner_not_moved(name, span)?;
         if let Some(info) = self.symbol_table_mut().lookup_mut(name) {
             info.read_count = info.read_count.saturating_add(1);
-            return Ok(info.core_type.clone());
+            let (core_type, binding_span) = (info.core_type.clone(), info.source_location);
+            self.record_native_parameter_read(binding_span);
+            return Ok(core_type);
         }
 
         if self.context.guard_else_depth > 0 {

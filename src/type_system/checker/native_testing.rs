@@ -1,0 +1,201 @@
+//! Native test-artifact typing state, separate from ordinary application errors.
+extern crate alloc;
+use super::TypeChecker;
+use crate::ast::testing::ManagedCallback;
+use crate::ast::{AstNode, BorrowKind, Expr};
+use crate::token::Span;
+use crate::type_system::errors::TypeError;
+use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::types::CoreType;
+use alloc::collections::{BTreeMap, BTreeSet};
+
+/// Compiler-only metadata, never runtime resource tracking.
+#[derive(Debug, Clone, Default)]
+pub(super) struct NativeTestingState {
+    /// Generated canonical handle names and their concrete state types.
+    worlds: BTreeMap<String, CoreType>,
+    /// Source aliases mapped to generated canonical nominal handle types.
+    aliases: BTreeMap<String, CoreType>,
+    /// Active source callback's strict typed-use contract.
+    active: Option<ActiveCallback>,
+}
+
+/// Source binding identities for injected Worlds in one typed callback.
+#[derive(Debug, Clone)]
+struct ActiveCallback {
+    /// Required parameter bindings, keyed by original span rather than spelling.
+    required: BTreeMap<(usize, usize), (String, Span)>,
+    /// Typed identifier reads that resolve to those exact parameter bindings.
+    used: BTreeSet<(usize, usize)>,
+}
+
+impl TypeChecker {
+    /// Register a generated nominal World handle exposing one concrete `.state`.
+    /// The native compiler supplies the canonical name, not a source alias.
+    ///
+    /// # Errors
+    /// Rejects type/binding collisions and inconsistent generated state layouts.
+    pub fn register_native_test_world(
+        &mut self,
+        local_name: &str,
+        nominal_name: &str,
+        state: CoreType,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        if self.environment().lookup_type(local_name, span).is_ok()
+            || self.symbol_table().lookup(local_name).is_some()
+        {
+            return Err(native_error(
+                span,
+                "generated World handle conflicts with an existing binding",
+            ));
+        }
+        if self
+            .native_testing
+            .worlds
+            .get(nominal_name)
+            .is_some_and(|existing| *existing != state)
+        {
+            return Err(native_error(
+                span,
+                "inconsistent state type for a canonical World provider",
+            ));
+        }
+        let core_type = CoreType::Generic {
+            name: nominal_name.to_owned(),
+            type_args: Vec::new(),
+        };
+        self.environment_mut()
+            .register_type(local_name.to_owned(), core_type.clone());
+        self.symbol_table_mut().register(SymbolInfo {
+            name: local_name.to_owned(),
+            symbol_type: SymbolType::Type,
+            core_type: core_type.clone(),
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
+        self.register_adt_fields(
+            nominal_name.to_owned(),
+            BTreeMap::from([("state".to_owned(), state.clone())]),
+        );
+        self.native_testing
+            .worlds
+            .insert(nominal_name.to_owned(), state);
+        self.native_testing
+            .aliases
+            .insert(local_name.to_owned(), core_type.clone());
+        Ok(core_type)
+    }
+
+    /// Type-check an ordinary callback and enforce its injected World usage.
+    /// Parameter-use checks are binding-aware and happen before optimization.
+    ///
+    /// # Errors
+    /// Returns ordinary typing/borrowing errors or a strict unused-World error.
+    pub fn type_check_native_callback(
+        &mut self,
+        callback: &ManagedCallback,
+        required_world_parameters: &[String],
+    ) -> Result<CoreType, TypeError> {
+        let Expr::Lambda { ref params, .. } = callback.function else {
+            return Err(native_error(
+                callback.function.span(),
+                "framework callback must be an ordinary function literal",
+            ));
+        };
+        let mut required = BTreeMap::new();
+        for name in required_world_parameters {
+            let parameter = params
+                .iter()
+                .find(|parameter| parameter.name == *name)
+                .ok_or_else(|| {
+                    native_error(callback.function.span(), "missing injected World parameter")
+                })?;
+            if parameter.borrow_kind == BorrowKind::Owned {
+                return Err(native_error(
+                    parameter.span,
+                    "World parameters require ref or mutable ref",
+                ));
+            }
+            let param_type =
+                self.ast_type_to_core_type_with_generics(&parameter.param_type, &[])?;
+            if !matches!(param_type, CoreType::Generic { name: ref nominal_name, .. } if self.native_testing.worlds.contains_key(nominal_name))
+            {
+                return Err(native_error(
+                    parameter.span,
+                    "injected parameter requires a nominal World handle, not its state type",
+                ));
+            }
+            required.insert(
+                (parameter.span.start.offset, parameter.span.end.offset),
+                (parameter.name.clone(), parameter.span),
+            );
+        }
+        let previous = self.native_testing.active.replace(ActiveCallback {
+            required,
+            used: BTreeSet::new(),
+        });
+        let result = self.type_check_expr(&callback.function);
+        let active = self.native_testing.active.take();
+        self.native_testing.active = previous;
+        let core_type = result?;
+        if let Some(active) = active {
+            for (binding, (name, span)) in active.required {
+                if !active.used.contains(&binding) {
+                    return Err(native_error(
+                        span,
+                        &format!("unused injected World parameter '{name}' in this callback"),
+                    ));
+                }
+            }
+        }
+        Ok(core_type)
+    }
+
+    /// User code cannot forge or substitute generated provider handles.
+    pub(super) fn validate_native_world_construction(
+        &self,
+        name: &str,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        if self.native_testing.aliases.contains_key(name)
+            || self.native_testing.worlds.contains_key(name)
+        {
+            Err(native_error(
+                span,
+                "the runner constructs World handles; user construction is not permitted",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Resolve only generated test handles; production type mapping is unchanged.
+    pub(super) fn native_world_handle_type(&self, local_name: &str) -> Option<CoreType> {
+        self.native_testing.aliases.get(local_name).cloned()
+    }
+
+    /// Record a typed read by declaration identity, so local shadowing cannot
+    /// make an unused injected World appear used.
+    pub(super) fn record_native_parameter_read(&mut self, binding_span: Span) {
+        if let Some(ref mut active) = self.native_testing.active {
+            let binding = (binding_span.start.offset, binding_span.end.offset);
+            if active.required.contains_key(&binding) {
+                active.used.insert(binding);
+            }
+        }
+    }
+}
+
+/// Native callback contract diagnostic using the original parameter location.
+fn native_error(span: Span, message: &str) -> TypeError {
+    TypeError::InvalidOperation {
+        operation: message.to_owned(),
+        type_name: "native test callback".to_owned(),
+        span: TypeError::span_from_span(span),
+    }
+}

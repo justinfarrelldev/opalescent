@@ -47,7 +47,13 @@ Unchecked phases are not implemented or verified.
 - [x] Hook/transitive requirements retain separate origins and do not become body injections.
 - [x] Example reordering regression proves the complete structured identity set remains unchanged.
 - [x] Native resolution verification: 17 tests passed; strict all-target/all-feature lint passed.
-- [ ] Case metadata increment commit and unchanged pre-commit gates.
+- [x] Case metadata committed as `9d385cb`; all unchanged pre-commit gates passed.
+- [x] Generated handle typing RED/GREEN: two providers with the same state have distinct canonical nominal types and typed `.state` fields.
+- [x] Typed callback use checking RED/GREEN: binding-span tracking rejects unused/shadowed injections; another callback's use does not satisfy the contract.
+- [x] World construction diagnostic RED/GREEN: only the runner may construct generated handles.
+- [x] Refactor: lambda and declaration signatures share one nominal/generic type mapping implementation; existing library tests remain green.
+- [x] Typing increment verification: 1,693 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Initial handle/callback typing increment commit and unchanged pre-commit gates.
 
 ## Remaining integration warning
 

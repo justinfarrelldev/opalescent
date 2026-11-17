@@ -141,6 +141,9 @@ impl TypeChecker {
                 {
                     return Ok(core_type.clone());
                 }
+                if let Some(handle_type) = self.native_world_handle_type(name) {
+                    return Ok(handle_type);
+                }
                 match ast_type_to_core_type(ast_type).map_err(TypeError::from) {
                     Ok(core_type) => Ok(core_type),
                     Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {

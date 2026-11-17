@@ -58,6 +58,9 @@ mod hot_reload;
 mod lambda_signatures;
 /** Module import/export declaration checking support. */
 mod module_checking;
+mod native_testing;
+#[cfg(test)]
+mod native_testing_tests;
 /** Pattern-matching typing and exhaustiveness checks. */
 mod patterns;
 /** Process stdlib built-in nominal error registration. */
@@ -194,6 +197,8 @@ pub struct TypeChecker {
     current_module_path: String,
     /// Whether test-only modules may be imported during this check.
     allow_test_only_imports: bool,
+    /// Generated test handles and callback-local typed usage contracts.
+    native_testing: native_testing::NativeTestingState,
     /// Authoritative Task 13-22 prerequisite capabilities for the terminal public API.
     terminal_public_api_prerequisites: TerminalPublicApiPrerequisites,
     /// Constructor visibility registry keyed by constructor name.
@@ -229,6 +234,7 @@ impl TypeChecker {
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             allow_test_only_imports: false,
+            native_testing: native_testing::NativeTestingState::default(),
             terminal_public_api_prerequisites: TerminalPublicApiPrerequisites::default(),
             constructor_visibilities: BTreeMap::new(),
             affine_aggregate_specs: BTreeMap::new(),
@@ -250,6 +256,7 @@ impl TypeChecker {
     pub fn with_environment(environment: TypeEnvironment) -> Self {
         let mut checker = Self {
             environment,
+            native_testing: native_testing::NativeTestingState::default(),
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
