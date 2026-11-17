@@ -1,0 +1,4 @@
+public type ParallelExample:
+    expected: int64
+    signal: string
+    wait_for: string

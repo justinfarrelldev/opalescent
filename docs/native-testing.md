@@ -30,7 +30,7 @@ Categories are `unit`, `integration`, and `end_to_end`.
 ## SDETs: explicit Worlds and independent examples
 
 A World declares `setup`, optional `cleanup`, and optional ordered dependency
-`worlds`. Setup returns one state value. Cleanup takes a mutable reference to that
+`worlds`. Setup returns one state value. Cleanup takes a `ref` or `mutable ref` to that
 state, then any ordered subset of required dependency World references. Tests
 subscribe with `worlds: Name, Other` and receive those nominal World references in
 exactly that order. Access state through `.state`; mutate it only through a mutable
@@ -55,8 +55,8 @@ Omitted cleanup is legal. No resource registry, leak detector, cleanup proof,
 rollback, orphan recovery, new ownership protocol, or implicit serialization exists.
 The ordinary compiler's lexical value-memory cleanup remains in force.
 
-Examples use `examples of RecordType`, named `example title:` records, and a final
-readonly example parameter after World parameters. Each title produces an
+Examples use `examples of RecordType`, named `example title:` records, and a
+readonly example parameter after World parameters (before an optional context). Each title produces an
 independently selectable identity; reordering examples does not change it. Example
 values are checked against the record schema and constructed afresh per attempt.
 See the exact working [editor conformance fixture](../test-projects/terminal-simple-editor/tests/editor.test.op).
@@ -70,7 +70,7 @@ text or pointer identity. Whole payload-bearing variant equality is rejected;
 variant identity matching does not read the payload. Unsupported matcher/type
 combinations fail checking.
 
-`expect eventually observation to ... within seconds seconds` captures expected
+`expect eventually observation to ... within duration seconds` captures expected
 values/deadline once, samples observations synchronously with a monotonic deadline,
 and retries only mismatches. Application errors escape immediately. Inputs belong
 outside polling assertions. Final diagnostics own the last observed values and

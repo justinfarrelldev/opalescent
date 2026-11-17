@@ -82,7 +82,11 @@ fn lower_expectation<'context>(
     let expected = codegen_expression(codegen, env, expected_expression, actual_type.as_ref())?;
     let passed = match expectation.matcher {
         Matcher::Equal { negated, .. } => {
-            let equal = scalar_equal(codegen, actual, expected)?;
+            let equal = if let Some(ref core) = actual_type {
+                value_equality::equal(codegen, env, core, actual, expected)?
+            } else {
+                scalar_equal(codegen, actual, expected)?
+            };
             if negated {
                 codegen.builder.build_not(equal, "expect.not_equal")?
             } else {

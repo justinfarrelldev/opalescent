@@ -1,0 +1,7 @@
+import operation from ./io
+
+##
+    Description: Retain one canonical import edge shared by both concurrent examples.
+##
+public let apply = f(value: int64): int64 =>
+    return operation(value)

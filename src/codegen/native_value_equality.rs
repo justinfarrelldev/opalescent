@@ -17,6 +17,30 @@ pub(super) fn equal<'context>(
     expected: BasicValueEnum<'context>,
 ) -> Result<IntValue<'context>, CodegenError> {
     match *core {
+        CoreType::Boolean => {
+            // Ordinary C stdlib booleans may use i8; source booleans use i1.
+            // Normalize truth values without altering either application ABI.
+            let actual = actual.into_int_value();
+            let expected = expected.into_int_value();
+            let actual = codegen.builder.build_int_compare(
+                IntPredicate::NE,
+                actual,
+                actual.get_type().const_zero(),
+                "expect.actual.truth",
+            )?;
+            let expected = codegen.builder.build_int_compare(
+                IntPredicate::NE,
+                expected,
+                expected.get_type().const_zero(),
+                "expect.expected.truth",
+            )?;
+            Ok(codegen.builder.build_int_compare(
+                IntPredicate::EQ,
+                actual,
+                expected,
+                "expect.boolean.equal",
+            )?)
+        }
         CoreType::String => {
             let pointer = actual.into_pointer_value().get_type();
             let helper = c_function(

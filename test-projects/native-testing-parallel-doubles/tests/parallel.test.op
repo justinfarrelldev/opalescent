@@ -1,0 +1,36 @@
+import apply from ../src/app
+import path_from, write_text_sync, path_exists_sync from standard
+import type ParallelExample from ./parallel.types
+
+double Write replaces operation from ../src/io
+    as used by ../src/app
+
+world ControlledWrite:
+    setup: f(): Write =>
+        return new Write
+    cleanup:
+        f(mutable ref writer: Write): void =>
+            restore writer
+            return void
+
+scenario independent configurations of one declared boundary:
+    unit under test: apply
+    worlds: ControlledWrite
+    it should overlap both examples without sharing World or double state:
+        examples of ParallelExample:
+            example first configured value:
+                expected: 11
+                signal: 'first.ready'
+                wait_for: 'second.ready'
+            example second configured value:
+                expected: 22
+                signal: 'second.ready'
+                wait_for: 'first.ready'
+        f(mutable ref write: ControlledWrite, ref example: ParallelExample): void errors inferred =>
+            stub write.state(1) returns example.expected
+            propagate write_text_sync(path_from(example.signal), 'configured')
+            expect eventually propagate path_exists_sync(path_from(example.wait_for)) to be true within 2 seconds
+            expect apply(1) to be example.expected
+            expect write.state to have been called once
+            verify write.state
+            return void

@@ -120,6 +120,62 @@ fn timeout_retains_completed_callback_metrics_and_marks_only_the_active_boundary
 }
 
 #[test]
+fn real_examples_with_one_world_subject_and_double_overlap_with_independent_configurations() {
+    let template =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-parallel-doubles");
+    let directory = tempfile::tempdir().expect("private barrier project");
+    for relative in [
+        "src/io.op",
+        "src/app.op",
+        "tests/parallel.types.op",
+        "tests/parallel.test.op",
+    ] {
+        let destination = directory.path().join(relative);
+        std::fs::create_dir_all(destination.parent().expect("source parent"))
+            .expect("source directory");
+        std::fs::copy(template.join(relative), destination).expect("fixture source");
+    }
+    let project = NativeTestProject::load(
+        directory.path(),
+        &[directory.path().join("tests/parallel.test.op")],
+    )
+    .expect("source project");
+    let checked = check_project(&project).expect("checked project");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("native artifact");
+    let cases: Vec<_> = artifact
+        .cases
+        .iter()
+        .map(|identity| super::scheduler::ScheduledCase {
+            identity: identity.clone(),
+            exclusion_keys: Vec::new(),
+        })
+        .collect();
+    let options = super::scheduler::NativeRunOptions {
+        jobs: 2,
+        retries: 0,
+        timeout: std::time::Duration::from_secs(5),
+        working_directory: directory.path().to_owned(),
+        application_executable: None,
+        output_directory: directory.path().join("attempts"),
+    };
+    let report = super::scheduler::run_cases(&artifact, &cases, &options)
+        .expect("native concurrency report");
+    assert_eq!(report.peak_workers, 2);
+    assert!(
+        report
+            .cases
+            .iter()
+            .all(|case| case.outcome == super::scheduler::CaseOutcome::Passed)
+    );
+    assert_ne!(
+        report.cases[0].attempts[0].process_id,
+        report.cases[1].attempts[0].process_id
+    );
+}
+
+#[test]
 fn worker_protocol_is_separate_from_stdout_and_preserves_unicode_identities() {
     let directory = tempfile::tempdir().expect("source and output");
     let path = directory.path().join("logs.test.op");

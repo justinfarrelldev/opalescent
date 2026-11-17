@@ -123,7 +123,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Allocation/identity failures have a static infrastructure diagnostic rather than fabricated application values or ordinary harness process exit.
 - [x] Host-native integration links generated LLVM, the test runtime and an existing lexical cleanup scaffold; cleanup failure does not erase the assertion failure.
 - [x] Runtime verification: 1,755 library tests passed (8 existing ignored), strict Rust lint, file-length gates, GCC/Clang warning checks and Cppcheck passed; the new runtime also passes direct Clang analysis.
-- [ ] Recheck the whole-runtime Clang analyzer baseline separately: unchanged `runtime/opal_io.c` reports existing `unix.Malloc` findings; do not claim this aggregate task passed.
+- [x] Rechecked `cargo make c-runtime-clang-analyzer`: modified testing units pass, but unchanged `runtime/opal_io.c` still reports existing `unix.Malloc` findings (1126/1145/1177 and related paths). The aggregate task is not claimed as passing; no checker/hook was disabled or weakened.
 - [x] Native failure runtime committed as `8dd7afc`; all unchanged pre-commit gates passed.
 
 - [x] Compiled scalar assertion RED/GREEN: real test-module parsing/type checking lowers boolean/numeric equality and numeric relations into LLVM and runtime failures with original byte spans.
@@ -238,7 +238,10 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] PTY editor after-hook now attaches its captured transcript through the real context API, as well as retaining stdout diagnostics. Text escapes attachment control codes; JSON/JUnit share canonical attempt data.
 - [x] C-level owned-attachment storage/source-mutation/primary-failure regression and ASan/UBSan/leak checks passed. Full metadata verification: 1,831 library tests passed serially (8 existing ignored), strict lint, line limits, GCC/Clang warnings, Cppcheck and direct modified-unit Clang analysis passed.
 - [x] User guide documents grammar, World/hook/error semantics, examples, typed boundaries, parallel/exclusion responsibilities, supported/deferred features and CLI/artifact/platform limitations; README no longer falsely describes `opal test` as an empty-suite stub and STDLIB documents test-only helpers.
-- [ ] Attachment/double-metadata and documentation commit/unchanged gates.
+- [x] Attachment/double-metadata and documentation committed as `20bf229`; all unchanged pre-commit gates passed.
+- [x] Final parallel-acceptance audit added a real native two-sided readiness barrier: two examples share one scenario, World, subject and declared double while returning distinct configured values. This validates actual overlap/isolation, not only elapsed-time guesses or coordinator scripts.
+- [x] Barrier RED/GREEN found ordinary fallible-C boolean payloads (`i8`) versus source booleans (`i1`) in assertions. Typed boolean equality now normalizes truth values without changing either application ABI; the real concurrent example fixture passes with two distinct workers.
+- [x] Final barrier/boolean verification: 1,832 library tests passed serially (8 existing ignored), strict lint, file-length and diff checks passed.
 - [ ] Final requirement-by-requirement conformance audit and thorough overall maintainability/safety review; verify every phase/Section 20/Section 22 item before completion.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
 - [x] Standard original-call adapter RED/GREEN: construct typed compiler-only forwarding containers with existing borrowed parameter, return/error and ordinary standard-library lowering; native metadata stays explicit and production C ABIs are unchanged.

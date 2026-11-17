@@ -1,0 +1,5 @@
+##
+    Description: A synchronous boundary whose configuration must be attempt-local.
+##
+public let operation = f(value: int64): int64 =>
+    return value
