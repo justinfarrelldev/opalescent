@@ -118,7 +118,7 @@ impl NativeTestProject {
                 continue;
             }
             let module = load_source_module(&root, &path, ModuleMode::Test)?;
-            for (dependency, mode) in module_dependencies(&path, &module.ast)? {
+            for (dependency, mode) in module_load_dependencies(&path, &module.ast)? {
                 if mode == ModuleMode::Test {
                     pending_tests.insert(dependency);
                 } else {
@@ -295,6 +295,33 @@ pub(super) fn module_dependencies(
             })?;
         if !dependency.starts_with("__stdlib__") {
             dependencies.push((dependency, mode));
+        }
+    }
+    Ok(dependencies)
+}
+
+/// Double declarations reference source modules for static edge validation,
+/// but these references are not application import edges or module cycles.
+fn module_load_dependencies(
+    path: &Path,
+    ast: &LoadedModuleAst,
+) -> Result<Vec<(PathBuf, ModuleMode)>, NativeLoadError> {
+    let mut dependencies = module_dependencies(path, ast)?;
+    if let LoadedModuleAst::Test(ref module) = *ast {
+        for item in &module.items {
+            if let TestItem::Double(ref double) = *item {
+                for source in [&double.from, &double.as_used_by] {
+                    let dependency = resolve_import_path(path, source).map_err(|error| {
+                        NativeLoadError::Type {
+                            path: path.to_owned(),
+                            error: Box::new(error),
+                        }
+                    })?;
+                    if !dependency.starts_with("__stdlib__") {
+                        dependencies.push((dependency, ModuleMode::Application));
+                    }
+                }
+            }
         }
     }
     Ok(dependencies)

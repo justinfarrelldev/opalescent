@@ -1,11 +1,10 @@
 //! Resolve World declarations and imports to nominal provider identities.
 extern crate alloc;
+use super::declaration_imports::resolve_bindings;
 use super::identity::WorldIdentity;
 use super::project::{LoadedModuleAst, NativeTestProject};
 use super::world_graph::{WorldGraph, WorldGraphError, WorldNode};
-use crate::ast::ImportItem;
 use crate::ast::testing::{TestItem, TestSupportKind, WorldDeclaration};
-use crate::module_loader::resolve_import_path;
 use crate::token::Span;
 use alloc::collections::BTreeMap;
 use std::path::PathBuf;
@@ -51,20 +50,6 @@ pub enum WorldResolutionError {
     Graph(#[from] WorldGraphError),
 }
 
-/// An explicit World import awaiting resolution, including support re-exports.
-struct PendingWorldImport {
-    /// Importing source module.
-    module: PathBuf,
-    /// Imported source module.
-    from: PathBuf,
-    /// Name exported by that source module.
-    imported_name: String,
-    /// Local provider and generated handle name.
-    local_name: String,
-    /// Original import location.
-    span: Span,
-}
-
 /// Resolve providers/aliases first, then validate all explicit dependencies.
 ///
 /// # Errors
@@ -75,7 +60,6 @@ pub fn resolve_worlds(
     let mut declarations = BTreeMap::new();
     let mut bindings: BTreeMap<PathBuf, BTreeMap<String, WorldIdentity>> = BTreeMap::new();
     let mut declaration_order = Vec::new();
-    let mut pending_imports = Vec::new();
     for module in project.modules.values() {
         let LoadedModuleAst::Test(ref ast) = module.ast else {
             continue;
@@ -105,39 +89,14 @@ pub fn resolve_worlds(
                     },
                 );
             }
-            if let TestItem::SupportImport(ref import) = *item {
-                if import.kind != TestSupportKind::World {
-                    continue;
-                }
-                let from = resolve_import_path(&module.path, &import.source).map_err(|error| {
-                    source_error(project, &module.path, import.span, &error.to_string())
-                })?;
-                for import_item in &import.items {
-                    let ImportItem::Named {
-                        ref name,
-                        ref alias,
-                        span,
-                    } = *import_item
-                    else {
-                        return Err(source_error(
-                            project,
-                            &module.path,
-                            import.span,
-                            "World imports require explicit names",
-                        ));
-                    };
-                    pending_imports.push(PendingWorldImport {
-                        module: module.path.clone(),
-                        from: from.clone(),
-                        imported_name: name.clone(),
-                        local_name: alias.as_ref().unwrap_or(name).clone(),
-                        span,
-                    });
-                }
-            }
         }
     }
-    resolve_import_bindings(project, &mut bindings, pending_imports)?;
+    resolve_bindings(
+        project,
+        TestSupportKind::World,
+        &mut bindings,
+        |module, span, message| source_error(project, &module.path, span, message),
+    )?;
     let mut nodes = Vec::new();
     for identity in declaration_order {
         let world = &declarations[&identity];
@@ -166,52 +125,6 @@ pub fn resolve_worlds(
         bindings,
         graph,
     })
-}
-
-/// Resolve support aliases by fixed point; no application functions are run.
-fn resolve_import_bindings(
-    project: &NativeTestProject,
-    bindings: &mut BTreeMap<PathBuf, BTreeMap<String, WorldIdentity>>,
-    mut pending: Vec<PendingWorldImport>,
-) -> Result<(), WorldResolutionError> {
-    while !pending.is_empty() {
-        let previous_count = pending.len();
-        let mut unresolved = Vec::new();
-        for import in pending {
-            let identity = bindings
-                .get(&import.from)
-                .and_then(|source| source.get(&import.imported_name))
-                .cloned();
-            let Some(identity) = identity else {
-                unresolved.push(import);
-                continue;
-            };
-            let local_bindings = bindings.entry(import.module.clone()).or_default();
-            if local_bindings
-                .insert(import.local_name.clone(), identity)
-                .is_some()
-            {
-                return Err(source_error(
-                    project,
-                    &import.module,
-                    import.span,
-                    &format!("ambiguous World binding '{}'", import.local_name),
-                ));
-            }
-        }
-        if unresolved.len() == previous_count {
-            if let Some(import) = unresolved.first() {
-                return Err(source_error(
-                    project,
-                    &import.module,
-                    import.span,
-                    &format!("unresolved imported World '{}'", import.imported_name),
-                ));
-            }
-        }
-        pending = unresolved;
-    }
-    Ok(())
 }
 
 /// Preserve source-level diagnostic locations while reporting canonical modules.

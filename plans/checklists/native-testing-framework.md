@@ -17,8 +17,6 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 
 ## Red–green–refactor evidence
 
-Unchecked phases are not implemented or verified.
-
 - [x] Prose lexer RED: new regression tests fail because explicit test mode is absent.
 - [x] Prose lexer GREEN: explicit mode and source-preserving contextual titles; 28 lexer tests pass.
 - [x] Malformed quoted title RED: consumes the following declaration.
@@ -69,17 +67,23 @@ Unchecked phases are not implemented or verified.
 - [x] Lifecycle contract tests cover dependency setup, activation-only use, ordered cleanup subsets and legal omitted cleanup.
 - [x] State-reference RED/GREEN: readonly World mutation rejected; mutable `.state` updates permitted; `.state` borrows remain projections of the original handle; overlapping mutable borrows and by-value World helper parameters rejected.
 - [x] Compiler callback constraints are solved at each managed boundary, preserving ordinary source diagnostics.
-- [ ] Integrated checking increment full verification and unchanged pre-commit gates.
+- [x] Integrated checking committed as `75d7575`; 1,711 library tests passed (8 existing ignored), and all unchanged pre-commit gates passed.
 
-Static pipeline limitation still to implement: doubles currently produce an explicit
-instrumentation-required diagnostic, rather than being silently ignored. Typed
-double resolution/configuration, native abort transport and artifact lowering remain
-required work; the goal is not complete.
+- [x] Double edge resolution RED/GREEN: load referenced application sources, resolve canonical direct import edges, preserve importing-module aliases, and reject same-module/global-symbol replacement.
+- [x] Double declaration aliases retain one provider identity through explicit support imports.
+- [x] Refactor: Worlds and doubles share fixed-point declaration-import resolution.
+- [x] Double resolution verification: 26 native-source regression tests passed; strict lint passed.
+- [ ] Double edge resolution increment commit and unchanged pre-commit gates.
 
-## Remaining integration warning
+## Remaining integration work
 
-The test AST/parser now feed an explicit source loader and canonical World/function
-resolution APIs. These are not yet connected to an executable test artifact builder
-or CLI runner; full callback/type checking is still pending. Native execution, full static validation,
-abort transport, lifecycle, scheduling/reporting and support libraries remain
-required. Do not interpret parsing fixtures as full feature conformance.
+- [ ] Resolve and type-check double declarations and configurations; replace the current instrumentation-required diagnostic with supported test-build instrumentation.
+- [ ] Complete all remaining static validation and compiler acceptance tests.
+- [ ] Implement native artifact lowering and executable test artifact builds.
+- [ ] Implement the internal test-abort channel separately from application errors.
+- [ ] Implement and verify runtime World, hook, body and cleanup lifecycle behavior.
+- [ ] Connect discovery, selection and execution to the compiler CLI.
+- [ ] Implement bounded fresh-process parallel scheduling, retries, timeouts and exclusion keys.
+- [ ] Implement structured result transport and text, JSON and JUnit reports.
+- [ ] Implement testing support libraries and editor conformance fixtures.
+- [ ] Verify executable end-to-end conformance, not just parsing or static checking.

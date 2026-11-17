@@ -4,6 +4,12 @@
 //! declarations are parsed by the normal lexer/parser in explicit module mode.
 pub mod cases;
 pub mod checking;
+/// Shared explicit declaration-import binding resolution.
+mod declaration_imports;
+pub mod doubles;
+
+#[cfg(test)]
+mod double_resolution_tests;
 
 #[cfg(test)]
 mod checking_tests;

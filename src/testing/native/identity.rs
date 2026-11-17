@@ -14,6 +14,10 @@ pub struct DeclarationIdentity {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorldIdentity(pub DeclarationIdentity);
 
+/// Nominal test-double declaration and generated handle identity.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DoubleIdentity(pub DeclarationIdentity);
+
 /// Resolved callable declaration associated with a case, not measured coverage.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct FunctionIdentity(pub DeclarationIdentity);
