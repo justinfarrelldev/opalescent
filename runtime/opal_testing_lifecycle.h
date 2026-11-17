@@ -3,7 +3,10 @@
 #include "opal_testing_runtime.h"
 
 /* Simple C boundary for compiler-generated typed wrappers. Aborted callbacks
- * never populate an application value or an application error. */
+ * never populate an application value or an application error. World slots
+ * point to a typed single-state-field value; nominal World references borrow a
+ * handle to that slot, while cleanup references borrow its state field directly.
+ * The example pointer addresses its constructed typed value, not a name map. */
 enum {
     OPAL_TEST_CALLBACK_COMPLETED = 0,
     OPAL_TEST_CALLBACK_APPLICATION_ERROR = 1,

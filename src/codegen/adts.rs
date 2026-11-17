@@ -5,12 +5,15 @@
 )]
 extern crate alloc;
 use crate::ast::{Expr, Pattern};
+#[path = "adts_borrow.rs"]
+mod adts_borrow;
 #[path = "adts_manifest.rs"]
 mod adts_manifest;
 #[path = "adts_record_update.rs"]
 pub(crate) mod adts_record_update;
 #[path = "adts_sum.rs"]
 mod adts_sum;
+
 use crate::codegen::affine_aggregates::maybe_codegen_transactional_aggregate_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -27,6 +30,18 @@ use crate::type_system::fallible_constructors::{
 };
 use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::types::CoreType;
+/// Borrow a declared product field through its original typed storage.
+///
+/// # Errors
+/// Rejects unknown layouts and temporary-value address escapes.
+pub fn codegen_product_field_address<'context>(
+    context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &Expr,
+) -> Result<inkwell::values::PointerValue<'context>, CodegenError> {
+    adts_borrow::field_address(context, env, expression)
+}
+use adts_borrow::product_field_index_for_core_type;
 use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
@@ -631,28 +646,6 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
                 _ => None,
             }
         }
-        _ => None,
-    }
-}
-
-#[doc = "Resolve the field index for a known lowered product core type."]
-fn product_field_index_for_core_type(
-    env: &CodegenEnv<'_>,
-    core_type: &CoreType,
-    member: &str,
-) -> Option<u32> {
-    match *core_type {
-        CoreType::Generic {
-            ref name,
-            ref type_args,
-        } if name == "Pair" && type_args.len() == 2 => match member {
-            "first" => Some(0),
-            "second" => Some(1),
-            _ => None,
-        },
-        CoreType::Generic { ref name, .. } => env
-            .adt_field_indices_for(name)
-            .and_then(|field_indices| field_indices.get(member).copied()),
         _ => None,
     }
 }

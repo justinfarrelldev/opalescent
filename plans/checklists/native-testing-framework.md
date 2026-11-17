@@ -147,8 +147,12 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Native reference-call RED/GREEN: a compiled mutable-reference helper updates its caller's original scalar binding; native array values use private opaque-value argument slots without changing production ABI.
 - [x] Parameter scopes retain owned managed values only, restore shadowed bindings and preserve existing loop/return lowering.
 - [x] Function-definition verification: 1,764 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Native source definition increment commit and unchanged pre-commit gates.
-- [ ] Complete projected native borrow addresses and typed World/example/context argument wrapper generation; verify managed borrowed values and generic instantiation paths.
+- [x] Native source definitions committed as `4fa29fe`; all unchanged pre-commit gates passed.
+- [x] Projected native product borrows RED/GREEN: helper mutation uses original declared field storage; shared field-index resolution supports pointer-backed products and existing inline Pair representations.
+- [x] Typed World/state/example bridge RED/GREEN: compiled source body borrows a nominal World, reads its independently constructed example, and declared cleanup borrows the same actual state. Fresh native lifecycle execution verifies one shared state identity.
+- [x] Native wrapper plans use resolved numeric slot positions, not fixture names or dynamically keyed World maps; production call lowering remains unchanged.
+- [ ] Typed injection increment commit and unchanged pre-commit gates.
+- [ ] Complete context argument materialization, typed setup/example value construction/drop wrappers and checked case artifact generation; verify managed borrowed values, nested inline projections and generic instantiation paths.
 
 ## Remaining integration work
 

@@ -5,6 +5,19 @@ use inkwell::AddressSpace;
 use inkwell::module::Linkage;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
+#[path = "native_callback_arguments.rs"]
+mod arguments;
+
+/// Compiler-resolved injection positions, never source-name fixture lookup.
+#[derive(Clone, Copy, Debug)]
+pub enum NativeCallbackArgument {
+    /// Borrow a nominal World handle from the ordered initialized state slots.
+    WorldReference(usize),
+    /// Borrow that World's actual state for its declared cleanup callback.
+    StateReference(usize),
+    /// Borrow the independently constructed typed example value.
+    ExampleReference,
+}
 
 /// Emit an argument-free void callback boundary for a compiled body/hook.
 ///
@@ -19,10 +32,24 @@ pub fn emit_void_callback_wrapper<'context>(
     callback: FunctionValue<'context>,
     application_errors: bool,
 ) -> Result<FunctionValue<'context>, CodegenError> {
+    emit_void_callback_wrapper_with_arguments(codegen, name, callback, application_errors, &[])
+}
+
+/// Emit a void callback with statically resolved nominal injection positions.
+///
+/// # Errors
+/// Rejects mismatched callback signatures or invalid typed argument plans.
+pub fn emit_void_callback_wrapper_with_arguments<'context>(
+    codegen: &CodegenContext<'context>,
+    name: &str,
+    callback: FunctionValue<'context>,
+    application_errors: bool,
+    plan: &[NativeCallbackArgument],
+) -> Result<FunctionValue<'context>, CodegenError> {
     let outcome = codegen.native_function_outcome(callback).ok_or_else(|| {
         CodegenError::new("callback wrapper requires an explicitly compiled native function")
     })?;
-    if callback.count_params() != 0 {
+    if usize::try_from(callback.count_params()).ok() != Some(plan.len()) {
         return Err(CodegenError::new(
             "callback parameters require a typed injection wrapper plan",
         ));
@@ -73,9 +100,10 @@ pub fn emit_void_callback_wrapper<'context>(
         .builder
         .build_store(failure, llvm.i64_type().const_zero())?;
     codegen.builder.build_store(error, pointer.const_null())?;
+    let lowered_arguments = arguments::lower_arguments(codegen, wrapper, callback, plan)?;
     let result = codegen
         .builder
-        .build_call(callback, &[], "callback.outcome")?
+        .build_call(callback, &lowered_arguments, "callback.outcome")?
         .try_as_basic_value()
         .basic()
         .ok_or_else(|| CodegenError::new("callback returned no internal outcome"))?

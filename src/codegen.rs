@@ -73,6 +73,8 @@ mod native_outcome_call_tests;
 #[cfg(test)]
 mod native_outcome_tests;
 #[cfg(test)]
+mod native_world_callback_tests;
+#[cfg(test)]
 mod test_affine_aggregates_codegen;
 #[cfg(test)]
 mod tests;

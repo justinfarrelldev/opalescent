@@ -1,5 +1,6 @@
 //! Checked source function definitions use the private native ABI end to end.
 #![cfg(target_os = "linux")]
+extern crate alloc;
 use super::context::CodegenContext;
 use super::expressions::CodegenEnv;
 use super::native_outcome_call_tests::execute_module_with_sources;
@@ -10,6 +11,20 @@ use inkwell::context::Context;
 
 #[test]
 fn compiled_native_reference_parameters_update_the_callers_original_binding() {
+    exercise(
+        "let caller = f(): int64 =>\n    let mutable original: int64 = 41\n    increment(mutable ref original)\n    return original\n",
+    );
+}
+
+#[test]
+fn projected_native_borrows_alias_original_product_field_storage() {
+    exercise(
+        "let caller = f(): int64 =>\n    let mutable holder: Holder = new Holder:\n        value: 41\n    increment(mutable ref holder.value)\n    return holder.value\n",
+    );
+}
+
+/// Compile the same reference helper against identifier and field lvalues.
+fn exercise(caller_source: &str) {
     let llvm = Context::create();
     let codegen = CodegenContext::new(&llvm, "native_reference_definition");
     let (increment_parameters, increment_body) = function(
@@ -30,9 +45,7 @@ fn compiled_native_reference_parameters_update_the_callers_original_binding() {
         &increment_body,
     )
     .expect("native mutable-reference function");
-    let (parameters, statements) = function(
-        "let caller = f(): int64 =>\n    let mutable original: int64 = 41\n    increment(mutable ref original)\n    return original\n",
-    );
+    let (parameters, statements) = function(caller_source);
     let caller_signature = CoreType::Function {
         generic_params: Vec::new(),
         parameters: Vec::new(),
@@ -40,6 +53,14 @@ fn compiled_native_reference_parameters_update_the_callers_original_binding() {
         error_types: Vec::new(),
     };
     let mut environment = CodegenEnv::new(false);
+    environment.adt_field_layouts.insert(
+        "Holder".to_owned(),
+        vec![("value".to_owned(), CoreType::Int64)],
+    );
+    environment.adt_field_indices.insert(
+        "Holder".to_owned(),
+        alloc::collections::BTreeMap::from([("value".to_owned(), 0)]),
+    );
     environment
         .imported_signatures
         .insert("increment".to_owned(), signature);
@@ -98,20 +119,27 @@ fn compiled_native_reference_parameters_update_the_callers_original_binding() {
     codegen.module.verify().expect("valid native reference ABI");
     execute_module_with_sources(
         &codegen,
-        &[std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime/opal_error.c")],
+        &[
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime/opal_error.c"),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime/opal_rc.c"),
+        ],
     );
 }
 
 /// Read ordinary AST function parameters and body without rewriting source.
-fn function(source: &str) -> (Vec<Parameter>, Stmt) {
-    let (tokens, lex_errors) = crate::lexer::Lexer::new(source).tokenize();
+pub(super) fn function(source: &str) -> (Vec<Parameter>, Stmt) {
+    let (tokens, lex_errors) = crate::lexer::Lexer::new_test_module(source).tokenize();
     assert!(lex_errors.is_empty(), "{lex_errors:?}");
-    let (program, parse_errors) = crate::parser::Parser::new(tokens).parse();
+    let (program, parse_errors) = crate::parser::Parser::new(tokens).parse_test_module();
     assert!(parse_errors.is_empty(), "{parse_errors:?}");
     program
         .expect("source")
-        .declarations
+        .items
         .into_iter()
+        .filter_map(|item| match item {
+            crate::ast::testing::TestItem::Application(declaration) => Some(*declaration),
+            _ => None,
+        })
         .find_map(|declaration| match declaration {
             Decl::Let {
                 initializer:

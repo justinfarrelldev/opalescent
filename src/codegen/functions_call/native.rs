@@ -30,9 +30,8 @@ pub(super) fn lower_native_argument<'context>(
                     CodegenError::new("native borrow target has no original value storage")
                 });
         }
-        return Err(CodegenError::new(
-            "native projected borrow requires a typed lvalue-address plan",
-        ));
+        return crate::codegen::adts::codegen_product_field_address(codegen, env, target)
+            .map(|address| address.as_basic_value_enum());
     }
     super::call_arg_cleanup::lower_call_argument(
         codegen,
