@@ -142,6 +142,7 @@ fn options(root: &std::path::Path, jobs: usize) -> NativeRunOptions {
         retries: 0,
         timeout: Duration::from_secs(5),
         working_directory: root.to_path_buf(),
+        application_executable: None,
         output_directory: root.join("results"),
     }
 }

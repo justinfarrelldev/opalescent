@@ -888,12 +888,7 @@ pub fn resolve_imported_runtime_name(
         {
             Ok(name.to_owned())
         }
-        (
-            "standard.testing",
-            name @ ("temporary_directory_create"
-            | "temporary_directory_file"
-            | "temporary_directory_remove"),
-        ) => Ok(name.to_owned()),
+        ("standard.testing", name) if testing::is_name(name) => Ok(name.to_owned()),
         ("standard.system", name)
             if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
                 || is_terminal_core_prerequisite_runtime_name(name) =>
@@ -909,6 +904,7 @@ pub fn resolve_imported_runtime_name(
 #[must_use]
 pub fn is_stdlib_runtime_name(name: &str) -> bool {
     STDLIB_NAMES.contains(&name)
+        || testing::is_name(name)
         || is_numeric_conversion_runtime_name(name)
         || STRING_STDLIB_NAMES.contains(&name)
         || ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)

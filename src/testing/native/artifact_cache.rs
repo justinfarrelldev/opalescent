@@ -130,7 +130,7 @@ fn inputs(
     checked: &CheckedNativeProject,
 ) -> Result<Inputs, NativeArtifactError> {
     let target = crate::build_system::targets::TargetTriple::host();
-    let command = crate::compiler::build_linker_command(
+    let command = super::artifact::build_test_linker_command(
         &target,
         &[],
         Path::new("runtime.c"),

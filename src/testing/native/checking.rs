@@ -92,7 +92,10 @@ pub fn check_project(
         .iter()
         .filter(|path| matches!(project.modules[*path].ast, LoadedModuleAst::Application(_)))
     {
-        compilation.prepare_application(&project.modules[path])?;
+        compilation.prepare_application(
+            &project.modules[path],
+            path.starts_with(project.root.join("tests")),
+        )?;
     }
     for path in order
         .iter()
@@ -156,9 +159,16 @@ impl ModuleCompilation {
 
     /// Application sources retain ordinary grammar/availability and receive
     /// canonical artifact type identities without enabling test operations.
-    fn prepare_application(&mut self, module: &LoadedModule) -> Result<(), NativeCheckError> {
+    fn prepare_application(
+        &mut self,
+        module: &LoadedModule,
+        test_support: bool,
+    ) -> Result<(), NativeCheckError> {
         let program = ordinary_program(module);
         let mut checker = self.checker(module, &program)?;
+        if test_support {
+            checker.enable_test_only_imports();
+        }
         let (prerequisites, values) = ordinary_checking_phases(&program);
         check_ordinary_program(&mut checker, &prerequisites, &module.path)?;
         checker.native_sync_source_type_metadata();

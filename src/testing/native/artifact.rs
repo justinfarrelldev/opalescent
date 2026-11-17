@@ -103,14 +103,14 @@ pub fn build_native_artifact(
     } else {
         "native-tests.pending"
     });
-    let output = crate::compiler::build_linker_command(
+    let mut linker = build_test_linker_command(
         &codegen.target,
         &inputs,
         runtime.path(),
         &staged,
         runtime.include_dir(),
-    )
-    .output()?;
+    );
+    let output = linker.output()?;
     if !output.status.success() {
         return Err(NativeArtifactError::Link(format!(
             "{}\n{}",
@@ -127,6 +127,22 @@ pub fn build_native_artifact(
             .map(|case| case.identity.clone())
             .collect(),
     })
+}
+
+/// Test-only link additions are shared with cache key construction.
+pub(super) fn build_test_linker_command(
+    target: &crate::build_system::targets::TargetTriple,
+    inputs: &[PathBuf],
+    runtime: &Path,
+    output: &Path,
+    include: &Path,
+) -> std::process::Command {
+    let mut linker =
+        crate::compiler::build_linker_command(target, inputs, runtime, output, include);
+    if cfg!(target_os = "linux") {
+        linker.arg("-lutil");
+    }
+    linker
 }
 
 /// Static registry strings encode complete identities, never example positions.
@@ -159,6 +175,22 @@ fn registry_source(
 
 /// Embedded test-only units are linked in addition to the unchanged application runtime.
 const TEST_SOURCES: &[(&str, &str)] = &[
+    (
+        "opal_testing_terminal.h",
+        include_str!("../../../runtime/opal_testing_terminal.h"),
+    ),
+    (
+        "opal_testing_terminal.c",
+        include_str!("../../../runtime/opal_testing_terminal.c"),
+    ),
+    (
+        "opal_testing_screen.h",
+        include_str!("../../../runtime/opal_testing_screen.h"),
+    ),
+    (
+        "opal_testing_screen.c",
+        include_str!("../../../runtime/opal_testing_screen.c"),
+    ),
     (
         "opal_testing_workspace.h",
         include_str!("../../../runtime/opal_testing_workspace.h"),

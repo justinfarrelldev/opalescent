@@ -681,7 +681,7 @@ fn explicit_workspaces_support_io_cleanup_after_abort_and_no_implicit_cleanup() 
 }
 
 #[test]
-fn specification_editor_conformance_runs_five_independent_cases() {
+fn specification_editor_conformance_and_production_terminal_run_independent_cases() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/terminal-simple-editor");
     let output = execute(&[
         "--root".to_owned(),
@@ -694,7 +694,34 @@ fn specification_editor_conformance_runs_five_independent_cases() {
     .expect("editor conformance");
     assert_eq!(output.exit_code, 0_i32, "{}", output.text);
     let report: serde_json::Value = serde_json::from_str(&output.text).expect("report");
-    assert_eq!(report["totals"]["passed"], 5_u64);
+    assert_eq!(report["totals"]["passed"], 6_u64);
+    let terminal = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["identity"]["module"] == "tests/terminal.test.op")
+        .expect("production terminal case");
+    let log = Path::new(
+        terminal["execution"]["attempts"][0]["stdout_path"]
+            .as_str()
+            .expect("terminal log"),
+    );
+    let transcript = std::fs::read_to_string(log).expect("captured transcript");
+    assert!(transcript.contains("-- INSERT --"));
+    assert!(transcript.contains("Reviewed café"));
+    let binary = log
+        .parent()
+        .and_then(Path::parent)
+        .expect("run directory")
+        .join("application/program");
+    let symbols = std::process::Command::new("nm")
+        .arg(binary)
+        .output()
+        .expect("production symbols");
+    assert!(symbols.status.success());
+    let names = String::from_utf8_lossy(&symbols.stdout);
+    assert!(!names.contains("__opal_native_"));
+    assert!(!names.contains("opal_test_attempt_begin"));
 }
 
 #[test]

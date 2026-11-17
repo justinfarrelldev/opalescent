@@ -62,6 +62,7 @@ fn scheduler_executes_real_native_cases_with_bounded_fresh_workers() {
         retries: 0,
         timeout: std::time::Duration::from_secs(5),
         working_directory: root,
+        application_executable: None,
         output_directory: directory.path().join("attempts"),
     };
     let report =

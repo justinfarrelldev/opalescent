@@ -602,6 +602,8 @@ pub(crate) fn runtime_returns_owned_string(name: &str) -> bool {
             | "path_file_extension"
             | "path_to_string"
             | "temporary_directory_file"
+            | "terminal_process_row"
+            | "terminal_process_transcript"
             | "read_text_sync"
             | "read_first_line_sync"
             | "get_environment_variable"

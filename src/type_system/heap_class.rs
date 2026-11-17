@@ -33,9 +33,13 @@ impl HeapClass {
 #[must_use]
 pub fn classify_nominal_type(type_name: &str) -> Option<HeapClass> {
     match type_name {
-        "Bytes" | "FilesystemPath" | "FileMetadata" | "FilePermissions" | "TemporaryDirectory" => {
-            Some(HeapClass::CallerOwned)
-        }
+        "Bytes"
+        | "FilesystemPath"
+        | "FileMetadata"
+        | "FilePermissions"
+        | "TemporaryDirectory"
+        | "TerminalProcess"
+        | "ApplicationExecutable" => Some(HeapClass::CallerOwned),
         "StringBuilder" | "FrameClock" => Some(HeapClass::RuntimeManaged),
         _ => None,
     }

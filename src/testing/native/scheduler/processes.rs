@@ -206,7 +206,13 @@ impl Coordinator<'_> {
             }
             let identity = serde_json::to_string(&self.cases[pending.index].identity)
                 .map_err(std::io::Error::other)?;
-            Command::new(&self.executable)
+            let mut command = Command::new(&self.executable);
+            if let Some(ref executable) = self.options.application_executable {
+                command.env("OPAL_TEST_APPLICATION_EXECUTABLE", executable);
+            } else {
+                command.env_remove("OPAL_TEST_APPLICATION_EXECUTABLE");
+            }
+            command
                 .arg(identity)
                 .arg(pending.attempt.to_string())
                 .arg(&transport)

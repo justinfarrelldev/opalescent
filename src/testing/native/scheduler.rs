@@ -28,6 +28,8 @@ pub struct NativeRunOptions {
     pub timeout: Duration,
     /// Initial source working directory; this is not a filesystem sandbox.
     pub working_directory: PathBuf,
+    /// Normal production artifact explicitly built by this coordinator, never a worker.
+    pub application_executable: Option<PathBuf>,
     /// Private coordinator build/result product directory.
     pub output_directory: PathBuf,
 }
@@ -39,6 +41,7 @@ impl Default for NativeRunOptions {
             retries: 0,
             timeout: Duration::from_secs(30),
             working_directory: PathBuf::from("."),
+            application_executable: None,
             output_directory: PathBuf::from("target/native-testing/results"),
         }
     }

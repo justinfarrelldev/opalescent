@@ -22,6 +22,10 @@ mod lowering_tests;
 pub mod scheduler;
 #[cfg(test)]
 mod scheduler_tests;
+#[cfg(test)]
+mod support_module_tests;
+#[cfg(test)]
+mod terminal_runtime_tests;
 
 #[cfg(test)]
 mod double_resolution_tests;

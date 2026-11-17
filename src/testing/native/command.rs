@@ -109,6 +109,49 @@ pub fn run(args: &[String]) -> Result<(), i32> {
     }
 }
 
+/// Preserve one canonical selected identity and its complete scheduler exclusion set.
+fn scheduled_cases(
+    checked: &super::checking::CheckedNativeProject,
+    selected: &BTreeSet<super::identity::CaseIdentity>,
+) -> Vec<ScheduledCase> {
+    checked
+        .suite
+        .cases
+        .iter()
+        .filter(|case| selected.contains(&case.identity))
+        .map(|case| ScheduledCase {
+            identity: case.identity.clone(),
+            exclusion_keys: checked.suite.bodies[&case.body_identity]
+                .exclusion_keys
+                .clone(),
+        })
+        .collect()
+}
+
+/// Required E2E subjects use the unchanged normal project compiler exactly once.
+fn application_for_cases(
+    project: &NativeTestProject,
+    checked: &super::checking::CheckedNativeProject,
+    selected: &BTreeSet<super::identity::CaseIdentity>,
+    output: &Path,
+) -> Result<Option<PathBuf>, NativeCommandError> {
+    let required = checked.suite.cases.iter().any(|case| {
+        selected.contains(&case.identity)
+            && checked.suite.bodies[&case.body_identity].kind
+                == crate::ast::testing::TestKind::EndToEnd
+    });
+    if !required {
+        return Ok(None);
+    }
+    crate::compiler::compile_project(
+        &project.root,
+        output,
+        &crate::build_system::targets::TargetTriple::host(),
+    )
+    .map(Some)
+    .map_err(NativeCommandError::compilation)
+}
+
 /// Preserve compiler failures separately from cache/link/tool infrastructure failures.
 fn cached_worker(
     project: &NativeTestProject,
@@ -179,22 +222,17 @@ fn execute_options(options: &Options) -> Result<(String, i32), NativeCommandErro
     }
     let directory = run_directory(&root)?;
     let artifact = cached_worker(&project, &checked, &root)?;
-    let cases: Vec<_> = checked
-        .suite
-        .cases
-        .iter()
-        .filter(|case| selected.contains(&case.identity))
-        .map(|case| ScheduledCase {
-            identity: case.identity.clone(),
-            exclusion_keys: checked.suite.bodies[&case.body_identity]
-                .exclusion_keys
-                .clone(),
-        })
-        .collect();
+    let cases = scheduled_cases(&checked, &selected);
     let controls = NativeRunOptions {
         jobs: options.jobs,
         retries: options.retries,
         timeout: options.timeout,
+        application_executable: application_for_cases(
+            &project,
+            &checked,
+            &selected,
+            &directory.join("application"),
+        )?,
         working_directory: root,
         output_directory: directory.join("attempts"),
     };

@@ -6,6 +6,9 @@ use crate::type_system::{
     types::CoreType,
 };
 
+#[path = "testing_terminal.rs"]
+mod terminal;
+
 /// Register the minimal public temporary-directory contract used by native suites.
 pub(super) fn register(resolver: &mut ModuleResolver) {
     let mut interface = ModuleInterface::with_availability(
@@ -67,6 +70,7 @@ pub(super) fn register(resolver: &mut ModuleResolver) {
             .expect("unique testing function");
         interface.register_function_borrow_kinds(name.to_owned(), borrows);
     }
+    terminal::register(&mut interface);
     resolver.register_module_interface(interface);
 }
 
