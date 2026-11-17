@@ -96,7 +96,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 
 - [x] Invalid mock error value RED/GREEN: reject a bare source sum family or a variant requiring unsupplied payload fields; replacements retain ordinary typed payload construction.
 - [x] Error-value validation verification: 1,738 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Mock error value validation increment commit and unchanged pre-commit gates.
+- [x] Mock error value validation committed as `3436b95`; all unchanged pre-commit gates passed.
+
+- [x] Internal LLVM outcome primitive RED/GREEN: completed results retain the original application ABI, aborted results retain only failure identity and leave application slots undefined; void has no dummy slot.
+- [x] Native call branching RED/GREEN: explicit abort/completed edges precede application-result extraction and leave abort scope exits to existing cleanup emission.
+- [x] Host-executable LLVM regression: an integer-producing callee's abort crosses a string-producing caller unchanged, linked as a real native executable.
+- [x] Refactor native call regression into emission/linking helpers; strict lint passes.
+- [ ] Internal LLVM outcome primitive increment commit and unchanged pre-commit gates.
+- [ ] Integrate the outcome primitive into all native source function declarations, ordinary/higher-order calls, returns, guard/propagate paths, lexical scope exits and compiled callback wrappers.
 
 ## Remaining integration work
 
