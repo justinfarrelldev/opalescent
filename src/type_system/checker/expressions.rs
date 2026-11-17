@@ -27,7 +27,7 @@ use crate::type_system::errors::TypeError;
 use crate::type_system::substitution::Substitution;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
-use crate::type_system::types::{CoreType, GenericTypeParameter};
+use crate::type_system::types::CoreType;
 use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
@@ -327,6 +327,7 @@ impl TypeChecker {
         span: Span,
     ) -> Result<CoreType, TypeError> {
         let receiver_type = self.type_check_expr(receiver)?;
+        self.validate_native_handle_record_update(&receiver_type, span)?;
         let CoreType::Generic {
             name: receiver_name,
             type_args,
@@ -754,10 +755,6 @@ impl TypeChecker {
         clippy::too_many_arguments,
         reason = "Lambda typing requires signature, body, span, and optional generic metadata"
     )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Lambda typing handles generic binding resolution and body validation in one path"
-    )]
     pub(super) fn type_check_lambda_expr(
         &mut self,
         parameters: &[Parameter],
@@ -774,58 +771,10 @@ impl TypeChecker {
         // This means lambdas inside `pure` functions are implicitly pure.
         // This is intentional — a lambda created in a pure context should
         // not be able to perform impure operations.
-        let mut lambda_generic_params: Vec<GenericTypeParameter> = Vec::new();
-        let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
-        if let Some(constraints) = generic_constraints {
-            for declaration in constraints {
-                let variable_core =
-                    self.fresh_type_var(declaration.name.clone(), declaration.span)?;
-                let CoreType::Variable(type_var) = variable_core else {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "failed to allocate generic type variable".to_owned(),
-                        span: TypeError::span_from_span(declaration.span),
-                    });
-                };
-                generic_bindings.push((
-                    declaration.name.clone(),
-                    CoreType::Variable(type_var.clone()),
-                ));
-                lambda_generic_params.push(GenericTypeParameter {
-                    name: declaration.name.clone(),
-                    type_var,
-                    constraints: Vec::new(),
-                });
-            }
-
-            for (index, declaration) in constraints.iter().enumerate() {
-                let mut constraint_types = Vec::new();
-                for constraint in &declaration.constraints {
-                    constraint_types.push(self.ast_type_to_core_type_with_lambda_generics(
-                        constraint,
-                        generic_bindings.as_slice(),
-                    )?);
-                }
-                if let Some(generic_param) = lambda_generic_params.get_mut(index) {
-                    generic_param.constraints = constraint_types;
-                }
-            }
-        } else if let Some(params) = generic_params {
-            for param_name in params {
-                let variable_core = self.fresh_type_var(param_name.clone(), span)?;
-                let CoreType::Variable(type_var) = variable_core else {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "failed to allocate generic type variable".to_owned(),
-                        span: TypeError::span_from_span(span),
-                    });
-                };
-                generic_bindings.push((param_name.clone(), CoreType::Variable(type_var.clone())));
-                lambda_generic_params.push(GenericTypeParameter {
-                    name: param_name.clone(),
-                    type_var,
-                    constraints: Vec::new(),
-                });
-            }
-        }
+        let super::lambda_signatures::LambdaGenericBindings {
+            parameters: lambda_generic_params,
+            bindings: generic_bindings,
+        } = self.lambda_generic_bindings(generic_params, generic_constraints, span)?;
 
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {

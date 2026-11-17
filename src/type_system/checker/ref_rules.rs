@@ -1,4 +1,5 @@
 //! Affine owner and second-class borrow validation for the checker.
+mod capture_scopes;
 mod diagnostics;
 
 extern crate alloc;
@@ -289,6 +290,7 @@ impl TypeChecker {
         }
 
         let argument_type = self.type_check_expr(argument)?;
+        self.validate_native_owned_world_argument(&argument_type, argument.span())?;
         if !self.core_type_contains_affine_resource(&argument_type) {
             return Ok(argument_type);
         }
@@ -370,7 +372,11 @@ impl TypeChecker {
         self.ownership.affine_resource_types.contains(name)
     }
     /// Return the expected borrow kind for a call argument.
-    fn expected_borrow_kind_for_call(&self, callee: &Expr, index: usize) -> Option<BorrowKind> {
+    pub(super) fn expected_borrow_kind_for_call(
+        &self,
+        callee: &Expr,
+        index: usize,
+    ) -> Option<BorrowKind> {
         let name = Self::callee_borrow_metadata_name(callee)?;
         self.ownership
             .function_borrows
@@ -400,7 +406,7 @@ impl TypeChecker {
         }
     }
     /// Type-check explicit `ref` or `mutable ref` call syntax.
-    fn type_check_explicit_borrow_argument(
+    pub(super) fn type_check_explicit_borrow_argument(
         &mut self,
         argument: &Expr,
         expected: BorrowKind,
@@ -706,7 +712,13 @@ impl TypeChecker {
         match *stmt {
             Stmt::Testing { ref statement, .. } => {
                 for expression in statement.expressions() {
-                    self.check_expr_for_ref_capture(expression, expression.span())?;
+                    // Exact-rule arguments borrow only during configuration;
+                    // their typed snapshots never retain the borrowed address.
+                    let value = match *expression {
+                        Expr::BorrowArgument { ref target, .. } => target.as_ref(),
+                        _ => expression,
+                    };
+                    self.check_expr_for_ref_capture(value, value.span())?;
                 }
                 Ok(())
             }
@@ -788,105 +800,6 @@ impl TypeChecker {
                 self.check_stmt_for_ref_capture(body.as_ref(), body.span())
             }
             Stmt::PropagateGuardError { .. } | Stmt::Comment { .. } => Ok(()),
-        }
-    }
-
-    /// Check lambda body capture while ignoring names declared as lambda parameters.
-    fn check_lambda_body_for_capture(
-        &self,
-        body: &LambdaBody,
-        local_names: &[&str],
-        span: Span,
-    ) -> Result<(), TypeError> {
-        match *body {
-            LambdaBody::Expression(ref expr) => {
-                self.check_expr_for_capture_skipping_locals(expr, local_names)
-            }
-            LambdaBody::Block(ref statements) => {
-                for statement in statements {
-                    self.check_stmt_for_capture_skipping_locals(statement, local_names, span)?;
-                }
-                Ok(())
-            }
-        }
-    }
-
-    /// Check expression capture while ignoring lambda-local parameter names.
-    fn check_expr_for_capture_skipping_locals(
-        &self,
-        expr: &Expr,
-        local_names: &[&str],
-    ) -> Result<(), TypeError> {
-        match *expr {
-            Expr::Identifier { ref name, .. } if local_names.contains(&name.as_str()) => Ok(()),
-            Expr::BorrowArgument { ref target, .. } => {
-                self.check_expr_for_capture_skipping_locals(target.as_ref(), local_names)
-            }
-            Expr::Call {
-                ref callee,
-                ref args,
-                ..
-            } => {
-                self.check_expr_for_capture_skipping_locals(callee.as_ref(), local_names)?;
-                for argument in args {
-                    self.check_expr_for_capture_skipping_locals(argument, local_names)?;
-                }
-                Ok(())
-            }
-            Expr::Parenthesized { ref expr, .. }
-            | Expr::TypeOf { ref expr, .. }
-            | Expr::Cast { ref expr, .. } => {
-                self.check_expr_for_capture_skipping_locals(expr.as_ref(), local_names)
-            }
-            Expr::Unary { ref operand, .. } => {
-                self.check_expr_for_capture_skipping_locals(operand.as_ref(), local_names)
-            }
-            Expr::Binary {
-                ref left,
-                ref right,
-                ..
-            } => {
-                self.check_expr_for_capture_skipping_locals(left.as_ref(), local_names)?;
-                self.check_expr_for_capture_skipping_locals(right.as_ref(), local_names)
-            }
-            _ => self.check_affine_or_borrow_escape(expr, "be captured by a lambda"),
-        }
-    }
-
-    /// Check statement capture while ignoring lambda-local parameter names.
-    fn check_stmt_for_capture_skipping_locals(
-        &self,
-        stmt: &Stmt,
-        local_names: &[&str],
-        span: Span,
-    ) -> Result<(), TypeError> {
-        match *stmt {
-            Stmt::Let {
-                ref initializer, ..
-            } => {
-                if let Some(expr) = initializer.as_ref() {
-                    self.check_expr_for_capture_skipping_locals(expr, local_names)?;
-                }
-                Ok(())
-            }
-            Stmt::Expression { ref expr, .. } => {
-                self.check_expr_for_capture_skipping_locals(expr, local_names)
-            }
-            Stmt::Return { ref values, .. }
-            | Stmt::Break { ref values, .. }
-            | Stmt::Continue { ref values, .. } => {
-                for value in values {
-                    self.check_expr_for_capture_skipping_locals(&value.value, local_names)?;
-                }
-                Ok(())
-            }
-            Stmt::Block { ref statements, .. } => {
-                for statement in statements {
-                    self.check_stmt_for_capture_skipping_locals(statement, local_names, span)?;
-                }
-                Ok(())
-            }
-            _ => self.check_stmt_for_ref_capture(stmt, span),
         }
     }
 

@@ -25,6 +25,9 @@ impl TypeChecker {
     ) -> Result<CoreType, TypeError> {
         match *callee {
             Expr::Identifier { ref name, .. } => {
+                if let Some(double_type) = self.native_double_constructor(name, fields, span)? {
+                    return Ok(double_type);
+                }
                 self.validate_native_world_construction(name, span)?;
                 self.validate_public_constructor_visibility(name, span)?;
                 if fields.is_empty() {

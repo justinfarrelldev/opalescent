@@ -2,13 +2,17 @@
 extern crate alloc;
 mod assertions;
 mod contracts;
+mod doubles;
 mod examples;
+mod handles;
 mod inference;
+mod module_signatures;
 mod mutation;
 use super::TypeChecker;
 use crate::ast::testing::ManagedCallback;
 use crate::ast::{AstNode, BorrowKind, Expr};
 use crate::token::Span;
+use crate::type_system::NativeDoubleSignature;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
@@ -21,10 +25,23 @@ pub(super) struct NativeTestingState {
     enabled: bool,
     /// Generated canonical handle names and their concrete state types.
     worlds: BTreeMap<String, CoreType>,
+    /// Concrete signatures for attempt-local generated double handle types.
+    doubles: BTreeMap<String, NativeDoubleSignature>,
     /// Source aliases mapped to generated canonical nominal handle types.
     aliases: BTreeMap<String, CoreType>,
+    /// Forward-declared generated kinds, independent of state/signature layout.
+    kinds: BTreeMap<String, NativeHandleKind>,
     /// Active source callback's strict typed-use contract.
     active: Option<ActiveCallback>,
+}
+
+/// Forward declaration category for a generated nominal test handle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeHandleKind {
+    /// Per-attempt World, whose concrete state layout is defined separately.
+    World,
+    /// Attempt-local double, whose application signature is defined separately.
+    Double,
 }
 
 /// Source binding identities for injected Worlds in one typed callback.
@@ -100,53 +117,8 @@ impl TypeChecker {
         state: CoreType,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        self.enable_native_test_mode()?;
-        if self.environment().lookup_type(local_name, span).is_ok()
-            || self.symbol_table().lookup(local_name).is_some()
-        {
-            return Err(native_error(
-                span,
-                "generated World handle conflicts with an existing binding",
-            ));
-        }
-        if self
-            .native_testing
-            .worlds
-            .get(nominal_name)
-            .is_some_and(|existing| *existing != state)
-        {
-            return Err(native_error(
-                span,
-                "inconsistent state type for a canonical World provider",
-            ));
-        }
-        let core_type = CoreType::Generic {
-            name: nominal_name.to_owned(),
-            type_args: Vec::new(),
-        };
-        self.environment_mut()
-            .register_type(local_name.to_owned(), core_type.clone());
-        self.symbol_table_mut().register(SymbolInfo {
-            name: local_name.to_owned(),
-            symbol_type: SymbolType::Type,
-            core_type: core_type.clone(),
-            visibility: Visibility::Private,
-            source_location: span,
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-            is_pure: false,
-        });
-        self.register_adt_fields(
-            nominal_name.to_owned(),
-            BTreeMap::from([("state".to_owned(), state.clone())]),
-        );
-        self.native_testing
-            .worlds
-            .insert(nominal_name.to_owned(), state);
-        self.native_testing
-            .aliases
-            .insert(local_name.to_owned(), core_type.clone());
+        let core_type = self.native_declare_world_alias(local_name, nominal_name, span)?;
+        self.native_define_world_state(nominal_name, state, span)?;
         Ok(core_type)
     }
 
@@ -235,8 +207,8 @@ impl TypeChecker {
         if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if nominal_name == "__opal_testing.TestContext")) {
             return Err(native_error(span, "the runner constructs TestContext values; user construction is not permitted"));
         }
-        if self.native_testing.aliases.contains_key(name)
-            || self.native_testing.worlds.contains_key(name)
+        if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if self.native_testing.kinds.get(nominal_name) == Some(&NativeHandleKind::World)))
+            || self.native_testing.kinds.get(name) == Some(&NativeHandleKind::World)
         {
             Err(native_error(
                 span,

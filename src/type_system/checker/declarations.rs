@@ -53,7 +53,7 @@ impl TypeChecker {
         clippy::pattern_type_mismatch,
         reason = "Matching a borrowed declaration requires explicit ref-patterns"
     )]
-    fn validate_function_doc_comment(decl: &Decl) -> Option<TypeError> {
+    pub(super) fn validate_function_doc_comment(decl: &Decl) -> Option<TypeError> {
         let &Decl::Function {
             name: ref function_name,
             doc_comment: ref function_doc_comment,
@@ -251,7 +251,7 @@ impl TypeChecker {
         clippy::pattern_type_mismatch,
         reason = "Matching on &Decl requires referencing the variant while avoiding clones"
     )]
-    fn register_declaration_signature(&mut self, decl: &Decl) -> Result<(), TypeError> {
+    pub(super) fn register_declaration_signature(&mut self, decl: &Decl) -> Result<(), TypeError> {
         if let Decl::Import {
             items,
             source,
@@ -706,7 +706,7 @@ impl TypeChecker {
         clippy::ref_patterns,
         reason = "Pattern matching with ref to borrow fields from &Decl without cloning large AST nodes"
     )]
-    fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
+    pub(super) fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
         match *decl {
             Decl::Function {
                 ref name,

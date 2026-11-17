@@ -1,18 +1,21 @@
 //! Native test source orchestration through the ordinary compiler type checker.
 extern crate alloc;
 mod callbacks;
+mod declarations;
+mod double_signatures;
 mod module_order;
 use super::cases::{ResolvedSuite, resolve_cases};
-use super::identity::WorldIdentity;
+use super::doubles::{DoubleResolutionError, ResolvedDoubleSet, resolve_doubles};
+use super::identity::{DoubleIdentity, WorldIdentity};
 use super::project::{LoadedModule, LoadedModuleAst, NativeLoadError, NativeTestProject};
 use super::world_resolution::{ResolvedWorldSet, WorldResolutionError, resolve_worlds};
 use crate::ast::testing::TestItem;
-use crate::ast::{Decl, Expr, Program};
+use crate::ast::{Decl, Program};
 use crate::token::Span;
-use crate::type_system::ModuleInterface;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::types::CoreType;
+use crate::type_system::{ModuleInterface, NativeDoubleSignature};
 use alloc::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -31,6 +34,10 @@ pub struct CheckedNativeModule {
 pub struct CheckedNativeProject {
     /// Canonical providers and validated dependency graph.
     pub worlds: ResolvedWorldSet,
+    /// Canonical direct import edges, independent of activation.
+    pub doubles: ResolvedDoubleSet,
+    /// Concrete callable signatures for precompiled double dispatchers.
+    pub double_signatures: BTreeMap<DoubleIdentity, NativeDoubleSignature>,
     /// Stable independent cases and shared source bodies.
     pub suite: ResolvedSuite,
     /// Module type-checking results in canonical source paths.
@@ -39,6 +46,8 @@ pub struct CheckedNativeProject {
     pub world_states: BTreeMap<WorldIdentity, CoreType>,
     /// Generated nominal handle type for every canonical provider.
     pub world_types: BTreeMap<WorldIdentity, CoreType>,
+    /// Generated nominal double types, not aliases for the replaced functions.
+    pub double_types: BTreeMap<DoubleIdentity, CoreType>,
 }
 
 /// Compiler failure; it never represents a failed test execution attempt.
@@ -50,6 +59,9 @@ pub enum NativeCheckError {
     /// Canonical provider resolution/graph failure.
     #[error(transparent)]
     Worlds(#[from] WorldResolutionError),
+    /// Invalid or unsupported source import-edge declaration.
+    #[error(transparent)]
+    Doubles(#[from] DoubleResolutionError),
     /// Ordinary compiler diagnostics with their defining source module.
     #[error("test compilation failed in {path:?}: {errors:?}")]
     Type {
@@ -64,87 +76,227 @@ pub enum NativeCheckError {
 /// No application function, setup, hook or test callback executes here.
 ///
 /// # Errors
-/// Returns source/module/World resolution or ordinary static compiler diagnostics.
+/// Returns source/module/World/edge resolution or ordinary compiler diagnostics.
 pub fn check_project(
     project: &NativeTestProject,
 ) -> Result<CheckedNativeProject, NativeCheckError> {
     let worlds = resolve_worlds(project)?;
+    let doubles = resolve_doubles(project)?;
     let suite =
         resolve_cases(project, &worlds).map_err(|error| type_error(&project.root, error))?;
     let order = module_order::resolve(project)?;
-    let mut modules = BTreeMap::new();
-    let mut interfaces: BTreeMap<PathBuf, ModuleInterface> = BTreeMap::new();
-    let mut world_states = BTreeMap::new();
-    let mut world_types = BTreeMap::new();
-    for path in order {
-        let module = &project.modules[&path];
-        let program = ordinary_program(module);
+    let mut compilation = ModuleCompilation::default();
+    // Ordinary application dependencies cannot import test-only modules, so
+    // they can be checked first without changing their normal language mode.
+    for path in order
+        .iter()
+        .filter(|path| matches!(project.modules[*path].ast, LoadedModuleAst::Application(_)))
+    {
+        compilation.prepare_application(&project.modules[path])?;
+    }
+    for path in order
+        .iter()
+        .filter(|path| matches!(project.modules[*path].ast, LoadedModuleAst::Test(_)))
+    {
+        compilation.prepare_test(&project.modules[path], &worlds, &doubles)?;
+    }
+    let double_signatures = double_signatures::resolve(project, &doubles, &compilation.interfaces)?;
+    let world_states = declarations::state_types(&worlds, &compilation.modules)?;
+    compilation.finish_tests(
+        project,
+        &worlds,
+        &doubles,
+        &suite,
+        &world_states,
+        &double_signatures,
+    )?;
+    Ok(CheckedNativeProject {
+        worlds,
+        doubles,
+        double_signatures,
+        suite,
+        modules: compilation.modules,
+        world_states,
+        world_types: compilation.world_types,
+        double_types: compilation.double_types,
+    })
+}
+
+/// Mutable compiler state used only while constructing one checked source suite.
+#[derive(Default)]
+struct ModuleCompilation {
+    /// Ordinary checked interfaces or provisional test-helper signatures.
+    interfaces: BTreeMap<PathBuf, ModuleInterface>,
+    /// Prepared module checkers, retaining original source declarations.
+    modules: BTreeMap<PathBuf, CheckedNativeModule>,
+    /// Test helpers whose bodies wait for state/double contracts to be defined.
+    pending_bodies: BTreeMap<PathBuf, Program>,
+    /// Canonical World types, shared across source aliases.
+    world_types: BTreeMap<WorldIdentity, CoreType>,
+    /// Canonical double types, shared across source aliases.
+    double_types: BTreeMap<DoubleIdentity, CoreType>,
+}
+
+impl ModuleCompilation {
+    /// Prepare a fresh checker with normal dependency interfaces and imports.
+    fn checker(
+        &self,
+        module: &LoadedModule,
+        program: &Program,
+    ) -> Result<TypeChecker, NativeCheckError> {
         let mut checker = TypeChecker::new();
-        checker.set_current_module_path(path.display().to_string());
-        for interface in interfaces.values() {
+        checker.set_current_module_path(module.path.display().to_string());
+        for interface in self.interfaces.values() {
             checker.register_module_interface(interface.clone());
         }
-        register_import_interfaces(&mut checker, &path, &program, &interfaces)?;
-        let test_mode = matches!(module.ast, LoadedModuleAst::Test(_));
-        if test_mode {
-            checker
-                .enable_native_test_mode()
-                .map_err(|error| type_error(&path, error))?;
-        }
-        let (prerequisites, values) = ordinary_checking_phases(&program);
-        check_ordinary_program(&mut checker, &prerequisites, &path)?;
-        if test_mode {
-            register_world_types(
-                module,
-                &mut checker,
-                &worlds,
-                &mut world_states,
-                &mut world_types,
-            )?;
-        }
-        check_ordinary_program(&mut checker, &values, &path)?;
-        let mut callback_signatures = BTreeMap::new();
-        if let LoadedModuleAst::Test(ref ast) = module.ast {
-            for item in &ast.items {
-                if let TestItem::Double(ref declaration) = *item {
-                    return Err(type_error(
-                        &path,
-                        invalid(
-                            declaration.span,
-                            "double declaration requires resolved typed test-build interception",
-                        ),
-                    ));
-                }
-            }
-            callbacks::check_module(
-                module,
-                &mut checker,
-                &worlds,
-                &world_states,
-                &world_types,
-                &suite,
-                &mut callback_signatures,
-            )?;
-        }
-        if let Some(interface) = checker.module_interface(&path.display().to_string()) {
-            interfaces.insert(path.clone(), interface);
-        }
-        modules.insert(
-            path,
+        register_import_interfaces(&mut checker, &module.path, program, &self.interfaces)?;
+        Ok(checker)
+    }
+
+    /// Application sources use the existing ordinary checking pipeline unchanged.
+    fn prepare_application(&mut self, module: &LoadedModule) -> Result<(), NativeCheckError> {
+        let program = ordinary_program(module);
+        let mut checker = self.checker(module, &program)?;
+        check_ordinary_program(&mut checker, &program, &module.path)?;
+        self.interfaces.insert(
+            module.path.clone(),
+            checked_interface(&checker, &module.path)?,
+        );
+        self.modules.insert(
+            module.path.clone(),
             CheckedNativeModule {
                 program,
                 checker,
-                callbacks: callback_signatures,
+                callbacks: BTreeMap::new(),
             },
         );
+        Ok(())
     }
-    Ok(CheckedNativeProject {
-        worlds,
-        suite,
-        modules,
-        world_states,
-        world_types,
-    })
+
+    /// Declare identities and publish signatures before type-checking helpers
+    /// that configure doubles or access generated World state fields.
+    fn prepare_test(
+        &mut self,
+        module: &LoadedModule,
+        worlds: &ResolvedWorldSet,
+        doubles: &ResolvedDoubleSet,
+    ) -> Result<(), NativeCheckError> {
+        let program = ordinary_program(module);
+        let mut checker = self.checker(module, &program)?;
+        checker
+            .enable_native_test_mode()
+            .map_err(|error| type_error(&module.path, error))?;
+        let (prerequisites, values) = ordinary_checking_phases(&program);
+        check_ordinary_program(&mut checker, &prerequisites, &module.path)?;
+        declarations::declare_aliases(
+            module,
+            &mut checker,
+            worlds,
+            doubles,
+            &mut self.world_types,
+            &mut self.double_types,
+        )?;
+        let (bodies, interface) =
+            checker
+                .native_prepare_test_values(&values)
+                .map_err(|errors| NativeCheckError::Type {
+                    path: module.path.clone(),
+                    errors,
+                })?;
+        self.interfaces.insert(module.path.clone(), interface);
+        self.pending_bodies.insert(module.path.clone(), bodies);
+        self.modules.insert(
+            module.path.clone(),
+            CheckedNativeModule {
+                program,
+                checker,
+                callbacks: BTreeMap::new(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Define immutable compiler contracts globally, then check each actual
+    /// source body once. No nominal alias is invented in an importing module.
+    fn finish_tests(
+        &mut self,
+        project: &NativeTestProject,
+        worlds: &ResolvedWorldSet,
+        doubles: &ResolvedDoubleSet,
+        suite: &ResolvedSuite,
+        states: &BTreeMap<WorldIdentity, CoreType>,
+        signatures: &BTreeMap<DoubleIdentity, NativeDoubleSignature>,
+    ) -> Result<(), NativeCheckError> {
+        for path in self.pending_bodies.keys() {
+            let checker = &mut self
+                .modules
+                .get_mut(path)
+                .ok_or_else(|| {
+                    type_error(
+                        path,
+                        invalid(
+                            module_span(&project.modules[path]),
+                            "native module checker was not prepared",
+                        ),
+                    )
+                })?
+                .checker;
+            for (identity, state) in states {
+                checker
+                    .native_define_world_state(
+                        &declarations::world_name(identity),
+                        state.clone(),
+                        worlds.declarations[identity].declaration.span,
+                    )
+                    .map_err(|error| type_error(path, error))?;
+            }
+            for (identity, signature) in signatures {
+                checker
+                    .native_define_double_signature(
+                        &declarations::double_name(identity),
+                        signature.clone(),
+                        doubles.declarations[identity].declaration.span,
+                    )
+                    .map_err(|error| type_error(path, error))?;
+            }
+        }
+        for (path, bodies) in &self.pending_bodies {
+            let checked = self.modules.get_mut(path).ok_or_else(|| {
+                type_error(
+                    path,
+                    invalid(
+                        module_span(&project.modules[path]),
+                        "native module checker was not prepared",
+                    ),
+                )
+            })?;
+            register_import_interfaces(
+                &mut checked.checker,
+                path,
+                &checked.program,
+                &self.interfaces,
+            )?;
+            checked
+                .checker
+                .native_check_test_value_bodies(bodies)
+                .map_err(|errors| NativeCheckError::Type {
+                    path: path.clone(),
+                    errors,
+                })?;
+            callbacks::check_module(
+                &project.modules[path],
+                &mut checked.checker,
+                worlds,
+                states,
+                &self.world_types,
+                suite,
+                &mut checked.callbacks,
+            )?;
+            self.interfaces
+                .insert(path.clone(), checked_interface(&checked.checker, path)?);
+        }
+        Ok(())
+    }
 }
 
 /// Retain ordinary source declarations without source rewriting.
@@ -166,8 +318,7 @@ fn ordinary_program(module: &LoadedModule) -> Program {
     }
 }
 
-/// Imports and ordinary type declarations must precede generated handle
-/// registration; helpers are checked afterward so their World signatures work.
+/// Source imports and type declarations precede generated nominal declarations.
 fn ordinary_checking_phases(program: &Program) -> (Program, Program) {
     let (prerequisites, values): (Vec<_>, Vec<_>) =
         program
@@ -197,8 +348,7 @@ fn ordinary_checking_phases(program: &Program) -> (Program, Program) {
     )
 }
 
-/// Register source-keyed views of actual dependency interfaces, as in the normal
-/// project compiler, while retaining canonical defining identities separately.
+/// Import source-keyed views of checked or provisional dependency interfaces.
 fn register_import_interfaces(
     checker: &mut TypeChecker,
     path: &Path,
@@ -219,7 +369,7 @@ fn register_import_interfaces(
     Ok(())
 }
 
-/// Test/support modules and ordinary dependencies need no application entry.
+/// Dependencies and support modules do not need application entry points.
 fn check_ordinary_program(
     checker: &mut TypeChecker,
     program: &Program,
@@ -240,84 +390,22 @@ fn check_ordinary_program(
     Ok(())
 }
 
-/// Register all visible provider aliases with one canonical nominal handle each.
-fn register_world_types(
-    module: &LoadedModule,
-    checker: &mut TypeChecker,
-    worlds: &ResolvedWorldSet,
-    states: &mut BTreeMap<WorldIdentity, CoreType>,
-    types: &mut BTreeMap<WorldIdentity, CoreType>,
-) -> Result<(), NativeCheckError> {
-    for world in worlds
-        .declarations
-        .values()
-        .filter(|world| world.module_path == module.path)
-    {
-        let Expr::Lambda {
-            ref return_types, ..
-        } = world.declaration.setup.function
-        else {
-            return Err(type_error(
-                &module.path,
+/// A checked module must expose its actual compiler interface, even if empty.
+fn checked_interface(
+    checker: &TypeChecker,
+    path: &Path,
+) -> Result<ModuleInterface, NativeCheckError> {
+    checker
+        .module_interface(&path.display().to_string())
+        .ok_or_else(|| {
+            type_error(
+                path,
                 invalid(
-                    world.declaration.span,
-                    "World setup requires an ordinary typed function",
+                    Span::single(crate::token::Position::start()),
+                    "checked native module has no compiler interface",
                 ),
-            ));
-        };
-        if return_types.len() != 1 {
-            return Err(type_error(
-                &module.path,
-                invalid(
-                    world.declaration.span,
-                    "World setup returns exactly one concrete state value, not labeled multiple returns",
-                ),
-            ));
-        }
-        let state = checker
-            .native_source_core_type(&return_types[0])
-            .map_err(|error| type_error(&module.path, error))?;
-        if state == CoreType::Unit {
-            return Err(type_error(
-                &module.path,
-                invalid(
-                    world.declaration.span,
-                    "World setup must return a concrete state value",
-                ),
-            ));
-        }
-        states.insert(world.identity.clone(), state);
-    }
-    if let Some(bindings) = worlds.bindings.get(&module.path) {
-        for (local_name, identity) in bindings {
-            let state = states.get(identity).ok_or_else(|| {
-                type_error(
-                    &module.path,
-                    invalid(
-                        module_span(module),
-                        "World state type is not available from its defining module",
-                    ),
-                )
-            })?;
-            let canonical_name = format!(
-                "__opal_world_{}:{}{}:{}",
-                identity.0.module.len(),
-                identity.0.module,
-                identity.0.name.len(),
-                identity.0.name
-            );
-            let handle = checker
-                .register_native_test_world(
-                    local_name,
-                    &canonical_name,
-                    state.clone(),
-                    worlds.declarations[identity].declaration.span,
-                )
-                .map_err(|error| type_error(&module.path, error))?;
-            types.insert(identity.clone(), handle);
-        }
-    }
-    Ok(())
+            )
+        })
 }
 
 /// Original module extent for static diagnostics.
@@ -328,7 +416,7 @@ const fn module_span(module: &LoadedModule) -> Span {
     }
 }
 
-/// Attach the source module to a normal compiler type diagnostic.
+/// Attach a defining source module to a normal compiler type diagnostic.
 fn type_error(path: &Path, error: TypeError) -> NativeCheckError {
     NativeCheckError::Type {
         path: path.to_owned(),

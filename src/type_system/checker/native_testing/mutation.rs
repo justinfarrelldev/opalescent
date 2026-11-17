@@ -7,6 +7,41 @@ use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 
 impl TypeChecker {
+    /// Generic or indirect owned parameter types must not bypass the nominal
+    /// reference-only World contract after call-site type inference.
+    pub(in crate::type_system::checker) fn validate_native_owned_world_argument(
+        &self,
+        argument_type: &CoreType,
+        span: crate::token::Span,
+    ) -> Result<(), TypeError> {
+        if matches!(*argument_type, CoreType::Generic { ref name, .. } if self.native_testing.worlds.contains_key(name))
+        {
+            Err(native_error(
+                span,
+                "World handles must be passed using ref or mutable ref, including through generic helpers",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Generated identities and runner metadata are not user record constructors.
+    pub(in crate::type_system::checker) fn validate_native_handle_record_update(
+        &self,
+        receiver: &CoreType,
+        span: crate::token::Span,
+    ) -> Result<(), TypeError> {
+        if matches!(*receiver, CoreType::Generic { ref name, .. } if self.native_testing.kinds.contains_key(name) || (self.native_testing.enabled && name == "__opal_testing.TestContext"))
+        {
+            Err(native_error(
+                span,
+                "generated World/double handles and TestContext values cannot be forged or substituted through record updates",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Generated World values are always passed as existing second-class refs.
     pub(in crate::type_system::checker) fn validate_native_world_parameter_mode(
         &self,

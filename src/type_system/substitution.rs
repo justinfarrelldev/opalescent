@@ -39,16 +39,39 @@ impl Substitution {
                 CoreType::Array(Box::new(self.apply(element_type)))
             }
             CoreType::Function {
+                ref generic_params,
                 ref parameters,
                 ref return_types,
                 ref error_types,
-                ..
-            } => CoreType::Function {
-                generic_params: Vec::new(),
-                parameters: parameters.iter().map(|p| self.apply(p)).collect(),
-                return_types: return_types.iter().map(|r| self.apply(r)).collect(),
-                error_types: error_types.iter().map(|e| self.apply(e)).collect(),
-            },
+            } => {
+                // These are bound variables, not inference variables belonging
+                // to the caller. Explicit call instantiation is handled by the
+                // checker; ordinary solving must preserve the callable scheme.
+                let mut free = self.clone();
+                for parameter in generic_params {
+                    free.mappings.remove(&parameter.type_var.id);
+                }
+                let mut quantified = generic_params.clone();
+                for parameter in &mut quantified {
+                    parameter.constraints = parameter
+                        .constraints
+                        .iter()
+                        .map(|constraint| free.apply(constraint))
+                        .collect();
+                }
+                CoreType::Function {
+                    generic_params: quantified,
+                    parameters: parameters
+                        .iter()
+                        .map(|parameter| free.apply(parameter))
+                        .collect(),
+                    return_types: return_types
+                        .iter()
+                        .map(|result| free.apply(result))
+                        .collect(),
+                    error_types: error_types.iter().map(|error| free.apply(error)).collect(),
+                }
+            }
             CoreType::Generic {
                 ref name,
                 ref type_args,

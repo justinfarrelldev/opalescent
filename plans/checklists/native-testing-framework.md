@@ -33,7 +33,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Minimal fixture documentation RED/GREEN: retain documentation between indented test declarations.
 - [x] Structured statement visitors preserve operand traversal for capture/reference/naming analysis; production checker/lowering reject unlowered test operations.
 - [x] Extract existing diagnostic/expression/store-mode helpers without changing production semantics to keep file-length gates intact.
-- [x] Minimal fixture added at `test-projects/native-testing-basic`; parsed by regression tests (not yet executable through CLI).
+- [x] Minimal fixture added at `test-projects/native-testing-basic`; parsed by regression tests.
 - [x] Frontend verification: 11 new parser tests; 268 existing/new parser tests passed with 1 existing ignored; strict lint passes.
 - [x] Structured frontend committed as `0096a3c`; all unchanged pre-commit gates passed.
 - [x] Native loader RED/GREEN: explicit test/support mode, ordinary dependency grammar, original-source diagnostics and `.types.op` restrictions.
@@ -63,7 +63,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Support-module loading fix committed as `089a9e8`; all unchanged pre-commit gates passed.
 - [x] Body/context contracts committed as `385b63c`; all unchanged pre-commit gates passed.
 - [x] Source-to-checker integration RED/GREEN: load ordinary dependency interfaces, register nominal aliases, check setup/cleanup/hooks/bodies and validate example records/constants before execution.
-- [x] Minimal project fixture now passes the integrated static pipeline (native lowering/execution still pending).
+- [x] Minimal project fixture passes the integrated static pipeline.
 - [x] Lifecycle contract tests cover dependency setup, activation-only use, ordered cleanup subsets and legal omitted cleanup.
 - [x] State-reference RED/GREEN: readonly World mutation rejected; mutable `.state` updates permitted; `.state` borrows remain projections of the original handle; overlapping mutable borrows and by-value World helper parameters rejected.
 - [x] Compiler callback constraints are solved at each managed boundary, preserving ordinary source diagnostics.
@@ -73,11 +73,23 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Double declaration aliases retain one provider identity through explicit support imports.
 - [x] Refactor: Worlds and doubles share fixed-point declaration-import resolution.
 - [x] Double resolution verification: 26 native-source regression tests passed; strict lint passed.
-- [ ] Double edge resolution increment commit and unchanged pre-commit gates.
+- [x] Double edge resolution committed as `96dd86a`; all unchanged pre-commit gates passed.
+- [x] Typed double RED/GREEN: canonical handles, ordered reference/result/error contracts, exact rules, replacements, spying, verify/restore, typed counts and owned-history operand validation.
+- [x] Unsupported snapshot operands retain count-only spying; exact rules/history comparisons produce explicit compiler diagnostics.
+- [x] Borrowed configuration RED/GREEN: conditional exact-rule arguments are immediate value snapshots, not captured borrow addresses.
+- [x] World/double integration RED/GREEN: declare nominal identities before state layouts/signatures, resolve original application interfaces, then check helpers and managed callbacks.
+- [x] World safety RED/GREEN: reject handle reconstruction through record updates and copying through generic owned parameters.
+- [x] Stored affine result RED/GREEN: reject duplicating existing affine owners in reusable exact returns; replacements/spies can produce results normally.
+- [x] Generic helper RED/GREEN: provisional interfaces preserve generic parameters; ordinary substitution preserves quantified callable schemes and avoids imported/local numeric type-variable collisions.
+- [x] Refactor: share generic signature/body binding resolution and isolate lexical reference-capture traversal, retaining parameter shadowing through control flow.
+- [x] Current verification: 1,728 library tests passed (8 existing ignored); strict all-target/all-feature lint passed.
+- [ ] Typed double checking increment commit and unchanged pre-commit gates.
 
 ## Remaining integration work
 
-- [ ] Resolve and type-check double declarations and configurations; replace the current instrumentation-required diagnostic with supported test-build instrumentation.
+- [x] Resolve and type-check double declarations and configurations in the integrated native source pipeline.
+- [ ] Implement supported test-build interception/instrumentation for checked double operations.
+- [ ] Audit and resolve cross-module nominal application type/error identity collisions, including same-spelled declarations and aliased imports.
 - [ ] Complete all remaining static validation and compiler acceptance tests.
 - [ ] Implement native artifact lowering and executable test artifact builds.
 - [ ] Implement the internal test-abort channel separately from application errors.

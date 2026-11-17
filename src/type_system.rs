@@ -90,8 +90,11 @@ mod memory;
 mod module_resolver;
 pub mod propertyless_constructors;
 pub(crate) use module_resolver::{AdtLayoutManifestKind, ModuleInterface};
+/// Concrete signatures for compiler-owned typed test interception boundaries.
+pub mod native_double_signature;
 mod substitution;
 mod symbol_table;
+pub(crate) use native_double_signature::NativeDoubleSignature;
 /// Selected terminal public API prerequisite inventory and diagnostics.
 pub(crate) mod terminal_public_api_prerequisites;
 pub mod type_mapping;
@@ -156,6 +159,8 @@ pub(crate) fn terminal_proposal_variant_id(type_name: &str, variant_name: &str) 
     module_resolver::terminal_proposal_variant_id(type_name, variant_name)
 }
 
+#[cfg(test)]
+mod substitution_tests;
 #[cfg(test)]
 mod tests;
 

@@ -186,6 +186,24 @@ fn mutable_and_immutable_borrows_of_the_same_world_state_cannot_overlap() {
 }
 
 #[test]
+fn nested_helper_world_parameters_shadow_outer_names_without_capturing_them() {
+    let mut checker = TypeChecker::new();
+    let world = checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let callback = parse_callback(
+        "f(ref first: First): void =>\n        let helper = f(ref first: First): void =>\n            if true:\n                expect first.state to be 1\n            return void\n        helper(ref first)\n        return void\n",
+    );
+    let result = checker.type_check_native_case_callback(&callback, &[world], None);
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
 fn ordinary_helpers_cannot_take_generated_world_handles_by_value() {
     let mut checker = TypeChecker::new();
     checker
@@ -202,6 +220,61 @@ fn ordinary_helpers_cannot_take_generated_world_handles_by_value() {
     assert!(
         checker.type_check_native_callback(&helper, &[]).is_err(),
         "generated World parameters must remain second-class references even in ordinary helpers"
+    );
+}
+
+#[test]
+fn generic_owned_parameters_cannot_be_used_to_copy_injected_world_handles() {
+    let mut checker = TypeChecker::new();
+    let world = checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let (tokens, _) =
+        Lexer::new("let identity = f<T>(value: T): T =>\n    return value\n").tokenize();
+    let (program, parse_errors) = Parser::new(tokens).parse();
+    assert!(parse_errors.is_empty());
+    let errors = checker
+        .type_check_program(&program.expect("generic helper"))
+        .expect_err("no entry");
+    assert!(errors.iter().all(|error| matches!(
+        *error,
+        crate::type_system::errors::TypeError::MissingEntryPoint { .. }
+    )));
+    let callback = parse_callback(
+        "f(ref first: First): void =>\n        let copied = identity(first)\n        print(copied.state)\n        return void\n",
+    );
+    assert!(
+        checker
+            .type_check_native_case_callback(&callback, &[world], None)
+            .is_err(),
+        "generic owned arguments cannot bypass nominal World reference rules"
+    );
+}
+
+#[test]
+fn record_updates_cannot_forge_or_substitute_a_world_handle() {
+    let mut checker = TypeChecker::new();
+    let world = checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let callback = parse_callback(
+        "f(ref first: First): void =>\n        let fake = first with:\n            state: 2\n        print(fake.state)\n        return void\n",
+    );
+    assert!(
+        checker
+            .type_check_native_case_callback(&callback, &[world], None)
+            .is_err(),
+        "World identity cannot be forged through a record update"
     );
 }
 

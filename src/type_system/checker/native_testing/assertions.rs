@@ -32,10 +32,9 @@ impl TypeChecker {
             }
             TestingStatement::Stub { .. }
             | TestingStatement::Restore(_)
-            | TestingStatement::Verify(_) => Err(native_error(
-                span,
-                "double operation requires a resolved typed interception boundary",
-            )),
+            | TestingStatement::Verify(_) => {
+                self.type_check_native_double_statement(statement, span)
+            }
         }
     }
 
@@ -103,12 +102,8 @@ impl TypeChecker {
                 nominal_type,
                 expectation.actual.span(),
             )?,
-            Matcher::CallCount { .. } | Matcher::CalledWith { .. } => {
-                return Err(native_error(
-                    expectation.span,
-                    "call-history assertion requires a resolved typed double handle",
-                ));
-            }
+            Matcher::CallCount { .. } | Matcher::CalledWith { .. } => self
+                .type_check_native_call_matcher(&actual, &expectation.matcher, expectation.span)?,
         }
         if let Some(ref deadline) = expectation.eventually_seconds {
             let deadline_type = self.type_check_expr(deadline)?;
@@ -188,7 +183,7 @@ impl TypeChecker {
 
     /// V1 equality: primitive values, arrays and acyclic products of supported
     /// values, plus payload-free enums. Handles and recursive shapes are excluded.
-    fn native_equality_supported(
+    pub(super) fn native_equality_supported(
         &self,
         core_type: &CoreType,
         active: &mut BTreeSet<String>,

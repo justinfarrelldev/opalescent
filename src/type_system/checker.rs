@@ -61,6 +61,8 @@ mod module_checking;
 #[cfg(test)]
 mod native_assertion_tests;
 #[cfg(test)]
+mod native_double_tests;
+#[cfg(test)]
 mod native_error_inference_tests;
 mod native_testing;
 #[cfg(test)]
