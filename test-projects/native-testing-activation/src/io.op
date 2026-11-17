@@ -1,0 +1,14 @@
+##
+    Description: A minimal imported boundary with an ordinary application error.
+##
+public let operation = f(value: int64): int64 errors ParseError =>
+    if value < 0:
+        let parsed = propagate string_to_int32('not a number')
+        return parsed as int64
+    return value
+
+##
+    Description: Same-module calls do not traverse the replaced import edge.
+##
+public let internal = f(value: int64): int64 errors ParseError =>
+    return propagate operation(value)

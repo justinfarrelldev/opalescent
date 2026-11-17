@@ -44,7 +44,9 @@ pub(super) fn failure<'context>(
         Matcher::Compare { .. } => "numeric comparison",
         Matcher::Sequence { .. } => "exact order",
         Matcher::Variant { .. } => "nominal variant",
-        _ => "emptiness",
+        Matcher::CallCount { .. } => "call count",
+        Matcher::CalledWith { .. } => "call history",
+        Matcher::Empty { .. } => "emptiness",
     };
     let matcher = ctx
         .builder

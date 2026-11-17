@@ -40,6 +40,41 @@ pub fn emit_native_abort<'context>(
     Ok(())
 }
 
+/// Check a scalar C runtime outcome before reading any completed output storage.
+///
+/// # Errors
+/// Rejects missing native boundaries or invalid cleanup/LLVM emission.
+pub fn propagate_runtime_failure<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    identity: IntValue<'context>,
+) -> Result<(), CodegenError> {
+    let function = codegen
+        .builder
+        .get_insert_block()
+        .and_then(inkwell::basic_block::BasicBlock::get_parent)
+        .ok_or_else(|| CodegenError::new("native runtime outcome has no function"))?;
+    let failed = codegen
+        .context
+        .append_basic_block(function, "test.runtime.aborted");
+    let ready = codegen
+        .context
+        .append_basic_block(function, "test.runtime.completed");
+    let has_failure = codegen.builder.build_int_compare(
+        inkwell::IntPredicate::NE,
+        identity,
+        identity.get_type().const_zero(),
+        "test.runtime.has_failure",
+    )?;
+    codegen
+        .builder
+        .build_conditional_branch(has_failure, failed, ready)?;
+    codegen.builder.position_at_end(failed);
+    emit_native_abort(codegen, env, identity, &[])?;
+    codegen.builder.position_at_end(ready);
+    Ok(())
+}
+
 /// Keep a declared lexical cleanup error secondary to the original test failure.
 fn record_secondary_cleanup_error<'context>(
     codegen: &CodegenContext<'context>,

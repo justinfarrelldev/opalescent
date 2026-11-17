@@ -39,9 +39,7 @@ pub fn codegen_testing_statement<'context>(
     }
     match *statement {
         TestingStatement::Expect(ref expectation) => lower_expectation(codegen, env, expectation),
-        _ => Err(CodegenError::new(
-            "typed double operation requires native interception lowering",
-        )),
+        _ => super::native_doubles::statement(codegen, env, statement),
     }
 }
 
@@ -53,6 +51,12 @@ fn lower_expectation<'context>(
 ) -> Result<(), CodegenError> {
     if expectation.eventually_seconds.is_some() {
         return super::native_polling::lower(codegen, env, expectation);
+    }
+    if matches!(
+        expectation.matcher,
+        Matcher::CallCount { .. } | Matcher::CalledWith { .. }
+    ) {
+        return super::native_doubles::count(codegen, env, expectation);
     }
     let actual_type = operand_core_type(env, &expectation.actual);
     if actual_type == Some(CoreType::String) {
@@ -123,6 +127,24 @@ fn lower_expectation<'context>(
     emit_native_abort(codegen, env, identity, &[])?;
     codegen.builder.position_at_end(continuation);
     Ok(())
+}
+
+/// Snapshot count operands without re-reading the nominal target or invoking application code.
+pub fn record_count_failure<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expectation: &Expectation,
+    actual: IntValue<'context>,
+    expected: IntValue<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    snapshots::failure(
+        codegen,
+        env,
+        expectation,
+        &CoreType::UInt64,
+        actual.into(),
+        Some(expected.into()),
+    )
 }
 
 /// Projection wrappers preserve their ordinary scalar type, including unsigned

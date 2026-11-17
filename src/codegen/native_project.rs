@@ -116,7 +116,7 @@ pub fn emit_checked_project<'context>(
 }
 
 /// Hex-encoded structured identities cannot collide through alias punctuation.
-fn symbol(kind: &str, identity: &impl serde::Serialize) -> Result<String, CodegenError> {
+pub(super) fn symbol(kind: &str, identity: &impl serde::Serialize) -> Result<String, CodegenError> {
     let encoded =
         serde_json::to_vec(identity).map_err(|error| CodegenError::new(error.to_string()))?;
     let mut name = format!("__opal_native_{kind}_");

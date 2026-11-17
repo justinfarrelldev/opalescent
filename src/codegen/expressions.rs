@@ -105,6 +105,8 @@ pub struct CodegenEnv<'context> {
     pub adt_product_layouts: alloc::collections::BTreeSet<String>,
     /// Checked native assertion operands keyed by original source extent.
     pub native_assertion_types: BTreeMap<(usize, usize), CoreType>,
+    /// Canonical nominal handles mapped to immutable native double descriptors.
+    pub native_double_descriptors: BTreeMap<String, PointerValue<'context>>,
     /// Compiler-only assertion mismatch retry destinations.
     pub native_polling: Vec<crate::codegen::native_polling::NativePollingContext<'context>>,
     /// Module-local display names mapped to canonical manifest layout keys.
@@ -143,6 +145,7 @@ impl<'context> CodegenEnv<'context> {
             adt_field_layouts: BTreeMap::new(),
             adt_product_layouts: alloc::collections::BTreeSet::new(),
             native_assertion_types: BTreeMap::new(),
+            native_double_descriptors: BTreeMap::new(),
             native_polling: Vec::new(),
             adt_layout_aliases: BTreeMap::new(),
             adt_variant_discriminants: BTreeMap::new(),
@@ -163,42 +166,6 @@ impl<'context> CodegenEnv<'context> {
         let index = self.temp_counter;
         self.temp_counter = self.temp_counter.saturating_add(1);
         format!("{base}.{index}")
-    }
-
-    /// Resolve a local ADT owner or variant name to its canonical layout key.
-    #[must_use]
-    pub fn adt_layout_key<'name>(&'name self, owner: &'name str) -> &'name str {
-        self.adt_layout_aliases
-            .get(owner)
-            .map_or(owner, String::as_str)
-    }
-
-    /// Look up ordered field layout metadata for a local or canonical ADT owner.
-    #[must_use]
-    pub fn adt_field_layout(&self, owner: &str) -> Option<&Vec<(String, CoreType)>> {
-        let key = self.adt_layout_key(owner);
-        self.adt_field_layouts
-            .get(key)
-            .or_else(|| self.adt_field_layouts.get(owner))
-    }
-
-    /// Look up field indices for a local or canonical ADT owner.
-    #[must_use]
-    pub fn adt_field_indices_for(&self, owner: &str) -> Option<&BTreeMap<String, u32>> {
-        let key = self.adt_layout_key(owner);
-        self.adt_field_indices
-            .get(key)
-            .or_else(|| self.adt_field_indices.get(owner))
-    }
-
-    /// Look up a sum variant discriminant for a local or canonical variant owner.
-    #[must_use]
-    pub fn adt_variant_discriminant(&self, owner: &str) -> Option<i64> {
-        let key = self.adt_layout_key(owner);
-        self.adt_variant_discriminants
-            .get(key)
-            .copied()
-            .or_else(|| self.adt_variant_discriminants.get(owner).copied())
     }
 }
 

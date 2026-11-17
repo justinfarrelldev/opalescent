@@ -322,6 +322,60 @@ fn compiled_polling_evaluates_configuration_once_and_retains_latest_observation(
 }
 
 #[test]
+fn compiled_double_activation_restores_handles_and_aborts_conflicts_independently() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-activation");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("native double activation");
+    assert_eq!(output.exit_code, 2_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("activation report");
+    assert_eq!(report["totals"]["passed"], 5_u64);
+    assert_eq!(report["totals"]["failed"], 3_u64);
+    assert!(
+        report
+            .to_string()
+            .contains("unexpected invocation of active double")
+    );
+    assert!(report.to_string().contains("conflicting active doubles"));
+    let aborted = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"]
+                == "abort an unconfigured active edge before returning an application value"
+        })
+        .expect("unconfigured call");
+    let trace = aborted["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("argument trace");
+    assert_eq!(
+        std::fs::read_to_string(trace).expect("argument and cleanup trace"),
+        "argument evaluated\nworld writer restored\n"
+    );
+    let world_case = report["cases"]
+        .as_array()
+        .expect("activation cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"] == "restore an initialized World after an activation abort"
+        })
+        .expect("World case");
+    let path = world_case["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("cleanup trace");
+    assert_eq!(
+        std::fs::read_to_string(path).expect("World cleanup trace"),
+        "world writer restored\n"
+    );
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

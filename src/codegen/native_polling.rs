@@ -2,7 +2,7 @@
 use super::context::CodegenContext;
 use super::error::CodegenError;
 use super::expressions::{CodegenEnv, VariableBinding, codegen_expression};
-use super::native_abort::emit_native_abort;
+use super::native_abort::propagate_runtime_failure as check_abort;
 use super::native_assertion_storage::entry_slot;
 use super::native_callback_boundary::c_function;
 use crate::ast::{
@@ -271,36 +271,4 @@ fn begin<'context>(
         .builder
         .build_load(output, "expect.poll.deadline")?
         .into_int_value())
-}
-
-/// Clock/wait failures abort independently, without fabricating an observation value.
-fn check_abort<'context>(
-    codegen: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    identity: IntValue<'context>,
-) -> Result<(), CodegenError> {
-    let function = codegen
-        .builder
-        .get_insert_block()
-        .and_then(inkwell::basic_block::BasicBlock::get_parent)
-        .ok_or_else(|| CodegenError::new("polling outcome has no function"))?;
-    let failed = codegen
-        .context
-        .append_basic_block(function, "expect.poll.infrastructure.failed");
-    let ready = codegen
-        .context
-        .append_basic_block(function, "expect.poll.infrastructure.ready");
-    let has_failure = codegen.builder.build_int_compare(
-        inkwell::IntPredicate::NE,
-        identity,
-        identity.get_type().const_zero(),
-        "expect.poll.aborted",
-    )?;
-    codegen
-        .builder
-        .build_conditional_branch(has_failure, failed, ready)?;
-    codegen.builder.position_at_end(failed);
-    emit_native_abort(codegen, env, identity, &[])?;
-    codegen.builder.position_at_end(ready);
-    Ok(())
 }

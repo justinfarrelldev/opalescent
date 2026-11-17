@@ -1,0 +1,7 @@
+import operation as imported_operation from ./io
+
+##
+    Description: The canonical importing module, distinct from the declaration.
+##
+public let apply = f(value: int64): int64 errors ParseError =>
+    return propagate imported_operation(value)

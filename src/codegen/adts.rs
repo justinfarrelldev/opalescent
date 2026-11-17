@@ -74,6 +74,11 @@ pub fn codegen_constructor_expression<'context>(
         ..
     } = *expr
     {
+        if let Some(handle) =
+            crate::codegen::native_doubles::constructor(codegen_context, env, expr)?
+        {
+            return Ok(handle);
+        }
         let inferred_expected_type = expected_type
             .cloned()
             .or_else(|| adts_manifest::constructor_nominal_expected_type(env, callee.as_ref()));

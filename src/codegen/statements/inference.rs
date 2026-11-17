@@ -122,7 +122,9 @@ pub(super) fn infer_core_type_from_expr<'context>(
         } => {
             if let Expr::Identifier { ref name, .. } = **callee {
                 let owner = env.adt_layout_key(name);
-                if env.adt_product_layouts.contains(owner) {
+                if env.adt_product_layouts.contains(owner)
+                    || env.native_double_descriptors.contains_key(owner)
+                {
                     return CoreType::Generic {
                         name: owner.to_owned(),
                         type_args: alloc::vec::Vec::new(),

@@ -2,6 +2,7 @@
 //!
 //! This module is used for clippy builds where `mod.rs` module files are denied.
 
+mod adt_metadata;
 #[doc = "ADT constructor, field-access, and match lowering support."]
 pub mod adts;
 #[doc = "Transactional affine aggregate rollback and seal helpers."]
@@ -46,6 +47,8 @@ pub mod native_context;
 pub mod native_declarations;
 /// Immutable target-aware lifecycle case descriptor emission.
 pub mod native_descriptors;
+pub(crate) mod native_double_edges;
+pub(crate) mod native_doubles;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.

@@ -312,6 +312,7 @@ impl SourceLayouts {
                 }
             }
         }
+        crate::codegen::native_double_edges::install(codegen, &mut env, checked)?;
         crate::codegen::native_context::install_layout(&mut env);
         Ok(env)
     }

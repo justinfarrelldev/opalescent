@@ -1,0 +1,92 @@
+import apply from ../src/app
+import internal from ../src/io
+
+double Write replaces operation from ../src/io
+    as used by ../src/app
+
+world OwnedWrite:
+    setup: f(): Write =>
+        return new Write
+    cleanup: f(mutable ref writer: Write): void =>
+        restore writer
+        print('world writer restored')
+        return void
+
+let argument = f(): int64 =>
+    print('argument evaluated')
+    return 1
+
+let guard_fallback = f(): int64 =>
+    print('application guard entered')
+    return 9
+
+scenario attempt-local nominal activation:
+    it should call the original edge while no double is active:
+        f(): void errors inferred =>
+            expect propagate apply(4) to be 4
+            return void
+
+    it should spy through the original and stop recording after explicit restoration:
+        worlds: OwnedWrite
+        f(mutable ref writer: OwnedWrite): void errors inferred =>
+            spy writer.state using original
+            expect propagate apply(8) to be 8
+            expect writer.state to have been called once
+            verify writer.state
+            restore writer.state
+            expect propagate apply(9) to be 9
+            expect writer.state to have been called once
+            return void
+
+    it should preserve ordinary guarded application errors through the original spy:
+        worlds: OwnedWrite
+        f(mutable ref writer: OwnedWrite): void =>
+            spy writer.state using original
+            let observed = guard apply(-1) into unexpected else guard_fallback()
+            expect observed to be 9
+            expect writer.state to have been called once
+            return void
+
+    it should leave other edges and same-module calls unchanged:
+        worlds: OwnedWrite
+        f(ref writer: OwnedWrite): void errors inferred =>
+            expect propagate internal(6) to be 6
+            expect writer.state to have never been called
+            return void
+
+    it should abort an unconfigured active edge before returning an application value:
+        worlds: OwnedWrite
+        f(ref writer: OwnedWrite): void =>
+            expect writer.state to have never been called
+            let observed = guard apply(argument()) into unexpected else guard_fallback()
+            expect observed to be 9
+            return void
+
+    it should retain independent history after restoration:
+        f(): void =>
+            let first = new Write
+            expect first to have never been called
+            verify first
+            restore first
+            let second = new Write
+            restore first
+            expect second to have been called exactly 0 times
+            verify second
+            restore second
+            return void
+
+    it should restore an initialized World after an activation abort:
+        worlds: OwnedWrite
+        f(ref writer: OwnedWrite): void =>
+            expect writer.state to have never been called
+            let conflicting = new Write
+            restore conflicting
+            return void
+
+    it should reject overlapping activations of the same import edge:
+        f(): void =>
+            let first = new Write
+            let second = new Write
+            restore first
+            restore second
+            return void
