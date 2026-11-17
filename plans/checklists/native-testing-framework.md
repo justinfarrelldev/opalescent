@@ -164,7 +164,9 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Shared scalar callback boundary creation initializes outputs consistently for void and value callbacks and validates C runtime function ABIs.
 - [x] Native lifecycle regressions now execute compiled source World setup and example constructors, typed World/example/context bodies or after-hooks, declared state cleanup and generated ordinary drops.
 - [x] Typed value increment verification: 1,772 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Typed value increment commit and unchanged pre-commit gates.
+- [x] Typed value increment committed as `1ab82a3`; all unchanged pre-commit gates passed.
+- [x] Two-pass native declaration RED/GREEN: checked source ABI headers can be declared before bodies; a real linked caller resolves an import alias to the forward-declared canonical native function and updates original reference storage.
+- [ ] Forward source declaration increment verification/commit and unchanged gates.
 - [ ] Complete checked case descriptor/artifact generation; verify managed borrowed values, nested inline projections and generic instantiation paths.
 
 ## Remaining integration work

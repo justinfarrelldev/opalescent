@@ -12,20 +12,18 @@ use inkwell::AddressSpace;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
-/// Compile a checked concrete function through ordinary statement lowering.
+/// Declare a checked concrete source ABI before emitting any function bodies.
 ///
 /// Native owned arrays are opaque value pointers; reference parameters
 /// are addresses of original values, not copied callback-local substitutes.
 ///
 /// # Errors
 /// Rejects inconsistent signatures, unresolved generics and invalid lowering.
-pub fn emit_source_function<'context>(
+pub fn declare_source_function<'context>(
     codegen: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
     name: &str,
     parameters: &[Parameter],
     signature: &CoreType,
-    body: &Stmt,
 ) -> Result<FunctionValue<'context>, CodegenError> {
     let &CoreType::Function {
         ref generic_params,
@@ -62,7 +60,32 @@ pub fn emit_source_function<'context>(
         })
         .collect();
     let original = build_function_type(codegen, &llvm_parameters, return_types, error_types)?;
-    let function = codegen.declare_native_test_function(name, original, None)?;
+    codegen.declare_native_test_function(name, original, None)
+}
+
+/// Compile a checked source body against its previously declared native ABI.
+///
+/// # Errors
+/// Rejects conflicting declarations, duplicate bodies and invalid lowering.
+pub fn emit_source_function<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    name: &str,
+    parameters: &[Parameter],
+    signature: &CoreType,
+    body: &Stmt,
+) -> Result<FunctionValue<'context>, CodegenError> {
+    let function = declare_source_function(codegen, name, parameters, signature)?;
+    let &CoreType::Function {
+        parameters: ref parameter_types,
+        ref return_types,
+        ..
+    } = signature
+    else {
+        return Err(CodegenError::new(
+            "native source body requires a checked function signature",
+        ));
+    };
     if function.count_basic_blocks() != 0 {
         return Err(CodegenError::new(
             "native source function body was already emitted",
