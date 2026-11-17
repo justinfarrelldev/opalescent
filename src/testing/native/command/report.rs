@@ -1,5 +1,7 @@
 //! Behavior/function/World views over one canonical case record collection.
 extern crate alloc;
+#[path = "report_views.rs"]
+mod views;
 use super::{NativeCommandError, options::Reporter};
 use crate::testing::native::cases::WorldUseOrigin;
 use crate::testing::native::checking::CheckedNativeProject;
@@ -67,6 +69,21 @@ struct FunctionView {
     cases: BTreeSet<CaseIdentity>,
     /// Associated test process durations, not function execution time.
     associated_test_duration_ms: u64,
+    /// Canonical case outcomes and failure phases under this association.
+    outcomes: Vec<FunctionCaseSummary>,
+}
+
+/// Function association details reference cases and preserve failure attribution.
+#[derive(Serialize)]
+struct FunctionCaseSummary {
+    /// Full independent case identity.
+    case: CaseIdentity,
+    /// Observed whole-case outcome, not a claim of function coverage.
+    outcome: String,
+    /// Actual failed/last-known lifecycle phases.
+    failure_phases: BTreeSet<u32>,
+    /// Associated process lifetimes, never function execution time.
+    associated_test_duration_ms: u64,
 }
 
 /// A World view preserves lifecycle associations; success is not leak protection.
@@ -78,8 +95,34 @@ struct WorldView {
     cases: BTreeSet<CaseIdentity>,
     /// Original World documentation, not a claim about released resources.
     documentation: Option<String>,
-    /// Per-callback timing transport is a separate runtime milestone.
-    callback_metrics: &'static str,
+    /// Whether user cleanup exists; omission is not a cleanup failure.
+    cleanup_declared: bool,
+    /// Per-case direct, hook, activation and transitive request provenance.
+    requests: Vec<WorldCaseRequest>,
+    /// Actual observed setup/cleanup outcomes and timings for each associated attempt.
+    callback_metrics: Vec<WorldAttemptMetrics>,
+}
+
+/// Request provenance is a view over the canonical case's effective World graph.
+#[derive(Serialize)]
+struct WorldCaseRequest {
+    /// Canonical independently selectable case.
+    case: CaseIdentity,
+    /// Effective request origins retained during static resolution.
+    origins: Vec<WorldUseOrigin>,
+}
+
+/// Derived World view references canonical cases rather than adding to overall totals.
+#[derive(Serialize)]
+struct WorldAttemptMetrics {
+    /// Structured canonical associated case identity.
+    case: CaseIdentity,
+    /// Independent fresh-process attempt.
+    attempt: u64,
+    /// Absent when setup was not entered.
+    setup: Option<crate::testing::native::scheduler::metrics::CallbackMetric>,
+    /// Absent for omitted/unentered cleanup; declaration flag distinguishes them.
+    cleanup: Option<crate::testing::native::scheduler::metrics::CallbackMetric>,
 }
 
 /// One source of truth for all supported report formats.
@@ -174,6 +217,7 @@ pub(super) fn render(
             .and_then(|definition| definition.declaration.documentation.as_ref())
             .map(|doc| doc.raw.clone());
     }
+    views::populate(&mut by_world, &records, checked)?;
     let report = Report {
         schema_version: 1,
         coverage: "not_collected",
@@ -237,6 +281,7 @@ fn associations(records: &[CaseRecord]) -> (Vec<FunctionView>, Vec<WorldView>) {
             .into_iter()
             .map(|(identity, (cases, duration))| FunctionView {
                 identity,
+                outcomes: views::function_cases(records, &cases),
                 cases,
                 associated_test_duration_ms: duration,
             })
@@ -247,7 +292,9 @@ fn associations(records: &[CaseRecord]) -> (Vec<FunctionView>, Vec<WorldView>) {
                 identity,
                 cases,
                 documentation: None,
-                callback_metrics: "not_collected",
+                cleanup_declared: false,
+                requests: Vec::new(),
+                callback_metrics: Vec::new(),
             })
             .collect(),
     )
@@ -320,6 +367,7 @@ fn text(report: &Report) -> Result<String, NativeCommandError> {
         report.totals.listed
     )
     .map_err(NativeCommandError::report)?;
+    views::text(&mut output, report)?;
     Ok(output)
 }
 

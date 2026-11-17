@@ -30,6 +30,11 @@ fn built_worker_selects_independent_examples_from_one_native_executable() {
             .map(|line| serde_json::from_str(line).expect("structured worker event"))
             .collect();
         assert!(events.iter().any(|event| event["event"] == "phase"));
+        assert!(events.iter().any(|event| event["event"] == "callback"
+            && event["stage"] == "finish"
+            && event["phase"] == 4_u64
+            && event["passed"] == true
+            && event["duration_ms"].is_u64()));
         let result = events.last().expect("terminal result");
         assert_eq!(result["event"], "result");
         assert_eq!(result["case_id"], id);
@@ -75,6 +80,41 @@ fn scheduler_executes_real_native_cases_with_bounded_fresh_workers() {
             .all(|case| case.outcome == super::scheduler::CaseOutcome::Passed)
     );
     assert!(report.peak_workers <= 2);
+}
+
+#[test]
+fn timeout_retains_completed_callback_metrics_and_marks_only_the_active_boundary_interrupted() {
+    let directory = tempfile::tempdir().expect("timeout project");
+    let source = directory.path().join("timeout.test.op");
+    std::fs::write(&source,"world Ready:\n    setup: f(): int64 =>\n        return 1\nscenario interrupted callback:\n    worlds: Ready\n    it should retain callback progress: f(ref ready: Ready): void =>\n        expect ready.state to be 1\n        while true:\n            continue\n        return void\n").expect("source");
+    let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
+    let checked = check_project(&project).expect("checked");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("artifact");
+    let cases = vec![super::scheduler::ScheduledCase {
+        identity: artifact.cases[0].clone(),
+        exclusion_keys: Vec::new(),
+    }];
+    let options = super::scheduler::NativeRunOptions {
+        jobs: 1,
+        retries: 0,
+        timeout: std::time::Duration::from_millis(500),
+        working_directory: directory.path().to_owned(),
+        application_executable: None,
+        output_directory: directory.path().join("attempts"),
+    };
+    let report = super::scheduler::run_cases(&artifact, &cases, &options).expect("timeout report");
+    let attempt = &report.cases[0].attempts[0];
+    assert_eq!(attempt.outcome, super::scheduler::CaseOutcome::TimedOut);
+    assert!(attempt.result.is_none());
+    assert!(attempt.callbacks.iter().any(|callback| callback.phase == 2
+        && callback.outcome == "passed"
+        && callback.duration_ms.is_some()));
+    let last = attempt.callbacks.last().expect("active callback");
+    assert_eq!(last.phase, 4_u32);
+    assert_eq!(last.outcome, "interrupted");
+    assert!(last.duration_ms.is_none());
 }
 
 #[test]

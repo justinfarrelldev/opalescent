@@ -1,5 +1,6 @@
 //! Bounded fresh-process case scheduling with scheduler-only exclusion keys.
 extern crate alloc;
+pub mod metrics;
 mod processes;
 use super::artifact::NativeTestArtifact;
 use super::identity::CaseIdentity;
@@ -177,6 +178,9 @@ pub struct AttemptExecution {
     pub exclusion_wait_ms: u64,
     /// Last synchronously published phase, even without a terminal result.
     pub last_phase: Option<u32>,
+    /// Validated source callback outcomes/timings, including interrupted boundaries.
+    #[serde(default)]
+    pub callbacks: Vec<metrics::CallbackMetric>,
     /// Present only for validated complete worker transport.
     pub result: Option<WorkerResult>,
     /// Protocol/launch diagnostics, never relabeled as an assertion.

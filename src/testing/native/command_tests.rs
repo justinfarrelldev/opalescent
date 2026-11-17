@@ -659,6 +659,22 @@ fn explicit_workspaces_support_io_cleanup_after_abort_and_no_implicit_cleanup() 
     let report: serde_json::Value = serde_json::from_str(&output.text).expect("report");
     assert_eq!(report["totals"]["passed"], 2_u64);
     assert_eq!(report["totals"]["failed"], 1_u64);
+    for world in report["by_world"].as_array().expect("World views") {
+        let metrics = world["callback_metrics"]
+            .as_array()
+            .expect("observed callback metrics");
+        assert!(!metrics.is_empty());
+        for metric in metrics {
+            assert_eq!(metric["setup"]["outcome"], "passed");
+            assert!(metric["setup"]["duration_ms"].is_u64());
+            if world["cleanup_declared"] == true {
+                assert_eq!(metric["cleanup"]["outcome"], "passed");
+                assert!(metric["cleanup"]["duration_ms"].is_u64());
+            } else {
+                assert!(metric["cleanup"].is_null());
+            }
+        }
+    }
     let mut paths = alloc::collections::BTreeSet::new();
     for case in report["cases"].as_array().expect("cases") {
         let log = case["execution"]["attempts"][0]["stdout_path"]

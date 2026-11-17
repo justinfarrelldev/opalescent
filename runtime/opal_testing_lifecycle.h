@@ -51,6 +51,12 @@ typedef struct {
     int body_passed;
 } OpalTestLifecycleResult;
 
+/* Framework-only synchronous observation of real callback boundaries. */
+typedef void (*OpalTestCallbackObserver)(int finished, const OpalTestCallback *callback,
+    OpalTestPhase phase, const char *world, int status, int passed,
+    uint64_t duration_ms, void *context);
+void opal_test_set_callback_observer(OpalTestCallbackObserver observer, void *context);
+
 /* Run one descriptor in the already-started fresh-process attempt. */
 int opal_test_run_case(const OpalTestCaseDescriptor *descriptor,
     OpalTestLifecycleResult *result);

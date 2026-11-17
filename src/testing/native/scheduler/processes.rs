@@ -74,6 +74,8 @@ enum Event {
         /// Versioned native lifecycle phase number.
         phase: u32,
     },
+    /// Real source callback entry/completion, streamed before the terminal result.
+    Callback(super::metrics::CallbackEvent),
     /// Complete normal lifecycle result.
     Result(WorkerResult),
     /// Worker initialization/selection/transport infrastructure error.
@@ -180,6 +182,7 @@ impl Coordinator<'_> {
                         scheduler_wait_ms: millis(pending.queued.elapsed()),
                         exclusion_wait_ms: millis(pending.exclusion_wait),
                         last_phase: None,
+                        callbacks: Vec::new(),
                         result: None,
                         infrastructure_message: Some(message),
                         stdout_path: PathBuf::new(),
@@ -311,7 +314,7 @@ fn finish(
     timed_out: bool,
     case: &ScheduledCase,
 ) -> AttemptExecution {
-    let (last_phase, mut result, mut message) = transport(&running.transport);
+    let (last_phase, mut result, mut message, mut callbacks) = transport(&running.transport);
     let outcome = if timed_out {
         CaseOutcome::TimedOut
     } else {
@@ -333,6 +336,11 @@ fn finish(
     // Incomplete or rejected transport cannot assert callback completion.
     if timed_out || outcome == CaseOutcome::WorkerCrashed || message.is_some() {
         result = None;
+        for callback in &mut callbacks {
+            if callback.outcome == "running" {
+                "interrupted".clone_into(&mut callback.outcome);
+            }
+        }
     }
     AttemptExecution {
         attempt: running.pending.attempt,
@@ -342,6 +350,7 @@ fn finish(
         scheduler_wait_ms: millis(running.scheduler_wait),
         exclusion_wait_ms: millis(running.pending.exclusion_wait),
         last_phase,
+        callbacks,
         result,
         infrastructure_message: message,
         stdout_path: running.stdout.clone(),
@@ -428,12 +437,20 @@ fn diagnostics_valid(result: &WorkerResult) -> bool {
 }
 
 /// A partial final line is not a complete event and cannot claim cleanup completion.
-fn transport(path: &Path) -> (Option<u32>, Option<WorkerResult>, Option<String>) {
+fn transport(
+    path: &Path,
+) -> (
+    Option<u32>,
+    Option<WorkerResult>,
+    Option<String>,
+    Vec<super::metrics::CallbackMetric>,
+) {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
-        Err(error) => return (None, None, Some(error.to_string())),
+        Err(error) => return (None, None, Some(error.to_string()), Vec::new()),
     };
     let mut phase = None;
+    let mut callbacks = Vec::new();
     let mut result = None;
     let mut message = None;
     for line in text
@@ -446,11 +463,23 @@ fn transport(path: &Path) -> (Option<u32>, Option<WorkerResult>, Option<String>)
             {
                 phase = Some(current);
             }
+            Ok(Event::Callback(current)) if result.is_none() => {
+                if !super::metrics::accept(&mut callbacks, current) {
+                    message = Some("invalid native callback boundary event".to_owned());
+                }
+            }
             Ok(Event::Result(current)) if result.is_none() => result = Some(current),
             Ok(Event::Infrastructure { message: current }) => message = Some(current),
             Ok(_) => message = Some("invalid or duplicate native worker event".to_owned()),
             Err(error) => message = Some(format!("malformed native worker event: {error}")),
         }
     }
-    (phase, result, message)
+    if result.is_some()
+        && callbacks
+            .iter()
+            .any(|callback| callback.outcome == "running")
+    {
+        message = Some("worker claimed completion with an unfinished callback".to_owned());
+    }
+    (phase, result, message, callbacks)
 }

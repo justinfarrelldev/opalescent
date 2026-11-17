@@ -9,7 +9,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [ ] Phase 3: compiled descriptors/wrappers, per-attempt state, deterministic lifecycle, independent internal failure transport, primary/secondary failures.
 - [ ] Phase 4: matcher vocabulary, single operand evaluation, diagnostics, import-edge interception, stubs/replacements/spies/history/verification.
 - [ ] Phase 5: discovery, independent fresh-process bounded scheduling, stable examples, selection, exclusion, retries/timeouts, text/JSON/JUnit and association views.
-- [ ] Phase 6: explicit directory helpers, PTY driver, normal application artifact, editor unit/integration/mocked/E2E fixtures.
+- [x] Phase 6: explicit directory helpers, PTY driver, normal application artifact, editor unit/integration/mocked/E2E fixtures. Audited by the six real native editor cases and a real CLI run with fake-terminal overrides deliberately set; all six pass.
 - [ ] Phase 7: grammar, lifecycle, mocking, reporting, parallel responsibility and limitations documentation.
 - [ ] Run every Section 20 acceptance category and audit all Section 22 completion requirements.
 - [ ] Thorough maintainability/safety code review; fix findings and rerun verification.
@@ -227,7 +227,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Standalone real-PTY C regression verifies UTF-8 incremental decoding, wide-cell/cursor behavior, child working directory and actual PTY dimensions, named input, exit code/transcript and explicit stop. Injected fake-terminal environment is cleared for the child.
 - [x] Test-support types under `tests` may import test-library types without granting ordinary `src` modules test-only import permission; focused static regression covers both.
 - [x] Terminal verification: 1,827 library tests passed serially (8 existing ignored); strict lint, file-length gates, GCC/Clang C warnings, direct new-unit Clang analysis, Cppcheck and ASan/UBSan/leak checks passed.
-- [ ] Production terminal increment commit/unchanged gates and final phase audit; remaining reporting requirements are not yet complete.
+- [x] Production terminal increment committed as `7c3ffca`; all unchanged pre-commit gates passed. Real CLI run with `OPAL_TERMINAL_FAKE_BACKEND=1` and invalid fake events produced six passes, zero failures. Phase 6 tasks/exit conditions audited against current helpers, real PTY regression, production-symbol proof and CLI execution.
+- [x] Callback reporting RED/GREEN: worker streams real callback entry/completion source identity, canonical World ownership, independent outcomes and monotonic durations. Coordinator validates ordered matching boundaries and retains completed records on timeout/crash; unfinished callbacks are explicitly interrupted with no invented completed duration.
+- [x] By-World reports now expose actual per-attempt setup/cleanup outcomes and timings, cleanup declaration/omission and request origins. By-function views expose associated outcomes/failure phases and honestly labeled associated test durations. Text/JSON/JUnit share canonical case attempt metrics without duplicating totals.
+- [x] Real worker metric regression, source World report regression, strict boundary protocol regression and hard-timeout regression passed. Timed-out body retains completed setup metrics and an interrupted body without a completed duration.
+- [x] Callback verification: 1,829 library tests passed serially (8 existing ignored), strict lint, file-length gates, GCC/Clang C warnings, Cppcheck and direct lifecycle/worker Clang analysis passed. Local state-slot precondition preserves explicit descriptor safety across callback observation boundaries.
+- [ ] Callback-reporting increment commit/unchanged gates.
+- [ ] Required attachments and activated-double boundary reporting; final all-spec conformance audit/release documentation remain incomplete.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
 - [x] Standard original-call adapter RED/GREEN: construct typed compiler-only forwarding containers with existing borrowed parameter, return/error and ordinary standard-library lowering; native metadata stays explicit and production C ABIs are unchanged.
 - [x] Explicit import-edge call metadata routes through private unshadowable compiler aliases before special/intrinsic lowering, while original bridges use isolated environments without interception and cannot recurse into their own spies.
