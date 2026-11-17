@@ -38,6 +38,8 @@ pub(crate) mod native_abort;
 pub(crate) mod native_assertions;
 /// Typed native callback boundaries for the lifecycle runtime.
 pub mod native_callbacks;
+/// Checked native source function definitions and reference parameter bindings.
+pub mod native_declarations;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
@@ -60,6 +62,8 @@ mod native_assertion_tests;
 mod native_callback_tests;
 #[cfg(test)]
 mod native_cleanup_call_tests;
+#[cfg(test)]
+mod native_declaration_tests;
 #[cfg(test)]
 mod native_function_tests;
 #[cfg(test)]

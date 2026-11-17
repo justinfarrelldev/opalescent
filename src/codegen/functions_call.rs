@@ -232,6 +232,22 @@ pub fn codegen_call_expression<'context>(
         if !specialized {
             for (index, arg) in args.iter().enumerate() {
                 let expected_arg_type = expected_argument_core_type(env, callee, function, index);
+                if codegen_context.native_function_outcome(function).is_some() {
+                    let lowered = native::lower_native_argument(
+                        codegen_context,
+                        env,
+                        callee,
+                        index,
+                        arg,
+                        expected_arg_type.as_ref(),
+                        &mut cleanup_records,
+                    )?;
+                    if index == 0 {
+                        first_lowered_arg = Some(lowered);
+                    }
+                    lowered_args.push(lowered.into());
+                    continue;
+                }
                 if let Some(&CoreType::Array(ref element_core_type)) = expected_arg_type.as_ref() {
                     let (array_ptr, array_length) = lower_array_argument(
                         codegen_context,

@@ -140,8 +140,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Compiled callback wrapper RED/GREEN: C-compatible scalar status/out parameters distinguish completed application errors from internal aborts without reading inactive application values.
 - [x] Actual parsed/type-checked Opalescent assertion and propagated application-error bodies run through generated LLVM wrappers and the C lifecycle; after-hook failure remains secondary.
 - [x] Current verification: 1,763 library tests passed (8 existing ignored); strict lint, GCC/Clang warning checks and direct new-runtime Clang analysis passed.
-- [ ] Lifecycle/wrapper increment commit and unchanged pre-commit gates.
+- [x] Lifecycle/wrapper integration committed as `dc92649`; all unchanged pre-commit gates and Cppcheck passed.
 - [ ] Generate full case descriptors, typed World/example/context argument wrapper plans and setup/state-value wrappers from `CheckedNativeProject`; connect artifact builds and worker entry selection.
+
+- [x] Checked source function-definition RED/GREEN: emit native function bodies from ordinary AST parameters and checked signatures; borrowed parameters bind original storage rather than copied local values.
+- [x] Native reference-call RED/GREEN: a compiled mutable-reference helper updates its caller's original scalar binding; native array values use private opaque-value argument slots without changing production ABI.
+- [x] Parameter scopes retain owned managed values only, restore shadowed bindings and preserve existing loop/return lowering.
+- [x] Function-definition verification: 1,764 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Native source definition increment commit and unchanged pre-commit gates.
+- [ ] Complete projected native borrow addresses and typed World/example/context argument wrapper generation; verify managed borrowed values and generic instantiation paths.
 
 ## Remaining integration work
 

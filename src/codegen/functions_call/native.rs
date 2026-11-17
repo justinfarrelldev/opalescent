@@ -1,11 +1,49 @@
 //! Unwrap internal test outcomes before ordinary application result handling.
 extern crate alloc;
 use super::call_arg_cleanup::{CallArgCleanupDisposition, CallArgCleanupRecord};
+use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::native_abort::emit_native_abort;
+use crate::type_system::types::CoreType;
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+
+/// Native reference arguments preserve lvalue addresses; ordinary owned values
+/// use the existing expression/temporary ownership lowering.
+pub(super) fn lower_native_argument<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    callee: &Expr,
+    index: usize,
+    argument: &Expr,
+    expected: Option<&CoreType>,
+    cleanup_records: &mut Vec<CallArgCleanupRecord>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if let Expr::BorrowArgument { ref target, .. } = *argument {
+        if let Expr::Identifier { ref name, .. } = **target {
+            return env
+                .variables
+                .get(name)
+                .map(|binding| binding.alloca.as_basic_value_enum())
+                .ok_or_else(|| {
+                    CodegenError::new("native borrow target has no original value storage")
+                });
+        }
+        return Err(CodegenError::new(
+            "native projected borrow requires a typed lvalue-address plan",
+        ));
+    }
+    super::call_arg_cleanup::lower_call_argument(
+        codegen,
+        env,
+        callee,
+        index,
+        argument,
+        expected,
+        cleanup_records,
+    )
+}
 
 /// Existing source ownership scopes exit on the abort edge. This is not an
 /// external-resource registry: only already-declared lexical cleanups execute.
