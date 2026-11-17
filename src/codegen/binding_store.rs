@@ -80,35 +80,45 @@ pub(crate) fn store_binding_overwrite_rc_safe_with_mode<'context>(
         )));
     };
 
-    let rc_bearing_binding = binding_requires_rc_cleanup(&binding_snapshot.core_type);
-    let old_value = rc_bearing_binding
-        .then(|| {
-            codegen_context.builder.build_load(
-                binding_snapshot.alloca,
-                &env.next_name(format!("{operation}.old.load").as_str()),
-            )
-        })
-        .transpose()?;
-
-    prepare_new_binding_value_for_store_mode(
+    overwrite_typed_slot(
         codegen_context,
         &binding_snapshot.core_type,
+        binding_snapshot.alloca,
+        value,
+        operation,
+        store_mode,
+    )?;
+    clear_array_binding_metadata(env, binding_name);
+    Ok(())
+}
+
+/// The same ordinary retain/store/release policy serves bindings and field slots.
+pub(crate) fn overwrite_typed_slot<'context>(
+    codegen_context: &CodegenContext<'context>,
+    core_type: &CoreType,
+    slot: inkwell::values::PointerValue<'context>,
+    value: BasicValueEnum<'context>,
+    operation: &str,
+    store_mode: StoreMode,
+) -> Result<(), CodegenError> {
+    let old_value = binding_requires_rc_cleanup(core_type)
+        .then(|| {
+            codegen_context
+                .builder
+                .build_load(slot, &format!("{operation}.old.load"))
+        })
+        .transpose()?;
+    prepare_new_binding_value_for_store_mode(
+        codegen_context,
+        core_type,
         value,
         store_mode,
         operation,
     )?;
-    codegen_context
-        .builder
-        .build_store(binding_snapshot.alloca, value)?;
+    codegen_context.builder.build_store(slot, value)?;
     if let Some(previous_value) = old_value {
-        release_binding_value_if_needed(
-            codegen_context,
-            &binding_snapshot.core_type,
-            previous_value,
-            "overwrite",
-        )?;
+        release_binding_value_if_needed(codegen_context, core_type, previous_value, "overwrite")?;
     }
-    clear_array_binding_metadata(env, binding_name);
     Ok(())
 }
 

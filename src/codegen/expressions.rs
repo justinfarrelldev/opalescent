@@ -101,6 +101,8 @@ pub struct CodegenEnv<'context> {
     pub current_source_text: String,
     pub adt_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>>,
+    /// Explicit canonical product representations, including generated Worlds.
+    pub adt_product_layouts: alloc::collections::BTreeSet<String>,
     /// Module-local display names mapped to canonical manifest layout keys.
     pub adt_layout_aliases: BTreeMap<String, String>,
     /// Variant discriminants keyed by canonical manifest variant layout key.
@@ -135,6 +137,7 @@ impl<'context> CodegenEnv<'context> {
             current_source_text: String::new(),
             adt_field_indices: BTreeMap::new(),
             adt_field_layouts: BTreeMap::new(),
+            adt_product_layouts: alloc::collections::BTreeSet::new(),
             adt_layout_aliases: BTreeMap::new(),
             adt_variant_discriminants: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),

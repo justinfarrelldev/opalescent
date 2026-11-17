@@ -1,0 +1,50 @@
+world Root:
+    setup: f(): int64 =>
+        return 1
+
+    cleanup: f(ref state: int64): void =>
+        expect state to be 1
+        return void
+
+world Left:
+    worlds: Root
+    setup: f(ref root: Root): int64 =>
+        return root.state
+
+world Right:
+    worlds: Root
+    setup: f(ref root: Root): int64 =>
+        return root.state + 1
+
+world Top:
+    worlds: Left, Right
+    setup: f(ref left: Left, ref right: Right): int64 =>
+        return left.state + right.state
+
+    cleanup: f(ref state: int64, ref right: Right): void =>
+        expect state to be 5
+        expect right.state to be 2
+        return void
+
+before each test:
+    f(mutable ref top: Top, mutable ref test: TestContext): void =>
+        expect test.failed to be false
+        expect test.attempt to be 1
+        top.state = top.state + 1
+        return void
+
+scenario sharing one dependency instance:
+    worlds: Top
+
+    after each test:
+        f(ref top: Top, mutable ref test: TestContext): void =>
+            expect top.state to be 5
+            expect test.failed to be false
+            return void
+
+    it should preserve the same state through hooks and cleanup:
+        f(mutable ref top: Top): void =>
+            expect top.state to be 4
+            top.state = top.state + 1
+            expect top.state to be 5
+            return void

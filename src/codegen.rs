@@ -49,6 +49,8 @@ pub mod native_descriptors;
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
+/// Fully checked source graph to reusable native case descriptor artifact.
+pub mod native_project;
 /// Typed setup/example construction and ordinary value-drop boundaries.
 pub mod native_value_callbacks;
 #[doc = "LLVM optimization pass pipeline configuration."]
@@ -81,6 +83,8 @@ mod native_guard_call_tests;
 mod native_outcome_call_tests;
 #[cfg(test)]
 mod native_outcome_tests;
+#[cfg(test)]
+mod native_project_tests;
 #[cfg(test)]
 mod native_value_callback_tests;
 #[cfg(test)]

@@ -6,7 +6,7 @@
 extern crate alloc;
 use crate::ast::{Expr, Pattern};
 #[path = "adts_borrow.rs"]
-mod adts_borrow;
+pub(crate) mod adts_borrow;
 #[path = "adts_manifest.rs"]
 mod adts_manifest;
 #[path = "adts_record_update.rs"]

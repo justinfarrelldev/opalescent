@@ -306,7 +306,7 @@ impl TypeChecker {
         self.adt_fields.insert(owner, fields);
     }
     /// Look up a registered field type for a nominal owner type.
-    pub(super) fn adt_field_type(&self, owner: &str, field_name: &str) -> Option<&CoreType> {
+    pub(crate) fn adt_field_type(&self, owner: &str, field_name: &str) -> Option<&CoreType> {
         self.adt_fields
             .get(owner)
             .and_then(|fields| fields.get(field_name))

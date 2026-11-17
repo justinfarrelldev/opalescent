@@ -1,0 +1,22 @@
+world Marker:
+    setup: f(): int64 =>
+        return 0
+
+    cleanup: f(ref state: int64): void =>
+        expect state to be 1
+        return void
+
+after each test:
+    f(mutable ref marker: Marker, mutable ref test: TestContext): void =>
+        expect test.failed to be true
+        marker.state = 1
+        return void
+
+scenario preserving failure through source cleanup:
+    worlds: Marker
+
+    it should retain the body assertion while running later boundaries:
+        f(ref marker: Marker): void =>
+            expect marker.state to be 0
+            expect false to be true
+            return void

@@ -79,6 +79,28 @@ pub fn field_address<'context>(
     })
 }
 
+/// Assign through checked native product storage with ordinary RC overwrite rules.
+pub fn assign_field<'context>(
+    codegen: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    target: &Expr,
+    value: &Expr,
+) -> Result<(), CodegenError> {
+    let core_type = infer_product_core_type(env, target)
+        .ok_or_else(|| CodegenError::new("native field assignment has no checked value type"))?;
+    let address = field_address(codegen, env, target)?;
+    let lowered = codegen_expression(codegen, env, value, Some(&core_type))?;
+    let mode = crate::codegen::statements::store_mode::assignment_store_mode(value, &core_type);
+    crate::codegen::binding_store::overwrite_typed_slot(
+        codegen,
+        &core_type,
+        address,
+        lowered,
+        "native.field.assign",
+        mode,
+    )
+}
+
 /// Resolve a declared field index, including the existing inline Pair layout.
 pub(super) fn product_field_index_for_core_type(
     env: &CodegenEnv<'_>,

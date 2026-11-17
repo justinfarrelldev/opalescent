@@ -12,6 +12,7 @@ use inkwell::values::{BasicValueEnum, PointerValue};
 /// Install the physical field order shared by context reads and materialization.
 pub fn install_layout(env: &mut CodegenEnv<'_>) {
     let name = "__opal_testing::TestContext".to_owned();
+    env.adt_product_layouts.insert(name.clone());
     env.adt_field_layouts.insert(
         name.clone(),
         vec![

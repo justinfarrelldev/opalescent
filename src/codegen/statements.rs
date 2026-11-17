@@ -9,7 +9,7 @@
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
-mod store_mode;
+pub(crate) mod store_mode;
 use self::store_mode::assignment_store_mode;
 
 use crate::ast::{Expr, LabeledValue, LetBinding, Stmt};
@@ -834,6 +834,17 @@ fn codegen_assignment<'context>(
                     StoreMode::TakeOwned,
                 ),
             }
+        }
+        Expr::Member { .. }
+            if codegen_context
+                .builder
+                .get_insert_block()
+                .and_then(inkwell::basic_block::BasicBlock::get_parent)
+                .is_some_and(|function| {
+                    codegen_context.native_function_outcome(function).is_some()
+                }) =>
+        {
+            crate::codegen::adts::adts_borrow::assign_field(codegen_context, env, target, value)
         }
         Expr::Index {
             ref object,

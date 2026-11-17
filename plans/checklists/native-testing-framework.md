@@ -176,8 +176,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Canonical typed injection plans retain provider identities and deterministic positions for World handles, state-first cleanup subsets, examples and final runner context; diamond dependencies and hook-only requests use actual shared slots.
 - [x] Case planning preserves source-order hooks, entered scopes, activation/transitive lifecycle membership and omitted cleanup, with no setup or source evaluation during lowering.
 - [x] Case-plan increment verification: 1,778 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Checked-case planning increment commit and unchanged gates.
-- [ ] Complete checked-project source environments, executable artifact/worker generation and linking; verify managed borrowed values, nested inline projections and generic instantiation paths.
+- [x] Checked-case planning committed as `bf02c85`; all unchanged pre-commit gates passed.
+- [x] Whole checked-project codegen RED/GREEN: predeclare canonical native source functions, resolve source import aliases, compile shared checked callbacks, synthesize typed constant example constructors and emit independent immutable case descriptors in one LLVM artifact.
+- [x] Source environments preserve original source bytes and source-order canonical product/variant layouts; generated World handles carry explicit product representation metadata so dots in module paths cannot trigger tagged payload projection. Production representation fallback remains unchanged.
+- [x] Native World-state write RED/GREEN reuses ordinary typed retain/store/release policy through actual projected storage, without changing production grammar, ABIs or field-assignment availability.
+- [x] Added `test-projects/native-testing-lifecycle/` minimal diamond/hook/context/cleanup and body-abort fixtures; real linked project tests run separate case processes, share one compiled example body and verify after-hook mutation plus declared cleanup after abort.
+- [x] Whole-project increment verification: 1,781 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Whole-project source/codegen increment commit and unchanged gates.
+- [ ] Complete artifact object/link/cache construction, worker entry/result transport and CLI wiring; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work
 

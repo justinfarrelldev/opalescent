@@ -4,7 +4,7 @@ use crate::codegen::binding_store::{StoreMode, binding_requires_rc_cleanup};
 use crate::type_system::types::CoreType;
 
 /// Fresh array values and owned call results transfer ownership to bindings.
-pub(super) fn assignment_store_mode(value: &Expr, binding_type: &CoreType) -> StoreMode {
+pub fn assignment_store_mode(value: &Expr, binding_type: &CoreType) -> StoreMode {
     match *value {
         Expr::Array { .. } => StoreMode::TakeOwned,
         Expr::Call { ref callee, .. } if reserve_call_returns_owned_alias(callee.as_ref()) => {

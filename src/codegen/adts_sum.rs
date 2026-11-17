@@ -25,7 +25,13 @@ pub fn pointer_for_pointer_backed_field_access<'context>(
     object_ptr: PointerValue<'context>,
     struct_type: StructType<'context>,
 ) -> Result<PointerValue<'context>, CodegenError> {
-    if type_name.contains('.') {
+    // Generated product identities can contain source-path dots. Explicit
+    // representation metadata wins; preserve legacy variant fallback otherwise.
+    if type_name.contains('.')
+        && !env
+            .adt_product_layouts
+            .contains(env.adt_layout_key(type_name))
+    {
         let tagged_type = codegen_context.context.struct_type(
             &[
                 codegen_context.context.i64_type().into(),
