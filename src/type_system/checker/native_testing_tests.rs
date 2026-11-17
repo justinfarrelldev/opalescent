@@ -51,6 +51,51 @@ fn generated_handles_are_nominal_and_expose_the_typed_state() {
 }
 
 #[test]
+fn body_world_parameters_must_match_nominal_identity_order_and_reference_modes() {
+    for body in [
+        "f(ref second: Second, ref first: First): void =>\n        print(first.state + second.state)\n        return void\n",
+        "f(ref first: First): void =>\n        print(first.state)\n        return void\n",
+        "f(ref first: First, ref second: Second, ref extra: First): void =>\n        print(first.state + second.state + extra.state)\n        return void\n",
+        "f(first: First, ref second: Second): void =>\n        print(first.state + second.state)\n        return void\n",
+        "f(ref first: int64, ref second: Second): void =>\n        print(first + second.state)\n        return void\n",
+    ] {
+        let mut checker = TypeChecker::new();
+        let span = Span::single(Position::start());
+        let first = checker
+            .register_native_test_world("First", "tests/worlds.op::First", CoreType::Int64, span)
+            .expect("first");
+        let second = checker
+            .register_native_test_world("Second", "tests/worlds.op::Second", CoreType::Int64, span)
+            .expect("second");
+        let callback = parse_callback(body);
+        assert!(
+            checker
+                .type_check_native_case_callback(&callback, &[first, second], None)
+                .is_err(),
+            "accepted invalid World injection: {body}"
+        );
+    }
+}
+
+#[test]
+fn final_context_follows_injected_worlds_without_becoming_a_world_requirement() {
+    let mut checker = TypeChecker::new();
+    let first = checker
+        .register_native_test_world(
+            "First",
+            "tests/worlds.op::First",
+            CoreType::Int64,
+            Span::single(Position::start()),
+        )
+        .expect("handle");
+    let callback = parse_callback(
+        "f(ref first: First, mutable ref test: TestContext): void =>\n        print(first.state)\n        print(test.failed)\n        return void\n",
+    );
+    let result = checker.type_check_native_case_callback(&callback, &[first], None);
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
 fn user_code_cannot_construct_a_runner_owned_world_handle() {
     let mut checker = TypeChecker::new();
     checker

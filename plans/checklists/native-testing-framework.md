@@ -61,8 +61,8 @@ Unchecked phases are not implemented or verified.
 - [x] Test-support helper import RED/GREEN: establish explicit test-support closure before ordinary dependencies, permitting normal helper imports from tests without enabling test grammar in application dependencies.
 - [x] Body signature contract RED/GREEN: nominal order/reference modes, missing/extra parameters and a final mutable context slot.
 - [x] Generated test context has typed runner metadata fields; ordinary application grammar/type mapping remains unchanged.
-- [x] Current verification: 1,703 library tests passed (8 existing ignored); strict lint/file-length gates being rechecked before commits.
-- [ ] Support-module loading fix commit and unchanged pre-commit gates.
+- [x] Current verification: 1,703 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [x] Support-module loading fix committed as `089a9e8`; all unchanged pre-commit gates passed.
 - [ ] Body/context contract increment commit and unchanged pre-commit gates.
 
 ## Remaining integration warning

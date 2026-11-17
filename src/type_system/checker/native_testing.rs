@@ -1,6 +1,7 @@
 //! Native test-artifact typing state, separate from ordinary application errors.
 extern crate alloc;
 mod assertions;
+mod contracts;
 mod inference;
 use super::TypeChecker;
 use crate::ast::testing::ManagedCallback;
@@ -38,10 +39,51 @@ struct ActiveCallback {
 }
 
 impl TypeChecker {
-    /// Enable test-only compiler operations and library imports for a test artifact.
-    pub const fn enable_native_test_mode(&mut self) {
+    /// Enable test-only operations/imports and the runner-owned context type.
+    ///
+    /// # Errors
+    /// Rejects a conflicting source declaration named `TestContext` in test mode.
+    pub fn enable_native_test_mode(&mut self) -> Result<(), TypeError> {
+        if self.native_testing.enabled {
+            return Ok(());
+        }
+        let span = Span::single(crate::token::Position::start());
+        if self.environment().lookup_type("TestContext", span).is_ok()
+            || self.symbol_table().lookup("TestContext").is_some()
+        {
+            return Err(native_error(
+                span,
+                "TestContext is supplied by the test runner and cannot be redeclared in a test artifact",
+            ));
+        }
+        let context_type = CoreType::Generic {
+            name: "__opal_testing.TestContext".to_owned(),
+            type_args: Vec::new(),
+        };
+        self.environment_mut()
+            .register_type("TestContext".to_owned(), context_type.clone());
+        self.symbol_table_mut().register(SymbolInfo {
+            name: "TestContext".to_owned(),
+            symbol_type: SymbolType::Type,
+            core_type: context_type,
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
+        self.register_adt_fields(
+            "__opal_testing.TestContext".to_owned(),
+            BTreeMap::from([
+                ("failed".to_owned(), CoreType::Boolean),
+                ("case_id".to_owned(), CoreType::String),
+                ("attempt".to_owned(), CoreType::Int64),
+            ]),
+        );
         self.native_testing.enabled = true;
         self.allow_test_only_imports = true;
+        Ok(())
     }
 
     /// Register a generated nominal World handle exposing one concrete `.state`.
@@ -56,7 +98,7 @@ impl TypeChecker {
         state: CoreType,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        self.enable_native_test_mode();
+        self.enable_native_test_mode()?;
         if self.environment().lookup_type(local_name, span).is_ok()
             || self.symbol_table().lookup(local_name).is_some()
         {
@@ -116,7 +158,7 @@ impl TypeChecker {
         callback: &ManagedCallback,
         required_world_parameters: &[String],
     ) -> Result<CoreType, TypeError> {
-        self.enable_native_test_mode();
+        self.enable_native_test_mode()?;
         let Expr::Lambda { ref params, .. } = callback.function else {
             return Err(native_error(
                 callback.function.span(),
@@ -180,6 +222,9 @@ impl TypeChecker {
         name: &str,
         span: Span,
     ) -> Result<(), TypeError> {
+        if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if nominal_name == "__opal_testing.TestContext")) {
+            return Err(native_error(span, "the runner constructs TestContext values; user construction is not permitted"));
+        }
         if self.native_testing.aliases.contains_key(name)
             || self.native_testing.worlds.contains_key(name)
         {
@@ -192,9 +237,22 @@ impl TypeChecker {
         }
     }
 
-    /// Resolve only generated test handles; production type mapping is unchanged.
-    pub(super) fn native_world_handle_type(&self, local_name: &str) -> Option<CoreType> {
-        self.native_testing.aliases.get(local_name).cloned()
+    /// Resolve generated handles and imported source type aliases only in test
+    /// artifacts; ordinary application type mapping remains unchanged.
+    pub(super) fn native_source_type(&self, local_name: &str) -> Option<CoreType> {
+        if !self.native_testing.enabled {
+            return None;
+        }
+        self.native_testing
+            .aliases
+            .get(local_name)
+            .cloned()
+            .or_else(|| {
+                self.symbol_table()
+                    .lookup(local_name)
+                    .filter(|symbol| symbol.symbol_type == SymbolType::Type)
+                    .map(|symbol| symbol.core_type.clone())
+            })
     }
 
     /// Record a typed read by declaration identity, so local shadowing cannot
