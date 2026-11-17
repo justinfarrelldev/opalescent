@@ -66,9 +66,13 @@ pub fn codegen_statement<'context>(
     stmt: &Stmt,
 ) -> Result<(), CodegenError> {
     match *stmt {
-        Stmt::Testing { .. } => Err(CodegenError::new(
-            "unlowered test operation cannot enter production code generation".to_owned(),
-        )),
+        Stmt::Testing { ref statement, .. } => {
+            crate::codegen::native_assertions::codegen_testing_statement(
+                codegen_context,
+                env,
+                statement,
+            )
+        }
         Stmt::Let {
             ref binding,
             ref initializer,

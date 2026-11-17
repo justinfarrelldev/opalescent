@@ -124,7 +124,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Host-native integration links generated LLVM, the test runtime and an existing lexical cleanup scaffold; cleanup failure does not erase the assertion failure.
 - [x] Runtime verification: 1,755 library tests passed (8 existing ignored), strict Rust lint, file-length gates, GCC/Clang warning checks and Cppcheck passed; the new runtime also passes direct Clang analysis.
 - [ ] Recheck the whole-runtime Clang analyzer baseline separately: unchanged `runtime/opal_io.c` reports existing `unix.Malloc` findings; do not claim this aggregate task passed.
-- [ ] Native failure-runtime increment commit and unchanged pre-commit gates.
+- [x] Native failure runtime committed as `8dd7afc`; all unchanged pre-commit gates passed.
+
+- [x] Compiled scalar assertion RED/GREEN: real test-module parsing/type checking lowers boolean/numeric equality and numeric relations into LLVM and runtime failures with original byte spans.
+- [x] Unsigned comparison RED/GREEN: cast/parenthesis observations preserve unsigned numeric ordering rather than inferring signedness from LLVM integers.
+- [x] Host-native evaluation probes verify actual/expected expressions run once in source order on success and failure.
+- [x] Refactor assertions and calls to share existing lexical abort exits; production contexts still reject test operations.
+- [x] Scalar assertion verification: 1,760 library tests passed (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Scalar assertion lowering increment commit and unchanged pre-commit gates.
+- [ ] Complete string/array/product/variant matcher lowering, owned operand diagnostics, polling and double history matchers.
 
 ## Remaining integration work
 
