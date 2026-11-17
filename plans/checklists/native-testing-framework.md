@@ -166,8 +166,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Typed value increment verification: 1,772 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
 - [x] Typed value increment committed as `1ab82a3`; all unchanged pre-commit gates passed.
 - [x] Two-pass native declaration RED/GREEN: checked source ABI headers can be declared before bodies; a real linked caller resolves an import alias to the forward-declared canonical native function and updates original reference storage.
-- [ ] Forward source declaration increment verification/commit and unchanged gates.
-- [ ] Complete checked case descriptor/artifact generation; verify managed borrowed values, nested inline projections and generic instantiation paths.
+- [x] Forward source declarations verified with 1,773 passing library tests (8 existing ignored), committed as `5e4da10`; unchanged pre-commit gates passed.
+- [x] Native descriptor emission RED/GREEN: immutable LLVM globals encode typed World, callback, hook-scope and case C layouts; source-order callback arrays and target-sized counts preserve lifecycle semantics.
+- [x] Descriptor validation RED/GREEN rejects duplicate canonical World identities, function/global symbol conflicts, incompatible callback/drop ABIs and non-C calling conventions.
+- [x] Full compiled lifecycle fixture now consumes a compiler-emitted case descriptor rather than a C hand-written descriptor; source setup/example/body-or-after-hook/cleanup and generated ordinary drops remain linked native execution.
+- [x] Descriptor increment verification: 1,776 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Native descriptor increment commit and unchanged gates.
+- [ ] Complete checked-project callback/source environments, case-plan/artifact/worker generation and linking; verify managed borrowed values, nested inline projections and generic instantiation paths.
 
 ## Remaining integration work
 

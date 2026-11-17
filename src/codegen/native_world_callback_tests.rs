@@ -127,6 +127,7 @@ fn exercise(previous_failure: bool) {
     )
     .expect("state wrapper");
     emit_constructors(&codegen);
+    emit_descriptor(&codegen, previous_failure);
     codegen
         .module
         .verify()
@@ -169,6 +170,67 @@ fn emit_constructors(codegen: &CodegenContext<'_>) {
         .expect("ordinary value drop");
 }
 
+/// Emit the real C descriptor layout directly from typed wrapper functions.
+fn emit_descriptor(codegen: &CodegenContext<'_>, previous_failure: bool) {
+    use super::native_descriptors::{
+        NativeCallbackDescriptor, NativeCaseDescriptorPlan, NativeHookScopeDescriptor,
+        NativeWorldDescriptor,
+    };
+    let body = codegen.module.get_function("compiled_body").expect("body");
+    let callback = |name: &str| NativeCallbackDescriptor {
+        function: codegen.module.get_function(name).expect("compiled wrapper"),
+        file: "typed.test.op".to_owned(),
+        span: crate::token::Span::single(crate::token::Position::start()),
+    };
+    let pointer = codegen
+        .context
+        .i8_type()
+        .ptr_type(inkwell::AddressSpace::default());
+    let drop = codegen.module.add_function(
+        "observe_world_drop",
+        codegen
+            .context
+            .void_type()
+            .fn_type(&[pointer.into()], false),
+        None,
+    );
+    let body_descriptor = if previous_failure {
+        codegen
+            .module
+            .add_function("failed_body", body.get_type(), None);
+        callback("failed_body")
+    } else {
+        callback("compiled_body")
+    };
+    let scopes = if previous_failure {
+        vec![NativeHookScopeDescriptor {
+            before: Vec::new(),
+            after: vec![callback("compiled_body")],
+        }]
+    } else {
+        Vec::new()
+    };
+    let plan = NativeCaseDescriptorPlan {
+        worlds: vec![NativeWorldDescriptor {
+            identity: crate::testing::native::identity::WorldIdentity(
+                crate::testing::native::identity::DeclarationIdentity {
+                    module: "typed.test.op".to_owned(),
+                    name: "World".to_owned(),
+                },
+            ),
+            setup: callback("compiled_setup"),
+            cleanup: Some(callback("compiled_cleanup")),
+            drop_value: Some(drop),
+        }],
+        scopes,
+        body: body_descriptor,
+        construct_example: Some(callback("compiled_example")),
+        drop_example: codegen.module.get_function("drop_value"),
+    };
+    super::native_descriptors::emit_case_descriptor(codegen, "compiled_case", &plan)
+        .expect("generated lifecycle descriptor");
+}
+
 /// Link the same reusable native functions to an explicit lifecycle descriptor.
 fn execute_driver(codegen: &CodegenContext<'_>, previous_failure: bool) {
     let directory = tempfile::tempdir().expect("fixture");
@@ -201,26 +263,19 @@ int compiled_cleanup(void **, const void *, void **, uint64_t *, const char **);
 int compiled_setup(void **, const void *, void **, uint64_t *, const char **);
 int compiled_example(void **, const void *, void **, uint64_t *, const char **);
 void drop_value(void *);
-static void observe_world_drop(void *value) { state = *(int64_t *)value; drop_value(value); }
+void observe_world_drop(void *value) { state = *(int64_t *)value; drop_value(value); }
 #if PREVIOUS_FAILURE
-static int failed_body(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
+int failed_body(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
     (void)worlds; (void)example; (void)created; (void)error;
     *failure = opal_test_record_failure(OPAL_TEST_FAILURE_ASSERTION, "earlier body failure", "", 0, 0);
     return OPAL_TEST_CALLBACK_ABORTED;
 }
 #endif
+extern const OpalTestCaseDescriptor compiled_case;
 int main(void) {
     if (!opal_test_attempt_begin("typed World identity", 1)) return 1;
-    OpalTestWorldDescriptor world = {"World", {compiled_setup, "", 0, 0}, {compiled_cleanup, "", 0, 0}, observe_world_drop};
-#if PREVIOUS_FAILURE
-    OpalTestCallback after = {compiled_body, "", 0, 0};
-    OpalTestHookScope scope = {NULL, 0, &after, 1};
-    OpalTestCaseDescriptor descriptor = {&world, 1, &scope, 1, {failed_body, "", 0, 0}, {compiled_example, "", 0, 0}, drop_value};
-#else
-    OpalTestCaseDescriptor descriptor = {&world, 1, NULL, 0, {compiled_body, "", 0, 0}, {compiled_example, "", 0, 0}, drop_value};
-#endif
     OpalTestLifecycleResult result;
-    int failed = opal_test_run_case(&descriptor, &result);
+    int failed = opal_test_run_case(&compiled_case, &result);
     if (failed != PREVIOUS_FAILURE || state != 43 || opal_test_failure_count() != PREVIOUS_FAILURE) {
         const OpalTestFailure *failure = opal_test_failure_at(0);
         if (failure) fprintf(stderr, "typed bridge failure at %llu: %s\n", (unsigned long long)failure->offset, failure->message);

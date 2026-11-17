@@ -43,6 +43,8 @@ pub mod native_callbacks;
 pub mod native_context;
 /// Checked native source function definitions and reference parameter bindings.
 pub mod native_declarations;
+/// Immutable target-aware lifecycle case descriptor emission.
+pub mod native_descriptors;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
@@ -69,6 +71,8 @@ mod native_callback_tests;
 mod native_cleanup_call_tests;
 #[cfg(test)]
 mod native_declaration_tests;
+#[cfg(test)]
+mod native_descriptor_tests;
 #[cfg(test)]
 mod native_function_tests;
 #[cfg(test)]
