@@ -9,6 +9,8 @@ typedef struct {
     char *case_id;
     uint64_t attempt;
     OpalTestPhase phase;
+    OpalTestPhaseObserver phase_observer;
+    void *phase_context;
     uint64_t next_failure;
     uint64_t primary;
     OpalTestFailure **failures;
@@ -76,12 +78,18 @@ void opal_test_attempt_end(void) {
     /* worker_has_started deliberately remains set: no implicit worker reuse. */
 }
 
+void opal_test_set_phase_observer(OpalTestPhaseObserver observer, void *context) {
+    state.phase_observer = observer;
+    state.phase_context = context;
+}
+
 void opal_test_set_phase(OpalTestPhase phase) {
     if (phase < OPAL_TEST_PHASE_EXAMPLE || phase > OPAL_TEST_PHASE_STARTUP) {
         infrastructure_failure("native testing runtime received an invalid lifecycle phase");
         return;
     }
     state.phase = phase;
+    if (state.phase_observer) state.phase_observer(phase, state.phase_context);
 }
 
 const char *opal_test_case_id(void) { return state.case_id ? state.case_id : ""; }

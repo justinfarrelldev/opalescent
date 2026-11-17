@@ -182,8 +182,15 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Native World-state write RED/GREEN reuses ordinary typed retain/store/release policy through actual projected storage, without changing production grammar, ABIs or field-assignment availability.
 - [x] Added `test-projects/native-testing-lifecycle/` minimal diamond/hook/context/cleanup and body-abort fixtures; real linked project tests run separate case processes, share one compiled example body and verify after-hook mutation plus declared cleanup after abort.
 - [x] Whole-project increment verification: 1,781 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Whole-project source/codegen increment commit and unchanged gates.
-- [ ] Complete artifact object/link/cache construction, worker entry/result transport and CLI wiring; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
+- [x] Whole-project source/codegen committed as `5398dbf`; all unchanged pre-commit gates passed, including complete production integration regressions.
+- [x] Native executable artifact RED/GREEN: write the checked LLVM object, link the unchanged embedded application runtime plus separate embedded testing units and a complete structured identity registry, and reuse one executable for every selected attempt.
+- [x] Fresh native worker RED/GREEN selects one exact case identity, validates attempt metadata, runs lifecycle once and emits dedicated JSON-lines progress/result transport with retained primary/secondary diagnostics. Test stdout is not result transport.
+- [x] Worker protocol regressions verify independent named examples, failed-body after-hook/cleanup, UTF-8/prose identity round trips, unknown identity infrastructure errors and exclusive rejection of stale result files.
+- [x] Implicit builtin lowering RED/GREEN: source environment metadata no longer turns implicit `print` into an unresolved C extern; ordinary logging works in native artifacts.
+- [x] Build-product directory reuse is rejected rather than overwrite a running artifact. No persistent cache is reused yet, so production cache entries cannot enter test builds.
+- [x] Worker increment verification: 1,784 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, worker Clang analysis and Cppcheck passed.
+- [ ] Native executable/worker increment commit and unchanged gates.
+- [ ] Complete CLI wiring, scheduler, structured callback outcomes/timings, artifact cache and configured build targets/profiles; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work
 

@@ -97,7 +97,7 @@ const OPAL_RUNTIME_H: &[u8] = include_bytes!("../runtime/opal_runtime.h");
 const OPAL_FS_ERRORS_H: &[u8] = include_bytes!("../runtime/opal_fs_errors.h");
 
 /// Temporary runtime source file materialized for the system C compiler.
-struct RuntimeTempFile {
+pub(crate) struct RuntimeTempFile {
     /// Path to the temporary directory containing the runtime source and headers.
     dir: PathBuf,
     /// Path to the generated temporary C runtime source file.
@@ -106,7 +106,7 @@ struct RuntimeTempFile {
 
 impl RuntimeTempFile {
     /// Create a uniquely named temporary directory with runtime source and headers.
-    fn create() -> Result<Self, CompileError> {
+    pub(crate) fn create() -> Result<Self, CompileError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| CompileError::Io(std::io::Error::other(error)))?
@@ -137,7 +137,7 @@ impl RuntimeTempFile {
         clippy::missing_const_for_fn,
         reason = "PathBuf deref to Path is not const on stable"
     )]
-    fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.source_file
     }
 
@@ -146,7 +146,7 @@ impl RuntimeTempFile {
         clippy::missing_const_for_fn,
         reason = "PathBuf deref to Path is not const on stable"
     )]
-    fn include_dir(&self) -> &Path {
+    pub(crate) fn include_dir(&self) -> &Path {
         &self.dir
     }
 }

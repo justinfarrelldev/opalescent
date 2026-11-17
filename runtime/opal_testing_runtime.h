@@ -41,6 +41,10 @@ typedef struct {
 /* Exactly one attempt may start in a worker, even after its memory is released. */
 int opal_test_attempt_begin(const char *case_id, uint64_t attempt);
 void opal_test_attempt_end(void);
+/* Optional synchronous progress observer for coordinator result transport only.
+ * This is not acquired-resource registration or a user cleanup mechanism. */
+typedef void (*OpalTestPhaseObserver)(OpalTestPhase phase, void *context);
+void opal_test_set_phase_observer(OpalTestPhaseObserver observer, void *context);
 void opal_test_set_phase(OpalTestPhase phase);
 const char *opal_test_case_id(void);
 uint64_t opal_test_attempt_number(void);

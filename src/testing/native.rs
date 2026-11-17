@@ -2,6 +2,9 @@
 //!
 //! This is separate from the legacy Rust function-pointer testing API. Test
 //! declarations are parsed by the normal lexer/parser in explicit module mode.
+pub mod artifact;
+#[cfg(test)]
+mod artifact_tests;
 pub mod cases;
 pub mod checking;
 /// Shared explicit declaration-import binding resolution.

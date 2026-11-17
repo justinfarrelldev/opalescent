@@ -223,7 +223,13 @@ impl SourceLayouts {
             .current_scope_symbols()
         {
             match entry.core_type {
-                CoreType::Function { .. } => {
+                CoreType::Function { .. }
+                    if requires_imported_signature(
+                        &checked_module.checker,
+                        &entry.name,
+                        entry.source_location,
+                    ) =>
+                {
                     env.imported_signatures
                         .insert(entry.name.clone(), entry.core_type.clone());
                 }
@@ -297,6 +303,15 @@ impl SourceLayouts {
         crate::codegen::native_context::install_layout(&mut env);
         Ok(env)
     }
+}
+
+/// Implicit builtins use existing standard lowering, not undeclared C externs.
+fn requires_imported_signature(
+    checker: &crate::type_system::checker::TypeChecker,
+    name: &str,
+    span: crate::token::Span,
+) -> bool {
+    !span.is_empty() || checker.environment().lookup_builtin(name).is_none()
 }
 
 /// Preserve original expression nodes and spans; synthesize only a return container.
