@@ -196,8 +196,16 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Structured worker results are validated against exact case/attempt identities, native exit codes, body execution, diagnostic kinds/phases and primary/secondary identities. Incomplete/rejected transport cannot claim completed callbacks.
 - [x] Scheduler regressions use a two-sided readiness barrier to prove same-scenario overlap and distinct processes, occupancy instrumentation for exclusion-only serialization, fresh retry PIDs, timeout/crash phase retention and rejection of fabricated passes. Real compiled native case artifacts also run through the scheduler.
 - [x] Scheduler increment verification: 1,791 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Scheduler increment commit and unchanged gates.
-- [ ] Complete CLI discovery/selection/wiring, structured callback outcomes/timings, reporters, artifact cache and configured build targets/profiles; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
+- [x] Scheduler committed as `bdcb80a`; all unchanged pre-commit gates passed.
+- [x] Actual compiler CLI dispatch RED/GREEN replaces the empty legacy Rust suite with checked tests/**/*.test.op discovery, native build-once execution and bounded fresh-worker scheduling.
+- [x] CLI supports build/setup-free listing, exact stable case selection, display/category/canonical subject/World filters, jobs/deadlines/retries, explicit empty-selection opt-in, report output files and host target validation; no matches is otherwise nonzero.
+- [x] Text/JSON/JUnit views share canonical independent case records, retained attempts, selected/skipped distinctions, source documentation, canonical function/World associations, World request origins and scheduler/exclusion waits. Coverage remains explicitly not collected; function metrics are associated test durations, not function execution time.
+- [x] Source/compiler/infrastructure errors have machine-distinguishable report categories and exit status; worker assertion failures remain executed case outcomes. XML parsing verifies JUnit output; report text marks unavailable lifecycle completion after termination.
+- [x] CLI regressions cover stable example selection, skipped totals, subject/World/category filters, JSON report files, World documentation, actual no-build listing and source compilation errors.
+- [x] Actual `cargo run -- test` native smoke evidence: basic fixture reports 3 passes; lifecycle fixture reports one pass and one assertion failure; retry selection retains two failed attempts with distinct native PIDs.
+- [x] CLI increment verification: 1,798 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Native CLI/report increment commit and unchanged gates.
+- [ ] Complete structured per-callback outcomes/timings, attachments, declared/activated double reporting, full configured build targets/profiles and artifact cache; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work
 

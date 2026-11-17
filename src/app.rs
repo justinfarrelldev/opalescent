@@ -13,8 +13,8 @@
 )]
 
 use crate::build_system::BuildError;
-use crate::build_system::config::{ProjectConfig, Version, parse_config};
-use crate::build_system::targets::{BuildTarget, parse_target_triple};
+use crate::build_system::config::parse_config;
+use crate::build_system::targets::parse_target_triple;
 use crate::compiler::project_check::{CheckFileDiagnostics, check_project_frontend};
 use crate::compiler::{CompileError, compile_program, compile_project};
 use crate::doc_gen::generate_markdown_for_program;
@@ -29,7 +29,6 @@ use crate::lexer::Lexer;
 use crate::lsp::server::LspServer;
 use crate::module_loader::validate_module_file_role;
 use crate::parser::Parser;
-use crate::testing::runner::{TestCommand, TestSuite};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -59,7 +58,7 @@ fn help_text(topic: Option<&str>) -> String {
             out.push_str("opal lsp [options]\n\nStart the Opalescent language server.\n  --stdio    Communicate over stdin/stdout (required for editor integration)\n");
         }
         Some("test") => {
-            out.push_str("opal test [options]\n\nRun tests in the current project.\n  --target <triple>     Run tests for a specific build target\n  --filter <pattern>    Only run tests whose names contain <pattern>\n");
+            out.push_str("opal test [options]\n\nCompile and run independent tests/**/*.test.op cases.\n  --root <directory>    Project root (default current directory)\n  --list                List checked cases without setup or builds\n  --case <case-id>       Select one exact stable identity\n  --filter <text>        Filter behavior display text\n  --kind <category>      unit, integration, or end_to_end\n  --unit <function>      Filter canonical subject associations\n  --world <world>        Filter direct/hook/activation/transitive Worlds\n  --jobs <count>         Bounded fresh-worker concurrency\n  --timeout <duration>   Per-attempt hard deadline (30s default)\n  --retries <count>      Additional fresh attempts (zero default)\n  --reporter <format>    text, json, or junit\n  --output <path>        Write the report to a file\n  --target <triple>      Native host build target\n  --allow-empty         Allow selection with no matching cases\n");
         }
         Some("doc") => {
             out.push_str("opal doc [options]\n\nGenerate documentation for the current project.\n  --format <md|html>    Output format (default: md)\n");
@@ -590,71 +589,9 @@ fn should_skip_fmt_project_directory(path: &Path) -> bool {
         .is_some_and(|name| matches!(name, ".git" | "target"))
 }
 
-/// Dispatch `opal test` subcommand arguments to [`TestCommand`].
+/// Dispatch discovered typed source cases to the native compiler/coordinator.
 fn run_test_command(args: &[String]) -> Result<(), i32> {
-    let test_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
-
-    let filter = test_args
-        .iter()
-        .position(|&a| a == "--filter")
-        .and_then(|i| test_args.get(i.saturating_add(1)).copied());
-
-    let target_str = test_args
-        .iter()
-        .position(|&a| a == "--target")
-        .and_then(|i| test_args.get(i.saturating_add(1)).copied());
-
-    let config = match fs::read_to_string("opal.toml") {
-        Ok(toml) => match parse_config(&toml) {
-            Ok(c) => c,
-            Err(
-                BuildError::ParseError(msg)
-                | BuildError::MissingField(msg)
-                | BuildError::InvalidVersion(msg)
-                | BuildError::InvalidConstraint(msg)
-                | BuildError::DependencyConflict(msg)
-                | BuildError::PackageNotFound(msg)
-                | BuildError::InvalidTarget(msg),
-            ) => {
-                eprintln!("error: invalid opal.toml: {msg}");
-                return Err(1);
-            }
-        },
-        Err(_) => ProjectConfig {
-            name: String::from("project"),
-            version: Version {
-                major: 0,
-                minor: 1,
-                patch: 0,
-            },
-            dependencies: vec![],
-            build_targets: vec![],
-        },
-    };
-
-    let mut command = TestCommand::new(config);
-
-    if let Some(pattern) = filter {
-        command = command.with_filter(pattern);
-    }
-
-    if let Some(triple) = target_str {
-        if let Ok(t) = parse_target_triple(triple) {
-            command = command.with_target(BuildTarget { triple: t });
-        } else {
-            eprintln!("error: invalid target triple: {triple}");
-            return Err(1);
-        }
-    }
-
-    let suite = TestSuite::new("project");
-    let report = command.execute(&suite);
-    println!(
-        "{} passed, {} failed, {} skipped",
-        report.passed, report.failed, report.skipped
-    );
-
-    if report.is_success() { Ok(()) } else { Err(1) }
+    crate::testing::native::command::run(args.get(2..).unwrap_or_default())
 }
 
 /// Dispatch `opal doc` subcommand arguments to the documentation generator.

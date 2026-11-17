@@ -27,7 +27,7 @@ pub struct HookScope {
 }
 
 /// Why one case requires a provider. Multiple reasons do not create instances.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 pub enum WorldUseOrigin {
     /// Explicit ordered body injection.
     Injected,

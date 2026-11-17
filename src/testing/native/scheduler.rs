@@ -75,7 +75,26 @@ pub enum CaseOutcome {
 }
 
 impl CaseOutcome {
-    /// Flaky success is distinct but still successful for the default exit code.
+    /// Stable report vocabulary, independent of Rust debug formatting.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Passed => "passed",
+            Self::FlakyPassed => "flaky_passed",
+            Self::AssertionFailed => "assertion_failed",
+            Self::ApplicationError => "application_error",
+            Self::ExampleFailed => "example_failed",
+            Self::WorldSetupFailed => "world_setup_failed",
+            Self::BeforeHookFailed => "before_hook_failed",
+            Self::AfterHookFailed => "after_hook_failed",
+            Self::CleanupFailed => "cleanup_failed",
+            Self::TimedOut => "timed_out",
+            Self::WorkerCrashed => "worker_crashed",
+            Self::InfrastructureFailed => "infrastructure_failed",
+        }
+    }
+
+    /// Whether default CLI exit policy considers the case successful.
     #[must_use]
     pub const fn is_success(self) -> bool {
         matches!(self, Self::Passed | Self::FlakyPassed)

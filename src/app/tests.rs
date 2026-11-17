@@ -273,31 +273,31 @@ fn lsp_starts_server_returns_ok() {
 }
 
 #[test]
-fn test_command_empty_suite_returns_ok() {
+fn test_command_empty_suite_is_nonzero_without_explicit_allow_empty() {
     let args = ["opal".to_string(), "test".to_string()];
-    assert_eq!(run_with_args(&args), Ok(()));
+    assert_eq!(run_with_args(&args), Err(1));
 }
 
 #[test]
-fn test_with_filter_returns_ok() {
+fn test_with_no_matching_filter_is_nonzero() {
     let args = [
         "opal".to_string(),
         "test".to_string(),
         "--filter".to_string(),
         "my_test".to_string(),
     ];
-    assert_eq!(run_with_args(&args), Ok(()));
+    assert_eq!(run_with_args(&args), Err(1));
 }
 
 #[test]
-fn test_with_target_returns_ok() {
+fn test_with_valid_target_and_no_cases_is_nonzero() {
     let args = [
         "opal".to_string(),
         "test".to_string(),
         "--target".to_string(),
         "x86_64-linux".to_string(),
     ];
-    assert_eq!(run_with_args(&args), Ok(()));
+    assert_eq!(run_with_args(&args), Err(1));
 }
 
 #[test]
@@ -568,7 +568,7 @@ fn test_all_commands_no_unimplemented() {
         let args = ["opal".to_owned(), cmd.to_owned()];
         let result = run_with_args(&args);
         match cmd {
-            "test" | "bench" => {
+            "bench" => {
                 assert_eq!(result, Ok(()), "{cmd} should be wired and executable");
             }
             _ => assert_eq!(

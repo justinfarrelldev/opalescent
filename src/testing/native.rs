@@ -7,6 +7,9 @@ pub mod artifact;
 mod artifact_tests;
 pub mod cases;
 pub mod checking;
+pub mod command;
+#[cfg(test)]
+mod command_tests;
 /// Shared explicit declaration-import binding resolution.
 mod declaration_imports;
 pub mod doubles;
