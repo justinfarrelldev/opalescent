@@ -236,6 +236,80 @@ fn compiled_products_use_field_equality_and_variants_use_nominal_tags() {
 }
 
 #[test]
+fn compiled_polling_evaluates_configuration_once_and_retains_latest_observation() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-polling");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("native polling");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("polling results");
+    assert_eq!(report["totals"]["passed"], 3_u64);
+    assert_eq!(report["totals"]["failed"], 2_u64);
+    let passed = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["execution"]["outcome"] == "passed")
+        .expect("successful retry");
+    let path = passed["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("trace");
+    assert_eq!(
+        std::fs::read_to_string(path)
+            .expect("evaluation trace")
+            .lines()
+            .collect::<Vec<_>>(),
+        [
+            "expected evaluated",
+            "deadline evaluated",
+            "observation evaluated",
+            "observation evaluated",
+            "observation evaluated"
+        ]
+    );
+    let failed = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["execution"]["outcome"] == "assertion_failed")
+        .expect("expired observation");
+    let message = failed["execution"]["attempts"][0]["result"]["failures"][0]["message"]
+        .as_str()
+        .expect("latest snapshot");
+    assert!(message.contains("latest observed 42"));
+    let failed_path = failed["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("failed trace");
+    assert_eq!(
+        std::fs::read_to_string(failed_path)
+            .expect("observation trace")
+            .lines()
+            .count(),
+        1
+    );
+    let error_case = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| case["execution"]["outcome"] == "application_error")
+        .expect("immediate application error");
+    let error_path = error_case["execution"]["attempts"][0]["stdout_path"]
+        .as_str()
+        .expect("application trace");
+    assert_eq!(
+        std::fs::read_to_string(error_path)
+            .expect("application observation trace")
+            .lines()
+            .collect::<Vec<_>>(),
+        ["failing observation evaluated", "after failed observation"]
+    );
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

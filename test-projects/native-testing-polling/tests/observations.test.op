@@ -1,0 +1,35 @@
+world Counter:
+    setup: f(): int64 =>
+        return 0
+    cleanup: f(ref state: int64): void =>
+        expect state to be 3
+        return void
+
+let observe = f(mutable ref counter: Counter): int64 =>
+    print('observation evaluated')
+    counter.state = counter.state + 1
+    return counter.state
+
+let expected_value = f(): int64 =>
+    print('expected evaluated')
+    return 3
+
+let deadline = f(): float64 =>
+    print('deadline evaluated')
+    return 0.2
+
+let latest_text = f(): string =>
+    print('latest text observed')
+    return 'latest observed {42}'
+
+scenario retrying typed observations:
+    it should evaluate configuration once and retry only mismatches:
+        worlds: Counter
+        f(mutable ref counter: Counter): void =>
+            expect eventually observe(mutable ref counter) to be expected_value() within deadline() seconds
+            return void
+
+    it should retain the latest value when an immediate deadline expires:
+        f(): void =>
+            expect eventually latest_text() to be 'never matches' within 0 seconds
+            return void

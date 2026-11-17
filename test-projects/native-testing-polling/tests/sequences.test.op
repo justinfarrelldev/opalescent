@@ -1,0 +1,30 @@
+world Observations:
+    setup: f(): int64 =>
+        return 0
+    cleanup: f(ref count: int64): void =>
+        expect count to be 3
+        return void
+
+let observe_text = f(mutable ref observation: Observations): string =>
+    observation.state = observation.state + 1
+    if observation.state is 3:
+        return 'ready café'
+    return 'pending {observation.state}'
+
+let observe_values = f(mutable ref observation: Observations): int64[] =>
+    observation.state = observation.state + 1
+    return [observation.state]
+
+scenario polling typed sequence values:
+    worlds: Observations
+
+    it should release intermediate owned string observations:
+        f(mutable ref observation: Observations): void =>
+            expect eventually observe_text(mutable ref observation) to contain 'café' within 0.2 seconds
+            return void
+
+    it should compare retrying arrays without repeating the expected expression:
+        f(mutable ref observation: Observations): void =>
+            let expected: int64[] = [3]
+            expect eventually observe_values(mutable ref observation) to contain exactly (expected) in order within 0.2 seconds
+            return void

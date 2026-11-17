@@ -98,6 +98,7 @@ pub(super) fn lower<'context>(
         .builder
         .build_conditional_branch(passed, ready, failed)?;
     codegen.builder.position_at_end(failed);
+    crate::codegen::native_polling::retry_mismatch(codegen, env)?;
     let identity = record_failure(codegen, env, expectation, label, actual, expected)?;
     emit_native_abort(codegen, env, identity, &[])?;
     codegen.builder.position_at_end(ready);
@@ -210,7 +211,8 @@ fn capture<'context>(
         ));
     }
     let name = env.next_name("__native_assertion_string");
-    let slot = codegen.builder.build_alloca(value.get_type(), &name)?;
+    let slot =
+        crate::codegen::native_assertion_storage::entry_slot(codegen, value.get_type(), &name)?;
     env.variables.insert(
         name.clone(),
         VariableBinding {

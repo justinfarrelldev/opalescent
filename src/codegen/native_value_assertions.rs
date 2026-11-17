@@ -105,7 +105,8 @@ fn capture<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let value = codegen_expression(codegen, env, expression, Some(core))?;
     let name = env.next_name("__native_assertion_value");
-    let slot = codegen.builder.build_alloca(value.get_type(), &name)?;
+    let slot =
+        crate::codegen::native_assertion_storage::entry_slot(codegen, value.get_type(), &name)?;
     env.variables.insert(
         name.clone(),
         VariableBinding {

@@ -34,6 +34,7 @@ pub mod functions_stdlib;
 pub mod monomorphization;
 /// Existing lexical scope exits shared by native abort sites.
 pub(crate) mod native_abort;
+mod native_assertion_storage;
 /// Typed native assertion operations and source-aware failure sites.
 pub(crate) mod native_assertions;
 mod native_callback_boundary;
@@ -49,6 +50,8 @@ pub mod native_descriptors;
 pub mod native_functions;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
+/// Synchronous monotonic assertion polling in native artifacts.
+pub mod native_polling;
 /// Fully checked source graph to reusable native case descriptor artifact.
 pub mod native_project;
 /// Typed setup/example construction and ordinary value-drop boundaries.

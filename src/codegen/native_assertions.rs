@@ -50,9 +50,7 @@ fn lower_expectation<'context>(
     expectation: &Expectation,
 ) -> Result<(), CodegenError> {
     if expectation.eventually_seconds.is_some() {
-        return Err(CodegenError::new(
-            "eventual assertion requires native polling lowering",
-        ));
+        return super::native_polling::lower(codegen, env, expectation);
     }
     let actual_type = operand_core_type(env, &expectation.actual);
     if actual_type == Some(CoreType::String) {
@@ -113,7 +111,7 @@ fn lower_expectation<'context>(
 
 /// Projection wrappers preserve their ordinary scalar type, including unsigned
 /// casts whose LLVM integer representation alone does not retain signedness.
-fn operand_core_type(env: &CodegenEnv<'_>, expression: &Expr) -> Option<CoreType> {
+pub fn operand_core_type(env: &CodegenEnv<'_>, expression: &Expr) -> Option<CoreType> {
     let extent = expression.span();
     if let Some(core) = env
         .native_assertion_types
@@ -231,9 +229,10 @@ fn scalar_compare<'context>(
 /// Record original source coordinates without executing operand expressions again.
 fn record_assertion_failure<'context>(
     codegen: &CodegenContext<'context>,
-    env: &CodegenEnv<'context>,
+    env: &mut CodegenEnv<'context>,
     expectation: &Expectation,
 ) -> Result<IntValue<'context>, CodegenError> {
+    super::native_polling::retry_mismatch(codegen, env)?;
     let llvm = codegen.context;
     let pointer = llvm.i8_type().ptr_type(AddressSpace::default());
     let signature = llvm.i64_type().fn_type(

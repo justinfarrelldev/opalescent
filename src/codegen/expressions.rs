@@ -105,6 +105,8 @@ pub struct CodegenEnv<'context> {
     pub adt_product_layouts: alloc::collections::BTreeSet<String>,
     /// Checked native assertion operands keyed by original source extent.
     pub native_assertion_types: BTreeMap<(usize, usize), CoreType>,
+    /// Compiler-only assertion mismatch retry destinations.
+    pub native_polling: Vec<crate::codegen::native_polling::NativePollingContext<'context>>,
     /// Module-local display names mapped to canonical manifest layout keys.
     pub adt_layout_aliases: BTreeMap<String, String>,
     /// Variant discriminants keyed by canonical manifest variant layout key.
@@ -141,6 +143,7 @@ impl<'context> CodegenEnv<'context> {
             adt_field_layouts: BTreeMap::new(),
             adt_product_layouts: alloc::collections::BTreeSet::new(),
             native_assertion_types: BTreeMap::new(),
+            native_polling: Vec::new(),
             adt_layout_aliases: BTreeMap::new(),
             adt_variant_discriminants: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),

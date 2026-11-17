@@ -1,0 +1,16 @@
+let unavailable = f(): int64 errors ParseError =>
+    print('failing observation evaluated')
+    let parsed = propagate string_to_int32('not a number')
+    return parsed as int64
+
+after each test:
+    f(mutable ref test: TestContext): void =>
+        expect test.failed to be true
+        print('after failed observation')
+        return void
+
+scenario ordinary observation errors:
+    it should fail immediately rather than retry an application error:
+        f(): void errors inferred =>
+            expect eventually propagate unavailable() to be 1 within 0.2 seconds
+            return void

@@ -149,8 +149,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Inferred native constructor RED/GREEN: checked native product and enum constructor bindings retain nominal layouts without requiring artificial source annotations; production inference fallback is unchanged.
 - [x] Added `test-projects/native-testing-products/` for independent allocations, reordered named initialization, record updates, nested products, arrays of products, inferred constructor types, payloadless equality, payload-bearing variant identity and intentional mismatches.
 - [x] Product/variant increment verification: 1,801 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Product/variant increment commit and unchanged gates.
-- [ ] Complete owned array/product/variant diagnostics, polling and double history matchers.
+- [x] Product/variant matchers committed as `612053c`; all unchanged pre-commit gates passed, including production integration and extension checks.
+- [x] Polling control-flow RED/GREEN: expected operands and numeric deadlines are evaluated once before the first observation; only matcher mismatch branches retry, under the existing portable monotonic clock and synchronous bounded waits.
+- [x] Polling lexical ownership uses entry-allocated operand slots (no per-iteration stack growth), drops intermediate actual values on retry and retains expected values across observations using existing reference-counting rules.
+- [x] Ordinary observation application errors propagate immediately through the unchanged application-error ABI and still run separate after-hook boundaries; clock/wait errors use the independent native abort channel.
+- [x] Added `test-projects/native-testing-polling/` minimal numeric, owned-string, array, zero-deadline/latest-string and real ParseError observation fixtures. Real CLI traces prove once-only expected/deadline evaluation, three observations, fresh final diagnostics and no application-error retry.
+- [x] Polling increment verification: 1,802 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, polling Clang analysis, Cppcheck and file-length gates passed.
+- [ ] Polling control-flow increment commit and unchanged gates.
+- [ ] Complete owned scalar/array/product/variant diagnostics (including final non-string polling observations), attachments and double history matchers.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.
