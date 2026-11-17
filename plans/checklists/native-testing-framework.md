@@ -171,8 +171,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Descriptor validation RED/GREEN rejects duplicate canonical World identities, function/global symbol conflicts, incompatible callback/drop ABIs and non-C calling conventions.
 - [x] Full compiled lifecycle fixture now consumes a compiler-emitted case descriptor rather than a C hand-written descriptor; source setup/example/body-or-after-hook/cleanup and generated ordinary drops remain linked native execution.
 - [x] Descriptor increment verification: 1,776 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Native descriptor increment commit and unchanged gates.
-- [ ] Complete checked-project callback/source environments, case-plan/artifact/worker generation and linking; verify managed borrowed values, nested inline projections and generic instantiation paths.
+- [x] Native descriptors committed as `a1ce14c`; all unchanged pre-commit gates passed.
+- [x] Checked-suite lowering RED/GREEN: deduplicated original callback definitions/signatures and independent structured case plans; named examples share their source body without sharing invocation state.
+- [x] Canonical typed injection plans retain provider identities and deterministic positions for World handles, state-first cleanup subsets, examples and final runner context; diamond dependencies and hook-only requests use actual shared slots.
+- [x] Case planning preserves source-order hooks, entered scopes, activation/transitive lifecycle membership and omitted cleanup, with no setup or source evaluation during lowering.
+- [x] Case-plan increment verification: 1,778 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Checked-case planning increment commit and unchanged gates.
+- [ ] Complete checked-project source environments, executable artifact/worker generation and linking; verify managed borrowed values, nested inline projections and generic instantiation paths.
 
 ## Remaining integration work
 

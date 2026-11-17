@@ -7,6 +7,9 @@ pub mod checking;
 /// Shared explicit declaration-import binding resolution.
 mod declaration_imports;
 pub mod doubles;
+pub mod lowering;
+#[cfg(test)]
+mod lowering_tests;
 
 #[cfg(test)]
 mod double_resolution_tests;
