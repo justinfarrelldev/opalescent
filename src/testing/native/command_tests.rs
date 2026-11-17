@@ -454,6 +454,46 @@ fn compiled_replacements_adapt_success_preserve_errors_and_propagate_test_aborts
 }
 
 #[test]
+fn compiled_managed_rules_capture_values_before_mutation_and_retain_repeated_results() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-double-managed");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("managed rule values");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value =
+        serde_json::from_str(&output.text).expect("managed rule report");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+    assert_eq!(report["totals"]["failed"], 1_u64);
+    let aborted = report["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .find(|case| {
+            case["identity"]["test"]
+                == "preserve owned arguments after the body aborts and drops its values"
+        })
+        .expect("aborted body");
+    let attempt = &aborted["execution"]["attempts"][0];
+    assert_eq!(
+        attempt["result"]["failures"]
+            .as_array()
+            .expect("failures")
+            .len(),
+        1
+    );
+    let path = attempt["stdout_path"].as_str().expect("after-hook trace");
+    assert_eq!(
+        std::fs::read_to_string(path).expect("owned history trace"),
+        "owned history retained\n"
+    );
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

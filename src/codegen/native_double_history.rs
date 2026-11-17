@@ -21,6 +21,7 @@ pub fn lower<'context>(
     let (key, signature) = super::native_double_configuration::signature(env, &expectation.actual)?;
     let helpers = super::native_double_rules::callbacks(ctx, env, &key, &signature)?;
     let layout = super::native_double_rules::layout(ctx, &signature)?;
+    let _scope = env.enter_scope();
     let handle = codegen_expression(ctx, env, &expectation.actual, None)?;
     let values =
         super::native_double_configuration::evaluate_arguments(ctx, env, &signature, arguments)?;
@@ -90,5 +91,5 @@ pub fn lower<'context>(
     let mismatch = super::native_assertions::record_history_failure(ctx, env, expectation)?;
     super::native_abort::emit_native_abort(ctx, env, mismatch, &[])?;
     ctx.builder.position_at_end(ready);
-    Ok(())
+    env.exit_scope_cleanup(ctx, &[])
 }

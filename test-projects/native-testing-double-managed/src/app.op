@@ -1,0 +1,13 @@
+import text as imported_text, values as imported_values from ./io
+
+##
+    Description: Canonical text import edge.
+##
+public let apply_text = f(ref value: string): string =>
+    return imported_text(ref value)
+
+##
+    Description: Canonical array import edge.
+##
+public let apply_values = f(ref input: int64[]): int64[] =>
+    return imported_values(ref input)

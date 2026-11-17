@@ -186,8 +186,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Count-only replacement fallbacks do not require argument snapshots: borrowed nominal arguments keep original storage, remain synchronous and are never retained as history addresses. Unknown indirect/foreign callback ABIs are explicitly rejected.
 - [x] `native-testing-replacements` proves exact-before-handler precedence, nonfallible-to-fallible success adaptation, declared application-error guards, void adaptation, borrowed nominal count-only invocation and assertion aborts that application guards cannot catch.
 - [x] Replacement increment verification: 1,810 library tests passed serially (8 existing ignored); strict Rust lint and file-length gates passed.
-- [ ] Replacement-function increment commit and unchanged gates.
-- [ ] Complete owned non-scalar argument/result snapshots, full history diagnostics and polling integration. Current exact-rule/history callbacks support primitive numeric/boolean values and explicitly reject unimplemented snapshot/result types instead of reading unknown layouts or fabricating returns.
+- [x] Replacement functions committed as `2f8bbc0`; all unchanged pre-commit gates passed, including production integration and extension checks.
+- [x] Managed-value double RED/GREEN: typed exact rules and owned argument history now support UTF-8 strings and recursively supported arrays, using the ordinary RC/COW policy rather than pointer identity or saved borrowed addresses.
+- [x] Configuration operands/results enter ordinary lexical capture scopes before subsequent expressions can mutate their original slots; rule payloads acquire their own value references and consume them through compiler-generated normal value-memory release callbacks.
+- [x] Rule payload and argument-snapshot release callbacks are distinct: history never reads nonexistent result slots, while stored results retain ordinary return ownership for every repeated invocation. Replacement payload release remains separate and never reads uninitialized application fields.
+- [x] `native-testing-double-managed` proves expected-argument capture before result-side mutation, COW preservation of configured/observed arrays, repeated managed result returns, and after-hook history access after body abort has released its original string values.
+- [x] Managed snapshot increment verification: 1,811 library tests passed serially (8 existing ignored); strict Rust lint and file-length gates passed.
+- [ ] Managed rule/history increment commit and unchanged gates.
+- [ ] Complete explicit FilesystemPath snapshots/equality, supported record/variant snapshot policy, full history diagnostics and polling integration. Unsupported data layouts still produce compilation diagnostics or remain count-only fallbacks; no borrowed-address histories or fabricated results are introduced.
 - [ ] Compile standard-library interception adapters before special lowering and finish indirect/foreign boundary diagnostics. Source-edge wrappers are operational, but full executable typed doubles are not complete.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.

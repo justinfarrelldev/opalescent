@@ -153,7 +153,7 @@ fn emit_body<'context>(
     ctx.builder
         .build_conditional_branch(is_stored, stored, invalid)?;
     ctx.builder.position_at_end(stored);
-    return_stored(ctx, function, selection, plan, signature.parameters.len())?;
+    return_stored(ctx, function, selection, plan, signature)?;
     ctx.builder.position_at_end(invalid);
     let replacement = llvm.append_basic_block(function, "double.replacement");
     let unsupported = llvm.append_basic_block(function, "double.invalid.selection");
@@ -208,7 +208,7 @@ fn return_stored<'context>(
     function: FunctionValue<'context>,
     selection: inkwell::values::PointerValue<'context>,
     plan: super::native_double_rules::RuleLayout<'context>,
-    count: usize,
+    signature: &crate::type_system::NativeDoubleSignature,
 ) -> Result<(), CodegenError> {
     let application = if plan.application.is_some() {
         let payload_slot =
@@ -225,7 +225,8 @@ fn return_stored<'context>(
         )?;
         let result_slot = ctx.builder.build_struct_gep(
             payload,
-            u32::try_from(count).map_err(|e| CodegenError::new(e.to_string()))?,
+            u32::try_from(signature.parameters.len())
+                .map_err(|e| CodegenError::new(e.to_string()))?,
             "double.selected.application.slot",
         )?;
         Some(
@@ -238,6 +239,9 @@ fn return_stored<'context>(
     let metadata = ctx.native_function_outcome(function).ok_or_else(|| {
         CodegenError::new("double boundary lost explicit native outcome metadata")
     })?;
+    if let Some(value) = application {
+        super::native_double_owned::retain_application(ctx, signature, value)?;
+    }
     let outcome = metadata.build_completed(ctx, application)?;
     ctx.builder.build_return(Some(&outcome))?;
     Ok(())

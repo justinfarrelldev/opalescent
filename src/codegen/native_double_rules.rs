@@ -41,15 +41,21 @@ pub struct RuleCallbacks<'context> {
     pub overlap: FunctionValue<'context>,
     /// Release framework-owned scalar payload memory.
     pub release: FunctionValue<'context>,
+    /// Snapshot release owns arguments only, never uninitialized result slots.
+    pub drop_snapshot: FunctionValue<'context>,
     /// Snapshot logical arguments before the original operation can mutate them.
     pub snapshot: FunctionValue<'context>,
 }
 
 /// Explicit initial snapshot subset; unsupported signatures remain count-only spies.
-pub const fn supported(core: &CoreType) -> bool {
+pub fn supported(core: &CoreType) -> bool {
+    if let CoreType::Array(ref element) = *core {
+        return supported(element);
+    }
     matches!(
         *core,
-        CoreType::Boolean
+        CoreType::String
+            | CoreType::Boolean
             | CoreType::Int8
             | CoreType::Int16
             | CoreType::Int32
@@ -146,12 +152,20 @@ fn emit_callbacks<'context>(
     let plan = layout(ctx, signature)?;
     let matches = matching(ctx, env, &format!("{name}.match"), signature, plan, true)?;
     let overlap = matching(ctx, env, &format!("{name}.overlap"), signature, plan, false)?;
-    let release = free_callback(ctx, &format!("{name}.drop"))?;
+    let release =
+        super::native_double_owned::drop_callback(ctx, &format!("{name}.drop"), signature, true)?;
+    let drop_snapshot = super::native_double_owned::drop_callback(
+        ctx,
+        &format!("{name}.snapshot.drop"),
+        signature,
+        false,
+    )?;
     let snapshot = copy_arguments(ctx, &format!("{name}.snapshot"), signature, plan)?;
     Ok(RuleCallbacks {
         matches,
         overlap,
         release,
+        drop_snapshot,
         snapshot,
     })
 }
@@ -348,6 +362,11 @@ fn copy_arguments<'context>(
             typed,
             u32::try_from(index).map_err(|e| CodegenError::new(e.to_string()))?,
             "double.snapshot.slot",
+        )?;
+        super::binding_store::retain_new_binding_value_if_needed(
+            ctx,
+            &signature.parameters[index],
+            value,
         )?;
         ctx.builder.build_store(slot, value)?;
     }

@@ -85,7 +85,7 @@ pub fn install<'context>(
                     callbacks
                         .map_or_else(
                             || drop_type.const_null(),
-                            |helpers| helpers.release.as_global_value().as_pointer_value(),
+                            |helpers| helpers.drop_snapshot.as_global_value().as_pointer_value(),
                         )
                         .into(),
                 ]),

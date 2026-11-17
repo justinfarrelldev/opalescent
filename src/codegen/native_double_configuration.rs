@@ -50,6 +50,11 @@ pub fn configure<'context>(
             replacement,
         );
     }
+    if arguments.is_none() {
+        return Err(CodegenError::new(
+            "stored value/error rules require an explicit exact argument list",
+        ));
+    }
     let (key, signature) = signature(env, target)?;
     if matches!(*behavior, StubBehavior::Return(_))
         && !signature
@@ -63,6 +68,7 @@ pub fn configure<'context>(
     }
     let callbacks = native_double_rules::callbacks(ctx, env, &key, &signature)?;
     let plan = native_double_rules::layout(ctx, &signature)?;
+    let _scope = env.enter_scope();
     let handle = codegen_expression(ctx, env, target, None)?;
     let values = if let Some(arguments) = arguments {
         evaluate_arguments(ctx, env, &signature, arguments)?
@@ -77,9 +83,15 @@ pub fn configure<'context>(
         "double.rule.typed",
     )?;
     for (index, value) in values.into_iter().enumerate() {
+        super::binding_store::retain_new_binding_value_if_needed(
+            ctx,
+            &signature.parameters[index],
+            value,
+        )?;
         store(ctx, typed, index, value)?;
     }
     if let Some(value) = application {
+        super::native_double_owned::retain_application(ctx, &signature, value)?;
         store(ctx, typed, signature.parameters.len(), value)?;
     }
     let kind = match *behavior {
@@ -102,7 +114,8 @@ pub fn configure<'context>(
             exact: arguments.is_some(),
             span: target.span(),
         },
-    )
+    )?;
+    env.exit_scope_cleanup(ctx, &[])
 }
 
 /// Static source provenance and dispatch kind, not runtime ownership tracking.
@@ -236,7 +249,7 @@ pub fn evaluate_arguments<'context>(
             } else {
                 argument
             };
-            codegen_expression(ctx, env, value, Some(core))
+            super::native_double_owned::capture(ctx, env, value, core)
         })
         .collect()
 }
@@ -376,7 +389,27 @@ fn application<'context>(
             } else {
                 None
             };
-            let value = codegen_expression(ctx, env, expression, hint)?;
+            let value = if !void && signature.return_types.len() == 1 {
+                super::native_double_owned::capture(
+                    ctx,
+                    env,
+                    expression,
+                    &signature.return_types[0],
+                )?
+            } else {
+                let value = codegen_expression(ctx, env, expression, hint)?;
+                if !void {
+                    for (index, core) in signature.return_types.iter().enumerate() {
+                        let field = ctx.builder.build_extract_value(
+                            value.into_struct_value(),
+                            u32::try_from(index).map_err(|e| CodegenError::new(e.to_string()))?,
+                            "double.return.field",
+                        )?;
+                        super::native_double_owned::hold(ctx, env, field, core, false)?;
+                    }
+                }
+                value
+            };
             if signature.error_types.is_empty() {
                 Ok((!void).then_some(value))
             } else if void {

@@ -1,0 +1,77 @@
+import apply_text, apply_values from ../src/app
+
+double Text replaces text from ../src/io
+    as used by ../src/app
+
+double Values replaces values from ../src/io
+    as used by ../src/app
+
+world Configuration:
+    setup: f(): string =>
+        return 'café {1}'
+
+let replace_configuration = f(mutable ref configuration: Configuration): string =>
+    configuration.state = 'changed'
+    return 'answer {2}'
+
+world LoggedWriter:
+    setup: f(): Text =>
+        return new Text
+    cleanup: f(mutable ref writer: Text): void =>
+        restore writer
+        return void
+
+scenario owned managed rule values:
+    it should capture arguments before result evaluation mutates their source:
+        worlds: Configuration
+        f(mutable ref configuration: Configuration): void =>
+            let writer = new Text
+            stub writer(ref configuration.state) returns replace_configuration(mutable ref configuration)
+            let mutable actual: string = 'café {1}'
+            expect apply_text(ref actual) to be 'answer 2'
+            actual = 'mutated'
+            expect writer to have been called with ('café 1')
+            let again: string = 'café {1}'
+            expect apply_text(ref again) to be 'answer 2'
+            expect configuration.state to be 'changed'
+            expect writer to have been called exactly 2 times
+            verify writer
+            restore writer
+            return void
+
+    it should preserve array rules history and results across later mutation:
+        f(): void =>
+            let writer = new Values
+            let mutable configured: int64[] = [1, 2]
+            stub writer(ref configured) returns [9, 8]
+            configured[0] = 7
+            let mutable actual: int64[] = [1, 2]
+            let mutable result: int64[] = apply_values(ref actual)
+            expect result to be [9, 8]
+            result[0] = 3
+            actual[0] = 6
+            expect writer to have been called with ([1, 2])
+            let again: int64[] = [1, 2]
+            expect apply_values(ref again) to be [9, 8]
+            expect writer to have been called exactly 2 times
+            verify writer
+            restore writer
+            return void
+
+scenario history beyond the caller scope:
+    worlds: LoggedWriter
+
+    after each test:
+        f(ref writer: LoggedWriter): void =>
+            expect writer.state to have been called with ('café 1')
+            print('owned history retained')
+            return void
+
+    it should preserve owned arguments after the body aborts and drops its values:
+        f(mutable ref writer: LoggedWriter): void =>
+            spy writer.state using original
+            let actual: string = 'café {1}'
+            let output: string = apply_text(ref actual)
+            expect output to end with 'café 1'
+            expect false to be true
+            return void

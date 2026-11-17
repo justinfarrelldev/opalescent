@@ -139,7 +139,7 @@ pub(crate) fn binding_requires_rc_cleanup(core_type: &CoreType) -> bool {
     matches!(binding_heap_class(core_type), HeapClass::ReferenceCounted)
 }
 
-fn retain_new_binding_value_if_needed<'context>(
+pub(crate) fn retain_new_binding_value_if_needed<'context>(
     codegen_context: &CodegenContext<'context>,
     core_type: &CoreType,
     value: BasicValueEnum<'context>,
