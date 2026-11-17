@@ -53,7 +53,11 @@ Unchecked phases are not implemented or verified.
 - [x] World construction diagnostic RED/GREEN: only the runner may construct generated handles.
 - [x] Refactor: lambda and declaration signatures share one nominal/generic type mapping implementation; existing library tests remain green.
 - [x] Typing increment verification: 1,693 library tests passed (8 existing ignored); strict lint and file-length gates passed.
-- [ ] Initial handle/callback typing increment commit and unchanged pre-commit gates.
+- [x] Initial handle/callback typing committed as `39f1f7a`; all unchanged pre-commit gates passed.
+- [x] Matcher typing RED/GREEN: scalar equality, numeric/string/empty/ordered-array operations and genuine nominal variants; unsupported operand types fail checking.
+- [x] `errors inferred` RED/GREEN on managed callbacks: collect only escaping nominal application errors; handled errors and assertion failures do not widen the set; nested ordinary helpers retain explicit rules.
+- [x] Inference uses the existing guard/propagate and explicit `using` error paths without introducing cleanup or ownership machinery.
+- [ ] Matcher/error-inference increment full verification and unchanged pre-commit gates.
 
 ## Remaining integration warning
 

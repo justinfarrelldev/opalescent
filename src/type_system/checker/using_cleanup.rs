@@ -220,11 +220,15 @@ impl TypeChecker {
 
     /// Ensure cleanup errors are covered by the enclosing function's `errors` clause.
     fn ensure_using_cleanup_errors_allowed(
-        &self,
+        &mut self,
         registration: &CleanupRegistration,
         span: Span,
     ) -> Result<(), TypeError> {
         let cleanup_errors = registration.cleanup_error_types();
+        if self.native_current_callback_infers_errors() {
+            self.record_escaping_error_types(&cleanup_errors);
+            return Ok(());
+        }
         if cleanup_errors.is_empty() {
             return Ok(());
         }

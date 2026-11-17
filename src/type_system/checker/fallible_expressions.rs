@@ -197,6 +197,10 @@ impl TypeChecker {
         error_types: &[CoreType],
         span: Span,
     ) -> Result<(), TypeError> {
+        if self.native_current_callback_infers_errors() {
+            self.record_escaping_error_types(error_types);
+            return Ok(());
+        }
         let current_fn_error_types = match self.symbol_table().current_function_error_types() {
             Some(&[]) | None => {
                 return Err(TypeError::PropagateOutsideErrorFunction {

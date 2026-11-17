@@ -7,7 +7,7 @@ use crate::token::{Position, Span};
 use crate::type_system::types::CoreType;
 
 /// Extract one ordinary callback through the real test-module frontend.
-fn parse_callback(body: &str) -> ManagedCallback {
+pub(super) fn parse_callback(body: &str) -> ManagedCallback {
     let source = format!("scenario typing:\n    it should type check: {body}");
     let (tokens, lex_errors) = Lexer::new_test_module(&source).tokenize();
     assert!(lex_errors.is_empty(), "{lex_errors:?}");

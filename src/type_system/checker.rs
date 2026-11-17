@@ -58,6 +58,10 @@ mod hot_reload;
 mod lambda_signatures;
 /** Module import/export declaration checking support. */
 mod module_checking;
+#[cfg(test)]
+mod native_assertion_tests;
+#[cfg(test)]
+mod native_error_inference_tests;
 mod native_testing;
 #[cfg(test)]
 mod native_testing_tests;

@@ -75,12 +75,11 @@ impl TypeChecker {
         expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
         match *stmt {
-            Stmt::Testing { span, .. } => Err(TypeError::InvalidOperation {
-                operation: "test operation requires test-artifact validation and lowering"
-                    .to_owned(),
-                type_name: "test-only statement".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
+            Stmt::Testing {
+                ref statement,
+                span,
+                ..
+            } => self.type_check_native_statement(statement, span),
             Stmt::Let {
                 ref binding,
                 ref initializer,

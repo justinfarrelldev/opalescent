@@ -704,6 +704,11 @@ impl TypeChecker {
                 propagate_span: TypeError::span_from_span(span),
             });
         }
+        if self.native_current_callback_infers_errors() {
+            let errors = self.active_guard_propagation_error_types(error_binding);
+            self.record_escaping_error_types(&errors);
+            return Ok(());
+        }
 
         let current_fn_error_types = match self.symbol_table().current_function_error_types() {
             Some(&[]) | None => {
@@ -812,6 +817,11 @@ impl TypeChecker {
         expr: Expr,
         span: Span,
     ) -> Result<(), TypeError> {
+        if self.native_current_callback_infers_errors() {
+            let wrapper_type = self.type_check_expr(&expr)?;
+            self.record_escaping_error_types(core::slice::from_ref(&wrapper_type));
+            return Ok(());
+        }
         let current_fn_error_types = match self.symbol_table().current_function_error_types() {
             Some(&[]) | None => {
                 return Err(TypeError::PropagateOutsideErrorFunction {

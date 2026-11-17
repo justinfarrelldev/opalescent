@@ -902,7 +902,7 @@ impl TypeChecker {
         let escaping_errors = self.end_escaping_error_collection();
         self.end_return_context();
         self.symbol_table.exit_function();
-        if body_result.is_ok() {
+        if body_result.is_ok() && !self.native_callback_infers_at(span) {
             self.warn_for_error_clause(
                 error_types,
                 core_errors.as_slice(),
@@ -911,7 +911,9 @@ impl TypeChecker {
             );
         }
         body_result?;
-        // Map lambda-declared error types into nominal core types
+        let core_errors =
+            self.native_callback_result_errors(span, core_errors, &escaping_errors)?;
+        // Map lambda-declared or inferred application errors into nominal core types.
         Ok(CoreType::Function {
             generic_params: lambda_generic_params,
             parameters: parameter_types,

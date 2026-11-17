@@ -1,5 +1,7 @@
 //! Native test-artifact typing state, separate from ordinary application errors.
 extern crate alloc;
+mod assertions;
+mod inference;
 use super::TypeChecker;
 use crate::ast::testing::ManagedCallback;
 use crate::ast::{AstNode, BorrowKind, Expr};
@@ -12,6 +14,8 @@ use alloc::collections::{BTreeMap, BTreeSet};
 /// Compiler-only metadata, never runtime resource tracking.
 #[derive(Debug, Clone, Default)]
 pub(super) struct NativeTestingState {
+    /// Explicit artifact mode; ordinary applications never enable test operations.
+    enabled: bool,
     /// Generated canonical handle names and their concrete state types.
     worlds: BTreeMap<String, CoreType>,
     /// Source aliases mapped to generated canonical nominal handle types.
@@ -23,6 +27,10 @@ pub(super) struct NativeTestingState {
 /// Source binding identities for injected Worlds in one typed callback.
 #[derive(Debug, Clone)]
 struct ActiveCallback {
+    /// Exact function boundary; inference never applies to nested ordinary helpers.
+    span: Span,
+    /// Source requested `errors inferred` on this managed callback.
+    infer_errors: bool,
     /// Required parameter bindings, keyed by original span rather than spelling.
     required: BTreeMap<(usize, usize), (String, Span)>,
     /// Typed identifier reads that resolve to those exact parameter bindings.
@@ -30,6 +38,12 @@ struct ActiveCallback {
 }
 
 impl TypeChecker {
+    /// Enable test-only compiler operations and library imports for a test artifact.
+    pub const fn enable_native_test_mode(&mut self) {
+        self.native_testing.enabled = true;
+        self.allow_test_only_imports = true;
+    }
+
     /// Register a generated nominal World handle exposing one concrete `.state`.
     /// The native compiler supplies the canonical name, not a source alias.
     ///
@@ -42,6 +56,7 @@ impl TypeChecker {
         state: CoreType,
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        self.enable_native_test_mode();
         if self.environment().lookup_type(local_name, span).is_ok()
             || self.symbol_table().lookup(local_name).is_some()
         {
@@ -101,6 +116,7 @@ impl TypeChecker {
         callback: &ManagedCallback,
         required_world_parameters: &[String],
     ) -> Result<CoreType, TypeError> {
+        self.enable_native_test_mode();
         let Expr::Lambda { ref params, .. } = callback.function else {
             return Err(native_error(
                 callback.function.span(),
@@ -136,6 +152,8 @@ impl TypeChecker {
             );
         }
         let previous = self.native_testing.active.replace(ActiveCallback {
+            span: callback.function.span(),
+            infer_errors: callback.infer_errors,
             required,
             used: BTreeSet::new(),
         });
