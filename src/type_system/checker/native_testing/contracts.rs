@@ -53,7 +53,7 @@ impl TypeChecker {
             .last()
             .map(|parameter| self.ast_type_to_core_type_with_generics(&parameter.param_type, &[]))
             .transpose()?;
-        let has_context = matches!(context_type, Some(CoreType::Generic { ref name, .. }) if name == "__opal_testing.TestContext");
+        let has_context = matches!(context_type, Some(CoreType::Generic { ref name, .. }) if name == "__opal_testing::TestContext");
         let expected_count = expected_worlds
             .len()
             .saturating_add(usize::from(example_type.is_some()))

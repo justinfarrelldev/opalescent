@@ -255,7 +255,7 @@ fn context_count(
     let Some(parameter) = parameters.last() else {
         return Ok(0);
     };
-    if matches!(checker.native_source_core_type(&parameter.param_type)?, CoreType::Generic { ref name, .. } if name == "__opal_testing.TestContext")
+    if matches!(checker.native_source_core_type(&parameter.param_type)?, CoreType::Generic { ref name, .. } if name == "__opal_testing::TestContext")
     {
         if parameter.borrow_kind != BorrowKind::MutableRef {
             return Err(invalid(

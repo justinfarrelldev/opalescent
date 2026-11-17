@@ -80,7 +80,7 @@ impl TypeChecker {
             ));
         }
         let context_type = CoreType::Generic {
-            name: "__opal_testing.TestContext".to_owned(),
+            name: "__opal_testing::TestContext".to_owned(),
             type_args: Vec::new(),
         };
         self.environment_mut()
@@ -100,7 +100,7 @@ impl TypeChecker {
             is_pure: false,
         });
         self.register_adt_fields(
-            "__opal_testing.TestContext".to_owned(),
+            "__opal_testing::TestContext".to_owned(),
             BTreeMap::from([
                 ("failed".to_owned(), CoreType::Boolean),
                 ("case_id".to_owned(), CoreType::String),
@@ -211,7 +211,7 @@ impl TypeChecker {
         name: &str,
         span: Span,
     ) -> Result<(), TypeError> {
-        if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if nominal_name == "__opal_testing.TestContext")) {
+        if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if nominal_name == "__opal_testing::TestContext")) {
             return Err(native_error(span, "the runner constructs TestContext values; user construction is not permitted"));
         }
         if self.native_source_type(name).is_some_and(|core_type| matches!(core_type, CoreType::Generic { name: ref nominal_name, .. } if self.native_testing.kinds.get(nominal_name) == Some(&NativeHandleKind::World)))

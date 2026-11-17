@@ -31,7 +31,7 @@ impl TypeChecker {
         receiver: &CoreType,
         span: crate::token::Span,
     ) -> Result<(), TypeError> {
-        if matches!(*receiver, CoreType::Generic { ref name, .. } if self.native_testing.kinds.contains_key(name) || (self.native_testing.enabled && name == "__opal_testing.TestContext"))
+        if matches!(*receiver, CoreType::Generic { ref name, .. } if self.native_testing.kinds.contains_key(name) || (self.native_testing.enabled && name == "__opal_testing::TestContext"))
         {
             Err(native_error(
                 span,
@@ -138,7 +138,7 @@ impl TypeChecker {
         let CoreType::Generic { ref name, .. } = symbol.core_type else {
             return Ok(());
         };
-        if self.native_testing.enabled && name == "__opal_testing.TestContext" {
+        if self.native_testing.enabled && name == "__opal_testing::TestContext" {
             return Err(native_error(
                 target.span(),
                 "test context metadata is managed by the runner; use its diagnostic attachment APIs",

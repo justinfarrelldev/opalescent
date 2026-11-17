@@ -20,6 +20,14 @@ pub fn lower_arguments<'context>(
         }
         let expected = expected.into_pointer_type();
         let address = match *argument {
+            NativeCallbackArgument::ContextReference => {
+                if !expected.get_element_type().is_pointer_type() {
+                    return Err(CodegenError::new(
+                        "TestContext reference requires a nominal pointer representation",
+                    ));
+                }
+                crate::codegen::native_context::reference_address(codegen)?
+            }
             NativeCallbackArgument::WorldReference(index) => {
                 if !expected.get_element_type().is_pointer_type() {
                     return Err(CodegenError::new(

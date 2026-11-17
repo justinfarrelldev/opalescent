@@ -38,6 +38,8 @@ pub(crate) mod native_abort;
 pub(crate) mod native_assertions;
 /// Typed native callback boundaries for the lifecycle runtime.
 pub mod native_callbacks;
+/// Generated runner-owned context layouts and callback metadata views.
+pub mod native_context;
 /// Checked native source function definitions and reference parameter bindings.
 pub mod native_declarations;
 /// Explicit test-build function declarations and ordinary result emission.

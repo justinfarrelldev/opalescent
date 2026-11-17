@@ -10,6 +10,37 @@ use inkwell::context::Context;
 
 #[test]
 fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
+    exercise(false);
+}
+
+#[test]
+fn after_hook_context_observes_primary_failure_without_erasing_it() {
+    exercise(true);
+}
+
+#[test]
+fn context_getters_reject_incompatible_source_symbols() {
+    let llvm = Context::create();
+    let codegen = CodegenContext::new(&llvm, "context_symbol_collision");
+    codegen
+        .declare_native_test_function(
+            "opal_test_attempt_failed",
+            llvm.i64_type().fn_type(&[], false),
+            None,
+        )
+        .expect("source declaration");
+    let function =
+        codegen
+            .module
+            .add_function("wrapper", llvm.void_type().fn_type(&[], false), None);
+    codegen
+        .builder
+        .position_at_end(llvm.append_basic_block(function, "entry"));
+    assert!(super::native_context::reference_address(&codegen).is_err());
+}
+
+/// Run in fresh processes, both before and after a retained source failure.
+fn exercise(previous_failure: bool) {
     let llvm = Context::create();
     let codegen = CodegenContext::new(&llvm, "typed_world_injection");
     let (parameters, body) = function(
@@ -34,9 +65,11 @@ fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
         name: "FixtureWorld".to_owned(),
         type_args: Vec::new(),
     };
-    let (world_parameters, world_body) = function(
-        "let body = f(mutable ref world: FixtureWorld, ref row: int64): void =>\n    increment(mutable ref world.state)\n    expect row to be 7\n    return void\n",
+    let failed_literal = if previous_failure { "true" } else { "false" };
+    let source = format!(
+        "let body = f(mutable ref world: FixtureWorld, ref row: int64, mutable ref test: TestContext): void =>\n    increment(mutable ref world.state)\n    expect row to be 7\n    expect test.failed to be {failed_literal}\n    expect test.attempt to be 1\n    return void\n"
     );
+    let (world_parameters, world_body) = function(&source);
     let mut environment = CodegenEnv::new(false);
     environment
         .imported_signatures
@@ -49,9 +82,17 @@ fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
         "FixtureWorld".to_owned(),
         alloc::collections::BTreeMap::from([("state".to_owned(), 0)]),
     );
+    super::native_context::install_layout(&mut environment);
     let body_signature = CoreType::Function {
         generic_params: Vec::new(),
-        parameters: vec![world, CoreType::Int64],
+        parameters: vec![
+            world,
+            CoreType::Int64,
+            CoreType::Generic {
+                name: "__opal_testing::TestContext".to_owned(),
+                type_args: Vec::new(),
+            },
+        ],
         return_types: vec![CoreType::Unit],
         error_types: Vec::new(),
     };
@@ -72,6 +113,7 @@ fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
         &[
             super::native_callbacks::NativeCallbackArgument::WorldReference(0),
             super::native_callbacks::NativeCallbackArgument::ExampleReference,
+            super::native_callbacks::NativeCallbackArgument::ContextReference,
         ],
     )
     .expect("World wrapper");
@@ -88,12 +130,22 @@ fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
         .module
         .verify()
         .expect("valid typed World/state ABI");
+    execute_driver(&codegen, previous_failure);
+}
+
+/// Link the same reusable native functions to an explicit lifecycle descriptor.
+fn execute_driver(codegen: &CodegenContext<'_>, previous_failure: bool) {
     let directory = tempfile::tempdir().expect("fixture");
     let driver = directory.path().join("driver.c");
-    std::fs::write(&driver, DRIVER).expect("driver");
+    let fail = u8::from(previous_failure);
+    std::fs::write(
+        &driver,
+        format!("#define PREVIOUS_FAILURE {fail}\n{DRIVER}"),
+    )
+    .expect("driver");
     let runtime = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime");
     execute_module_with_sources(
-        &codegen,
+        codegen,
         &[
             driver,
             runtime.join("opal_testing_runtime.c"),
@@ -106,6 +158,7 @@ fn world_reference_and_cleanup_state_wrappers_share_original_typed_storage() {
 /// Native state exists once; body and cleanup observe the same original scalar.
 const DRIVER: &str = r#"
 #include "opal_testing_lifecycle.h"
+#include <stdio.h>
 static int64_t state;
 static const int64_t example_row = 7;
 int compiled_body(void **, const void *, void **, uint64_t *, const char **);
@@ -118,12 +171,31 @@ static int construct_example(void **worlds, const void *example, void **created,
     (void)worlds; (void)example; (void)failure; (void)error;
     *created = (void *)&example_row; return OPAL_TEST_CALLBACK_COMPLETED;
 }
+#if PREVIOUS_FAILURE
+static int failed_body(void **worlds, const void *example, void **created, uint64_t *failure, const char **error) {
+    (void)worlds; (void)example; (void)created; (void)error;
+    *failure = opal_test_record_failure(OPAL_TEST_FAILURE_ASSERTION, "earlier body failure", "", 0, 0);
+    return OPAL_TEST_CALLBACK_ABORTED;
+}
+#endif
 int main(void) {
     if (!opal_test_attempt_begin("typed World identity", 1)) return 1;
     OpalTestWorldDescriptor world = {"World", {setup, "", 0, 0}, {compiled_cleanup, "", 0, 0}, NULL};
+#if PREVIOUS_FAILURE
+    OpalTestCallback after = {compiled_body, "", 0, 0};
+    OpalTestHookScope scope = {NULL, 0, &after, 1};
+    OpalTestCaseDescriptor descriptor = {&world, 1, &scope, 1, {failed_body, "", 0, 0}, {construct_example, "", 0, 0}, NULL};
+#else
     OpalTestCaseDescriptor descriptor = {&world, 1, NULL, 0, {compiled_body, "", 0, 0}, {construct_example, "", 0, 0}, NULL};
+#endif
     OpalTestLifecycleResult result;
-    if (opal_test_run_case(&descriptor, &result) || state != 43) return 2;
+    int failed = opal_test_run_case(&descriptor, &result);
+    if (failed != PREVIOUS_FAILURE || state != 43 || opal_test_failure_count() != PREVIOUS_FAILURE) {
+        const OpalTestFailure *failure = opal_test_failure_at(0);
+        if (failure) fprintf(stderr, "typed bridge failure at %llu: %s\n", (unsigned long long)failure->offset, failure->message);
+        fprintf(stderr, "state=%lld\n", (long long)state);
+        return 2;
+    }
     opal_test_attempt_end(); return 0;
 }
 "#;

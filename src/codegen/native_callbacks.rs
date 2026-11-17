@@ -17,6 +17,8 @@ pub enum NativeCallbackArgument {
     StateReference(usize),
     /// Borrow the independently constructed typed example value.
     ExampleReference,
+    /// Borrow a fresh runner-owned view of this attempt's metadata.
+    ContextReference,
 }
 
 /// Emit an argument-free void callback boundary for a compiled body/hook.
