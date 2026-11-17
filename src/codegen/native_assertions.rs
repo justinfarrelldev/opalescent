@@ -4,13 +4,17 @@ use super::error::CodegenError;
 use super::expressions::{CodegenEnv, codegen_expression};
 use super::expressions_array::infer_expression_core_type;
 use super::native_abort::emit_native_abort;
-use crate::ast::Expr;
 use crate::ast::testing::{Comparison, Expectation, Matcher, TestingStatement};
+use crate::ast::{AstNode, Expr};
 use crate::type_system::types::CoreType;
 use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
+#[path = "native_array_assertions.rs"]
+mod arrays;
 #[path = "native_string_assertions.rs"]
 mod strings;
+#[path = "native_value_equality.rs"]
+mod value_equality;
 
 /// Lower an operation only in an explicitly registered native source function.
 ///
@@ -50,8 +54,12 @@ fn lower_expectation<'context>(
             "eventual assertion requires native polling lowering",
         ));
     }
-    if operand_core_type(env, &expectation.actual) == Some(CoreType::String) {
+    let actual_type = operand_core_type(env, &expectation.actual);
+    if actual_type == Some(CoreType::String) {
         return strings::lower(codegen, env, expectation);
+    }
+    if let Some(ref core @ CoreType::Array(_)) = actual_type {
+        return arrays::lower(codegen, env, expectation, core);
     }
     let (Matcher::Equal {
         expected: ref expected_expression,
@@ -66,7 +74,6 @@ fn lower_expectation<'context>(
             "matcher requires native typed matcher lowering",
         ));
     };
-    let actual_type = operand_core_type(env, &expectation.actual);
     let actual = codegen_expression(codegen, env, &expectation.actual, actual_type.as_ref())?;
     let expected = codegen_expression(codegen, env, expected_expression, actual_type.as_ref())?;
     let passed = match expectation.matcher {
@@ -107,6 +114,13 @@ fn lower_expectation<'context>(
 /// Projection wrappers preserve their ordinary scalar type, including unsigned
 /// casts whose LLVM integer representation alone does not retain signedness.
 fn operand_core_type(env: &CodegenEnv<'_>, expression: &Expr) -> Option<CoreType> {
+    let extent = expression.span();
+    if let Some(core) = env
+        .native_assertion_types
+        .get(&(extent.start.offset, extent.end.offset))
+    {
+        return Some(core.clone());
+    }
     infer_expression_core_type(env, expression).or_else(|| match *expression {
         Expr::Literal {
             value: crate::ast::LiteralValue::String(_),

@@ -1,0 +1,38 @@
+scenario typed ordered array values:
+    it should compare length order multiplicity and nested values:
+        f(): void =>
+            let numbers: int64[] = [1, 2, 2]
+            let empty: int64[] = []
+            expect [1, 2, 2] to be [1, 2, 2]
+            expect ['café', '!'] to be ['café', '!']
+            expect [] to be empty
+            expect numbers to be [1, 2, 2]
+            expect numbers not to be [1, 2]
+            expect numbers not to be [2, 1, 2]
+            expect numbers to contain exactly [1, 2, 2] in order
+            expect empty to be empty
+            expect numbers not to be empty
+            expect empty to be empty
+            let words: string[] = ['café', '!']
+            expect words to contain exactly ['café', '!'] in order
+            expect words not to be ['cafe', '!']
+            let flags: boolean[] = [true, false]
+            expect flags to be [true, false]
+            let fractions: float64[] = [1.5, 2.5]
+            expect fractions to be [1.5, 2.5]
+            expect fractions not to be [2.5, 1.5]
+            let nested: int64[][] = [[1, 2], [], [3]]
+            expect nested to be [[1, 2], [], [3]]
+            return void
+
+    it should fail different multiplicities:
+        f(): void =>
+            let numbers: int64[] = [1, 2, 2]
+            expect numbers to contain exactly [1, 2] in order
+            return void
+
+    it should fail equal lengths with different ordering:
+        f(): void =>
+            let numbers: int64[] = [1, 2]
+            expect numbers to contain exactly [2, 1] in order
+            return void

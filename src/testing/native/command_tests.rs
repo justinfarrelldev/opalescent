@@ -203,6 +203,22 @@ fn compiled_string_matchers_preserve_utf8_values_and_owned_failure_diagnostics()
 }
 
 #[test]
+fn compiled_array_matchers_compare_typed_elements_lengths_order_and_multiplicity() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-arrays");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("native array matchers");
+    assert_eq!(output.exit_code, 1_i32);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("JSON array results");
+    assert_eq!(report["totals"]["passed"], 1_u64);
+    assert_eq!(report["totals"]["failed"], 2_u64);
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

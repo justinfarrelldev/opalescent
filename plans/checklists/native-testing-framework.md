@@ -137,8 +137,14 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] String diagnostics own source-aware actual/expected typed values before lexical cleanup; display is bounded at valid UTF-8 boundaries and explicitly marks truncation.
 - [x] Added `test-projects/native-testing-matchers/` minimal string vocabulary, managed operand evaluation trace and mutable-World snapshot fixtures; real CLI reports expected passes/failures and retains values after abort cleanup.
 - [x] String increment verification: 1,799 library tests passed serially (8 existing ignored); strict Rust lint, C GCC/Clang warnings, matcher Clang analysis, Cppcheck and file-length gates passed.
-- [ ] String matcher increment commit and unchanged gates.
-- [ ] Complete array/product/variant matcher lowering, remaining owned operand diagnostics, polling and double history matchers.
+- [x] String matchers committed as `73731b5`; all unchanged pre-commit gates passed, including production integration and extension checks.
+- [x] Typed array matcher RED/GREEN: equality/inequality and exact ordered matching check length, order, multiplicity and recursively supported elements without pointer/stringified equality. Numeric, boolean, UTF-8 string and nested arrays execute through the real CLI.
+- [x] Array operands use existing lexical RC bindings, retaining borrowed actual values before expected evaluation and releasing temporary operands on normal or abort scope exits.
+- [x] Literal assertion operand RED/GREEN: preserve authoritative checker types by original source extent in native codegen environments, avoiding backend re-inference of arrays/string literals and preserving nominal identities.
+- [x] Added `test-projects/native-testing-arrays/` with minimal positive/negative length, order, repeated-element, empty, literal, string, boolean, floating and nested-array fixtures.
+- [x] Array increment verification: 1,800 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
+- [ ] Array matcher increment commit and unchanged gates.
+- [ ] Complete product/variant matcher lowering, owned array/product/variant diagnostics, polling and double history matchers.
 
 - [x] Native lifecycle RED/GREEN: example-first construction, deterministic World initialization, entered hook scopes, reverse after-hooks/declared cleanup and legal omitted cleanup.
 - [x] Failure-boundary matrix runs fresh native processes for setup/before/body/after/cleanup failures; failed setup never cleans up or drops nonexistent state, and later failures retain the primary identity.

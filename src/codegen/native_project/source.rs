@@ -193,6 +193,19 @@ impl SourceLayouts {
         Ok(())
     }
 
+    /// Reuse checked representation and operand metadata without re-inference.
+    fn install(
+        &self,
+        env: &mut CodegenEnv<'_>,
+        checker: &crate::type_system::checker::TypeChecker,
+    ) {
+        env.adt_field_layouts = self.fields.clone();
+        env.adt_product_layouts.clone_from(&self.products);
+        env.adt_field_indices = self.indices.clone();
+        env.adt_variant_discriminants = self.variants.clone();
+        env.native_assertion_types = checker.native_assertion_operand_types().clone();
+    }
+
     /// No implicit imports: only actual checker symbols install source aliases.
     pub fn environment<'context>(
         &self,
@@ -213,10 +226,7 @@ impl SourceLayouts {
         let mut env = CodegenEnv::new(true);
         env.current_source_path.clone_from(&loaded.identity);
         env.current_source_text.clone_from(&loaded.source);
-        env.adt_field_layouts = self.fields.clone();
-        env.adt_product_layouts.clone_from(&self.products);
-        env.adt_field_indices = self.indices.clone();
-        env.adt_variant_discriminants = self.variants.clone();
+        self.install(&mut env, &checked_module.checker);
         for entry in checked_module
             .checker
             .symbol_table()

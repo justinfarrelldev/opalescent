@@ -35,6 +35,8 @@ pub(super) struct NativeTestingState {
     aliases: BTreeMap<String, CoreType>,
     /// Forward-declared generated kinds, independent of state/signature layout.
     kinds: BTreeMap<String, NativeHandleKind>,
+    /// Authoritative checked assertion operand types, keyed by original extent.
+    assertion_operands: BTreeMap<(usize, usize), CoreType>,
     /// Active source callback's strict typed-use contract.
     active: Option<ActiveCallback>,
 }
@@ -62,6 +64,13 @@ struct ActiveCallback {
 }
 
 impl TypeChecker {
+    /// Read checked operand metadata without re-inferring source types in codegen.
+    pub(crate) const fn native_assertion_operand_types(
+        &self,
+    ) -> &BTreeMap<(usize, usize), CoreType> {
+        &self.native_testing.assertion_operands
+    }
+
     /// Enable test-only operations/imports and the runner-owned context type.
     ///
     /// # Errors

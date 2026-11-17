@@ -105,6 +105,10 @@ impl TypeChecker {
             Matcher::CallCount { .. } | Matcher::CalledWith { .. } => self
                 .type_check_native_call_matcher(&actual, &expectation.matcher, expectation.span)?,
         }
+        let extent = expectation.actual.span();
+        self.native_testing
+            .assertion_operands
+            .insert((extent.start.offset, extent.end.offset), actual);
         if let Some(ref deadline) = expectation.eventually_seconds {
             let deadline_type = self.type_check_expr(deadline)?;
             if !is_numeric_type(&deadline_type) {
