@@ -372,26 +372,12 @@ pub fn codegen_loop_statement<'context>(
                                 "for loop iterable '{name}' is not an array"
                             )));
                         };
-                        let accessor_function = codegen_context
-                            .module
-                            .get_function(accessor_binding.accessor_name.as_str())
-                            .ok_or_else(|| {
-                                CodegenError::new(format!(
-                                    "missing imported value accessor '{}' for '{name}'",
-                                    accessor_binding.accessor_name
-                                ))
-                            })?;
-                        let call = codegen_context.builder.build_call(
-                            accessor_function,
-                            &[],
-                            &env.next_name(format!("{name}.for.iterable").as_str()),
+                        let array_result = super::expressions::codegen_identifier(
+                            codegen_context,
+                            env,
+                            name,
+                            None,
                         )?;
-                        let array_result = call.try_as_basic_value().basic().ok_or_else(|| {
-                            CodegenError::new(format!(
-                                "imported value accessor '{}' did not return a value",
-                                accessor_binding.accessor_name
-                            ))
-                        })?;
                         (
                             crate::codegen::expressions_array::cast_array_payload_to_i8_ptr(
                                 codegen_context,

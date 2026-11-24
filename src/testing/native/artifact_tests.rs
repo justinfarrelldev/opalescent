@@ -5,6 +5,53 @@ use super::project::NativeTestProject;
 use std::path::Path;
 
 #[test]
+fn module_value_accessors_are_lazy_cached_and_resolve_import_aliases_in_native_workers() {
+    let directory = tempfile::tempdir().expect("project");
+    std::fs::write(directory.path().join("values.op"),"##\n    Description: A shared computed value.\n##\npublic let cached: int64 = calculate()\n\nlet calculate = f(): int64 =>\n    print('initialized')\n    return 42\n").expect("value source");
+    let source = directory.path().join("case.test.op");
+    std::fs::write(&source,"import cached as answer from ./values\nlet broken: int64 = fail_initializer()\nlet fail_initializer = f(): int64 =>\n    expect false to be true\n    return 99\nscenario module values:\n    it should preserve lazy value caching: f(): void =>\n        expect answer to be 42\n        expect answer to be 42\n        return void\n    it should propagate initializer abort: f(): void =>\n        expect broken to be 99\n        print('not reached')\n        return void\n").expect("test source");
+    let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
+    let checked = check_project(&project).expect("checked");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("native artifact");
+    let id = serde_json::to_string(&artifact.cases[0]).expect("identity");
+    for index in 0..2_u32 {
+        let output = std::process::Command::new(&artifact.executable)
+            .arg(&id)
+            .arg("1")
+            .arg(directory.path().join(format!("attempt-{index}.jsonl")))
+            .output()
+            .expect("worker");
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"initialized\n");
+    }
+    let result_path = directory.path().join("abort.jsonl");
+    let aborted = std::process::Command::new(&artifact.executable)
+        .arg(serde_json::to_string(&artifact.cases[1]).expect("identity"))
+        .arg("1")
+        .arg(&result_path)
+        .output()
+        .expect("aborting worker");
+    assert_eq!(aborted.status.code(), Some(1_i32));
+    assert!(aborted.stdout.is_empty());
+    let transport = std::fs::read_to_string(result_path).expect("failure transport");
+    let result: serde_json::Value =
+        serde_json::from_str(transport.lines().last().expect("result")).expect("result JSON");
+    assert_eq!(result["failures"][0]["kind"], 1_u64);
+    assert_eq!(
+        result["failures"][0]["offset"],
+        u64::try_from(
+            std::fs::read_to_string(directory.path().join("case.test.op"))
+                .expect("source")
+                .find("expect false")
+                .expect("initializer assertion")
+        )
+        .expect("offset")
+    );
+}
+
+#[test]
 fn built_worker_selects_independent_examples_from_one_native_executable() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let project =

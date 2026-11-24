@@ -1,6 +1,7 @@
 //! Checked project-to-native artifact emission, separate from production builds.
 extern crate alloc;
 mod cases;
+mod module_values;
 mod source;
 use super::context::CodegenContext;
 use super::error::CodegenError;
@@ -58,6 +59,10 @@ pub fn emit_checked_project<'context>(
     for function in &functions {
         let mut env =
             layouts.environment(codegen, project, checked, &function.module, &functions)?;
+        if function.is_value {
+            module_values::emit(codegen, &mut env, function)?;
+            continue;
+        }
         super::native_declarations::emit_source_function(
             codegen,
             &mut env,

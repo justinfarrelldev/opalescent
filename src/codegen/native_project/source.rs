@@ -24,6 +24,8 @@ pub(super) struct SourceFunction {
     pub body: Stmt,
     /// Authoritative checked application signature.
     pub signature: CoreType,
+    /// Non-callable module values use an attempt-local lazy accessor.
+    pub is_value: bool,
 }
 
 /// Global canonical field layouts with declaration-order, not map-order, fields.
@@ -72,11 +74,15 @@ pub(super) fn functions(
                     ref body,
                     ..
                 } => Some((name.clone(), parameters.clone(), body.clone())),
-                Decl::Let { .. } => {
-                    return Err(CodegenError::new(
-                        "native module-level values require source initialization lowering",
-                    ));
-                }
+                Decl::Let {
+                    ref binding,
+                    ref initializer,
+                    ..
+                } => Some((
+                    binding.name.clone(),
+                    Vec::new(),
+                    expression_return(initializer, declaration.span()),
+                )),
                 _ => None,
             };
             if let Some((name, parameters, body)) = parts {
@@ -89,12 +95,24 @@ pub(super) fn functions(
                     })?
                     .core_type
                     .clone();
+                let is_value = matches!(*declaration,Decl::Let {ref initializer,..} if !matches!(*initializer,Expr::Lambda{..}));
+                let signature = if is_value {
+                    CoreType::Function {
+                        generic_params: Vec::new(),
+                        parameters: Vec::new(),
+                        return_types: vec![signature],
+                        error_types: Vec::new(),
+                    }
+                } else {
+                    signature
+                };
                 result.push(SourceFunction {
                     module: path.clone(),
                     identity: loaded.declaration_identity(&name),
                     parameters,
                     body,
                     signature,
+                    is_value,
                 });
             }
         }
@@ -267,10 +285,14 @@ impl SourceLayouts {
             .iter()
             .filter(|function| function.module == module)
         {
-            env.imported_functions.insert(
-                function.identity.name.clone(),
-                symbol("source", &function.identity)?,
-            );
+            if function.is_value {
+                super::module_values::bind(&mut env, &function.identity.name, function)?;
+            } else {
+                env.imported_functions.insert(
+                    function.identity.name.clone(),
+                    symbol("source", &function.identity)?,
+                );
+            }
         }
         for declaration in &checked_module.program.declarations {
             if let Decl::Import {
@@ -280,29 +302,7 @@ impl SourceLayouts {
             } = *declaration
             {
                 if source.starts_with('.') {
-                    for item in items {
-                        if let ImportItem::Named {
-                            ref name,
-                            ref alias,
-                            span,
-                        } = *item
-                        {
-                            let local = alias.as_ref().unwrap_or(name);
-                            if !env.imported_signatures.contains_key(local) {
-                                continue;
-                            }
-                            let reference = SourceReference {
-                                path: vec![local.clone()],
-                                span,
-                            };
-                            let identity = crate::testing::native::subjects::resolve_subject(
-                                project, module, &reference,
-                            )
-                            .map_err(|error| CodegenError::new(error.to_string()))?;
-                            env.imported_functions
-                                .insert(local.clone(), symbol("source", &identity.0)?);
-                        }
-                    }
+                    install_source_imports(&mut env, project, module, source, items, functions)?;
                 } else {
                     crate::codegen::functions::codegen_import_declaration(
                         codegen,
@@ -316,6 +316,46 @@ impl SourceLayouts {
         crate::codegen::native_context::install_layout(&mut env);
         Ok(env)
     }
+}
+
+/// Install checked names for one relative source import.
+fn install_source_imports(
+    env: &mut CodegenEnv<'_>,
+    project: &NativeTestProject,
+    module: &Path,
+    source: &str,
+    items: &[ImportItem],
+    functions: &[SourceFunction],
+) -> Result<(), CodegenError> {
+    let dependency = crate::module_loader::resolve_import_path(module, source)
+        .map_err(|error| CodegenError::new(error.to_string()))?;
+    for item in items {
+        let ImportItem::Named {
+            ref name,
+            ref alias,
+            span,
+        } = *item
+        else {
+            continue;
+        };
+        let local = alias.as_ref().unwrap_or(name);
+        if let Some(value) = functions.iter().find(|value| {
+            value.is_value && value.module == dependency && value.identity.name == *name
+        }) {
+            super::module_values::bind(env, local, value)?;
+        } else if env.imported_signatures.contains_key(local) {
+            let reference = SourceReference {
+                path: vec![local.clone()],
+                span,
+            };
+            let identity =
+                crate::testing::native::subjects::resolve_subject(project, module, &reference)
+                    .map_err(|error| CodegenError::new(error.to_string()))?;
+            env.imported_functions
+                .insert(local.clone(), symbol("source", &identity.0)?);
+        }
+    }
+    Ok(())
 }
 
 /// Implicit builtins use existing standard lowering, not undeclared C externs.
@@ -335,15 +375,20 @@ pub(super) fn lambda_body(body: &LambdaBody, span: crate::token::Span) -> Stmt {
             span,
             id: NodeId(0),
         },
-        LambdaBody::Expression(ref expression) => Stmt::Return {
-            values: vec![LabeledValue {
-                label: String::new(),
-                value: *expression.clone(),
-                span: expression.span(),
-                id: NodeId(0),
-            }],
-            span,
+        LambdaBody::Expression(ref expression) => expression_return(expression, span),
+    }
+}
+
+/// Shared synthetic return container keeps the original expression and its extent.
+fn expression_return(expression: &Expr, span: crate::token::Span) -> Stmt {
+    Stmt::Return {
+        values: vec![LabeledValue {
+            label: String::new(),
+            value: expression.clone(),
+            span: expression.span(),
             id: NodeId(0),
-        },
+        }],
+        span,
+        id: NodeId(0),
     }
 }

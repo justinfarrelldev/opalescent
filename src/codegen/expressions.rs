@@ -299,7 +299,7 @@ fn coerce_loaded_value_to_expected_type<'context>(
     Ok(coerced.as_basic_value_enum())
 }
 
-fn codegen_identifier<'context>(
+pub(super) fn codegen_identifier<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     name: &str,
@@ -327,12 +327,29 @@ fn codegen_identifier<'context>(
         &[],
         &env.next_name(format!("{name}.value.access").as_str()),
     )?;
-    call.try_as_basic_value().basic().ok_or_else(|| {
+    let result = call.try_as_basic_value().basic().ok_or_else(|| {
         CodegenError::new(format!(
             "imported value accessor '{}' did not return a value",
             accessor_binding.accessor_name
         ))
-    })
+    })?;
+    if let Some(outcome) = codegen_context.native_function_outcome(accessor_function) {
+        let result = result.into_struct_value();
+        let branches = outcome.branch_after_call(codegen_context, result)?;
+        codegen_context.builder.position_at_end(branches.aborted);
+        super::native_abort::emit_native_abort(
+            codegen_context,
+            env,
+            branches.failure_identity,
+            &[],
+        )?;
+        codegen_context.builder.position_at_end(branches.completed);
+        let value = outcome
+            .completed_application_value(codegen_context, result)?
+            .ok_or_else(|| CodegenError::new("native value accessor has no completed value"))?;
+        return coerce_loaded_value_to_expected_type(codegen_context, value, expected_type);
+    }
+    Ok(result)
 }
 
 fn identifier_core_type(env: &CodegenEnv<'_>, name: &str) -> Option<CoreType> {

@@ -1355,27 +1355,9 @@ fn resolve_array_access_base_and_length<'context>(
     let array_value = if let Expr::Identifier { ref name, .. } = *object {
         if let Some(binding) = env.variables.get(name).cloned() {
             load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?
-        } else if let Some(accessor_binding) = env.value_accessors.get(name).cloned() {
-            let accessor_function = codegen_context
-                .module
-                .get_function(accessor_binding.accessor_name.as_str())
-                .ok_or_else(|| {
-                    CodegenError::new(format!(
-                        "missing imported value accessor '{}' for '{name}'",
-                        accessor_binding.accessor_name
-                    ))
-                })?;
-            let call = codegen_context.builder.build_call(
-                accessor_function,
-                &[],
-                &env.next_name(format!("{name}.array.value").as_str()),
-            )?;
-            let array_result = call.try_as_basic_value().basic().ok_or_else(|| {
-                CodegenError::new(format!(
-                    "imported value accessor '{}' did not return a value",
-                    accessor_binding.accessor_name
-                ))
-            })?;
+        } else if env.value_accessors.contains_key(name) {
+            let array_result =
+                super::expressions::codegen_identifier(codegen_context, env, name, None)?;
             cast_array_payload_to_i8_ptr(
                 codegen_context,
                 env,

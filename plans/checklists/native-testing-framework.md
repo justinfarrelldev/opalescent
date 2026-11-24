@@ -242,6 +242,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Final parallel-acceptance audit added a real native two-sided readiness barrier: two examples share one scenario, World, subject and declared double while returning distinct configured values. This validates actual overlap/isolation, not only elapsed-time guesses or coordinator scripts.
 - [x] Barrier RED/GREEN found ordinary fallible-C boolean payloads (`i8`) versus source booleans (`i1`) in assertions. Typed boolean equality now normalizes truth values without changing either application ABI; the real concurrent example fixture passes with two distinct workers.
 - [x] Final barrier/boolean verification: 1,832 library tests passed serially (8 existing ignored), strict lint, file-length and diff checks passed.
+- [x] Module values RED/GREEN: native workers lower checked module initializers lazily through the ordinary typed return path. Accessors publish only completed values, preserve initializer abort identity and retain cached managed values on reads. A linked test verifies imported aliases, one initialization per process, fresh retry/process state and original assertion location on abort.
 - [ ] Final requirement-by-requirement conformance audit and thorough overall maintainability/safety review; verify every phase/Section 20/Section 22 item before completion.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
 - [x] Standard original-call adapter RED/GREEN: construct typed compiler-only forwarding containers with existing borrowed parameter, return/error and ordinary standard-library lowering; native metadata stays explicit and production C ABIs are unchanged.
@@ -322,7 +323,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Actual `cargo run -- test` native smoke evidence: basic fixture reports 3 passes; lifecycle fixture reports one pass and one assertion failure; retry selection retains two failed attempts with distinct native PIDs.
 - [x] CLI increment verification: 1,798 library tests passed serially (8 existing ignored); strict lint and file-length gates passed.
 - [x] Native CLI/report integration committed as `b1e39ed`; all unchanged pre-commit gates passed, including production integration and extension checks.
-- [ ] Complete structured per-callback outcomes/timings, attachments, declared/activated double reporting, full configured build targets/profiles and artifact cache; source module-level values, generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
+- [ ] Complete structured per-callback outcomes/timings, attachments, declared/activated double reporting, full configured build targets/profiles and artifact cache; source generic instantiation, indirect/higher-order paths, managed borrowing and nested inline projections still need integration/verification.
 
 ## Remaining integration work
 
