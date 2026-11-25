@@ -428,18 +428,14 @@ fn junit(report: &Report) -> Result<String, NativeCommandError> {
                 )
                 .map_err(NativeCommandError::report)?;
             }
-            if execution.outcome == CaseOutcome::FlakyPassed {
-                writeln!(
-                    output,
-                    "<system-out>{}</system-out>",
-                    xml(&serde_json::to_string(&execution.attempts)
-                        .map_err(NativeCommandError::report)?)
-                )
-                .map_err(NativeCommandError::report)?;
-            }
         } else {
             output.push_str("<skipped/>\n");
         }
+        // JUnit has no native schema for World graphs, callbacks or attachments.
+        // Preserve the same case record as JSON inside a standard JUnit element.
+        let record = serde_json::to_string(case).map_err(NativeCommandError::report)?;
+        writeln!(output, "<system-out>{}</system-out>", xml(&record))
+            .map_err(NativeCommandError::report)?;
         output.push_str("</testcase>\n");
     }
     output.push_str("</testsuite>\n");

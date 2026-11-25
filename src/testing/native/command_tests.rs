@@ -121,6 +121,25 @@ fn junit_output_is_validly_escaped_and_counts_independent_cases() {
 }
 
 #[test]
+fn junit_preserves_successful_attempt_attachments_and_metrics() {
+    let root = tempfile::tempdir().expect("project");
+    std::fs::create_dir_all(root.path().join("tests")).expect("test directory");
+    std::fs::write(root.path().join("tests/diagnostics.test.op"), "import attach_text from standard.testing\nscenario diagnostics:\n    it should retain successful diagnostics: f(mutable ref context: TestContext): void =>\n        attach_text(mutable ref context, 'observed', 'A & B < C')\n        return void\n").expect("test source");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.path().display().to_string(),
+        "--reporter".to_owned(),
+        "junit".to_owned(),
+    ])
+    .expect("JUnit report");
+    assert_eq!(output.exit_code, 0_i32, "{}", output.text);
+    let path = root.path().join("report.xml");
+    std::fs::write(&path, output.text).expect("write report");
+    let status=std::process::Command::new("python3").args(["-c", "import json, sys, xml.etree.ElementTree as E; case=E.parse(sys.argv[1]).getroot().find('testcase'); record=json.loads(case.findtext('system-out')); attempt=record['execution']['attempts'][0]; assert attempt['attachments'][0]['text']=='A & B < C'; assert attempt['callbacks'][0]['outcome']=='passed'; assert record['identity']['test']=='retain successful diagnostics'"]).arg(path).status().expect("parse XML report");
+    assert!(status.success());
+}
+
+#[test]
 fn canonical_association_filters_and_report_files_preserve_case_totals() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let directory = tempfile::tempdir().expect("report output");

@@ -255,6 +255,8 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Static activation RED/GREEN: listing now rejects two guaranteed direct World activations targeting the same canonical import edge before artifact creation. Potential intervening callback effects are conservatively left to runtime conflict checking; existing dynamic conflict/cleanup cases still pass.
 - [x] Static World conflicts committed as `d7ded9d`; fresh retry/setup evidence committed as `58e4c32`. Real editor CLI re-run after these changes passed all six cases with 32 callback records, one transcript attachment and four double transitions; JUnit parsed with six cases.
 - [x] Compiled array callback RED/GREEN: named source callbacks in map/filter/reduce now share the native outcome dispatch, instead of storing an internal outcome as an application value. Real map cases verify completion and assertion abort.
+- [x] Array callback outcome fix committed as `8cfa527`; unchanged pre-commit gates passed.
+- [x] JUnit RED/GREEN: XML now preserves a canonical case record for every case, including successful attempt metrics and attachments. An XML/JSON parse regression verifies successful diagnostics and XML-sensitive text round-trip.
 - [ ] Audit escaping closure values, generic specialization typing and remaining unsupported-boundary diagnostics.
 - [ ] Final requirement-by-requirement conformance audit and thorough overall maintainability/safety review; verify every phase/Section 20/Section 22 item before completion.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
