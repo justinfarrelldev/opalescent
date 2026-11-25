@@ -1,5 +1,6 @@
 //! Native test source orchestration through the ordinary compiler type checker.
 extern crate alloc;
+mod activation;
 mod callbacks;
 mod declarations;
 mod double_signatures;
@@ -113,6 +114,7 @@ pub fn check_project(
         &world_states,
         &double_signatures,
     )?;
+    activation::check(&suite, &worlds, &doubles)?;
     Ok(CheckedNativeProject {
         worlds,
         doubles,

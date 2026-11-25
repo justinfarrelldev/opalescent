@@ -803,6 +803,34 @@ fn diagnostic_attachments_are_owned_and_survive_body_abort_and_after_hooks() {
 }
 
 #[test]
+fn listing_rejects_conflicting_straight_line_world_activations() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-activation");
+    let root = tempfile::tempdir().expect("project");
+    std::fs::create_dir_all(root.path().join("src")).expect("src");
+    std::fs::create_dir_all(root.path().join("tests")).expect("tests");
+    for file in ["src/app.op", "src/io.op"] {
+        std::fs::copy(fixture.join(file), root.path().join(file)).expect("source");
+    }
+    std::fs::write(root.path().join("tests/conflict.test.op"),"double Write replaces operation from ../src/io as used by ../src/app\nworld First:\n    setup: f(): Write =>\n        return new Write\nworld Second:\n    setup: f(): Write =>\n        return new Write\nscenario conflicting Worlds:\n    activate worlds: First, Second\n    it should never build: f(): void =>\n        return void\n").expect("test source");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.path().display().to_string(),
+        "--list".to_owned(),
+    ])
+    .expect("listing");
+    assert_eq!(output.exit_code, 2_i32, "{}", output.text);
+    assert!(
+        output
+            .text
+            .contains("statically conflicting double activations"),
+        "{}",
+        output.text
+    );
+    assert!(!root.path().join("target").exists());
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");
