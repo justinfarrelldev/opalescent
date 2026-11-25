@@ -1,0 +1,14 @@
+##
+  Description: The supported scalar types of database columns.
+##
+public type ColumnType:
+    Integer
+    Text
+    Boolean
+
+##
+  Description: A named column and its type in a table schema.
+##
+public type Column:
+    name: string
+    column_type: ColumnType

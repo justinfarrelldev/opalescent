@@ -1,0 +1,107 @@
+import tokenize from ./lexer
+import type IndexAccessErrors, AllocationErrors from standard.errors
+import type LexResult, Token, TokenKind from ./lexer.types
+import type ParseResult, ParseErrorKind, Statement from ./query.types
+import type Column, ColumnType from ./schema.types
+
+let syntax_failure = f(token: Token, kind: ParseErrorKind, detail: string): ParseResult =>
+    return new ParseResult.SyntaxFailure:
+        kind: kind
+        position: token.position
+        detail: detail
+
+let expected = f(token: Token, kind: ParseErrorKind, description: string): ParseResult =>
+    if token.kind is TokenKind.EndOfInput:
+        return syntax_failure(
+                token,
+                new ParseErrorKind.UnexpectedEndOfInput,
+                'expected {description}'
+            )
+    return syntax_failure(token, kind, 'expected {description}')
+
+# Check the query terminator here, after the statement-specific grammar.
+
+let finish_statement = f(
+    ref tokens: Token[],
+    index: int64,
+    statement: Statement
+): ParseResult errors IndexAccessErrors =>
+    let semicolon: Token = propagate tokens.at(index)
+    if semicolon.kind is not TokenKind.Semicolon:
+        return expected(semicolon, new ParseErrorKind.UnexpectedToken, ';')
+    let end: Token = propagate tokens.at(index + 1)
+    if end.kind is not TokenKind.EndOfInput:
+        return expected(end, new ParseErrorKind.UnexpectedToken, 'end of input')
+    let result: ParseResult = new ParseResult.Parsed:
+        statement: statement
+    return result
+
+let parse_create = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
+    let table_keyword: Token = propagate tokens.at(1)
+    if table_keyword.kind is not TokenKind.Table:
+        return expected(table_keyword, new ParseErrorKind.UnexpectedToken, 'TABLE')
+    let table_name_token: Token = propagate tokens.at(2)
+    let table_name_kind: TokenKind = table_name_token.kind
+    let mutable table_name = ''
+    if table_name_kind is TokenKind.Identifier into table_identifier:
+        table_name = table_identifier.name
+    else:
+        return expected(table_name_token, new ParseErrorKind.InvalidIdentifier, 'table name')
+    let open_token: Token = propagate tokens.at(3)
+    if open_token.kind is not TokenKind.OpenParen:
+        return expected(open_token, new ParseErrorKind.UnexpectedToken, '(')
+    let mutable index: int64 = 4
+    let mutable columns: Column[] = []
+    while true:
+        let name_token: Token = propagate tokens.at(index)
+        let name_kind: TokenKind = name_token.kind
+        let mutable name = ''
+        if name_kind is TokenKind.Identifier into identifier:
+            name = identifier.name
+        else:
+            return expected(name_token, new ParseErrorKind.InvalidIdentifier, 'column name')
+        let type_token: Token = propagate tokens.at(index + 1)
+        let mutable column_type: ColumnType = new ColumnType.Integer
+        if type_token.kind is TokenKind.TextType:
+            column_type = new ColumnType.Text
+        else:
+            if type_token.kind is TokenKind.BoolType:
+                column_type = new ColumnType.Boolean
+            else:
+                if type_token.kind is not TokenKind.IntType:
+                    return expected(
+                            type_token,
+                            new ParseErrorKind.UnsupportedDataType,
+                            'INT, TEXT, or BOOL'
+                        )
+        let column: Column = new Column:
+            name: name
+            column_type: column_type
+        columns.push(column)
+        let separator: Token = propagate tokens.at(index + 2)
+        if separator.kind is TokenKind.CloseParen:
+            let statement: Statement = new Statement.CreateTable:
+                name: table_name
+                columns: columns
+            return propagate finish_statement(ref tokens, index + 3, statement)
+        if separator.kind is not TokenKind.Comma:
+            return expected(separator, new ParseErrorKind.UnexpectedToken, ', or )')
+        index = index + 3
+
+##
+  Description: Parses one terminated query without inspecting database state.
+##
+public let parse_query = f(text: string): ParseResult errors IndexAccessErrors, AllocationErrors =>
+    let lexical: LexResult = propagate tokenize(text)
+    if lexical is LexResult.Success into success:
+        let tokens: Token[] = success.tokens
+        let first: Token = propagate tokens.at(0)
+        if first.kind is TokenKind.Create:
+            return propagate parse_create(ref tokens)
+        return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE')
+    if lexical is LexResult.Failure into failure:
+        let result: ParseResult = new ParseResult.LexicalFailure:
+            kind: failure.kind
+            position: failure.position
+            detail: failure.detail
+        return result

@@ -1,0 +1,34 @@
+import type SourcePosition, LexErrorKind from ./lexer.types
+import type Column from ./schema.types
+
+##
+  Description: A parsed database statement, independent of engine state.
+##
+public type Statement:
+    CreateTable:
+        name: string
+        columns: Column[]
+
+##
+  Description: Categories of invalid query syntax detected by the parser.
+##
+public type ParseErrorKind:
+    UnexpectedToken
+    UnexpectedEndOfInput
+    InvalidIdentifier
+    UnsupportedDataType
+
+##
+  Description: Structured statement or positioned diagnostic for a single query.
+##
+public type ParseResult:
+    Parsed:
+        statement: Statement
+    LexicalFailure:
+        kind: LexErrorKind
+        position: SourcePosition
+        detail: string
+    SyntaxFailure:
+        kind: ParseErrorKind
+        position: SourcePosition
+        detail: string

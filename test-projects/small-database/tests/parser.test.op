@@ -1,0 +1,56 @@
+import parse_query from ../src/parser
+import type ParseResult, ParseErrorKind, Statement from ../src/query.types
+import type Column, ColumnType from ../src/schema.types
+
+scenario parsing table definitions:
+    unit under test: parse_query
+
+    it should produce a typed schema in declared order:
+        f(): void errors inferred =>
+            let result = propagate parse_query('CrEaTe TABLE Tasks (id INT,\n title TEXT, Done BOOL);')
+            expect result to be the Parsed variant of ParseResult
+            if result is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the CreateTable variant of Statement
+                if statement is Statement.CreateTable into create:
+                    expect create.name to be 'tasks'
+                    let columns: Column[] = create.columns
+                    expect columns.length to be 3
+                    let first: Column = propagate columns.at(0)
+                    let second: Column = propagate columns.at(1)
+                    let third: Column = propagate columns.at(2)
+                    expect first.name to be 'id'
+                    expect second.name to be 'title'
+                    expect third.name to be 'done'
+                    expect first.column_type to be new ColumnType.Integer
+                    expect second.column_type to be new ColumnType.Text
+                    expect third.column_type to be new ColumnType.Boolean
+            return void
+
+    it should reject a missing semicolon as unexpected end of input:
+        f(): void errors inferred =>
+            let result = propagate parse_query('CREATE TABLE a (id INT)')
+            expect result to be the SyntaxFailure variant of ParseResult
+            if result is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedEndOfInput
+                expect failure.position.column to be 24
+                expect failure.detail to contain ';'
+            return void
+
+    it should reject a second statement after the semicolon:
+        f(): void errors inferred =>
+            let result = propagate parse_query('CREATE TABLE a (id INT); CREATE TABLE b (id INT);')
+            expect result to be the SyntaxFailure variant of ParseResult
+            if result is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedToken
+                expect failure.position.column to be 26
+            return void
+
+    it should reject an unknown type name before execution:
+        f(): void errors inferred =>
+            let result = propagate parse_query('CREATE TABLE tasks (id FLOAT);')
+            expect result to be the SyntaxFailure variant of ParseResult
+            if result is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnsupportedDataType
+                expect failure.position.column to be 24
+            return void
