@@ -18,6 +18,8 @@ struct WorldRequirement {
     identity: WorldIdentity,
     /// Distinct request origins, without creating additional instances.
     origins: Vec<WorldUseOrigin>,
+    /// Direct canonical dependency edges in declared injection order.
+    dependencies: Vec<WorldIdentity>,
 }
 
 /// One behavior record, independent of its several reporting associations.
@@ -213,6 +215,12 @@ pub(super) fn render(
                 .map(|(identity, origins)| WorldRequirement {
                     identity: identity.clone(),
                     origins: origins.iter().cloned().collect(),
+                    dependencies: checked
+                        .worlds
+                        .graph
+                        .dependencies(identity)
+                        .unwrap_or_default()
+                        .to_vec(),
                 })
                 .collect(),
             declared_doubles: checked

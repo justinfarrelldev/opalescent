@@ -748,6 +748,16 @@ fn specification_editor_conformance_and_production_terminal_run_independent_case
     let transcript = std::fs::read_to_string(log).expect("captured transcript");
     assert!(transcript.contains("-- INSERT --"));
     assert!(transcript.contains("Reviewed café"));
+    let terminal_world = terminal["worlds"]
+        .as_array()
+        .expect("effective graph")
+        .iter()
+        .find(|world| world["identity"]["name"] == "EditorTerminal")
+        .expect("editor terminal World");
+    assert_eq!(
+        terminal_world["dependencies"][0]["name"],
+        "TerminalWorkspace"
+    );
     let binary = log
         .parent()
         .and_then(Path::parent)
