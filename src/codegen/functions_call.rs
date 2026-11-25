@@ -109,28 +109,15 @@ pub fn codegen_call_expression<'context>(
     args: &[Expr],
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    if let Expr::Identifier { ref name, span, id } = *callee {
-        if let Some(target) = env.native_double_calls.get(name).cloned() {
-            // Compiler-private aliases contain a dot, so source bindings cannot shadow them.
-            let alias = env.next_name("__native_double_call");
-            if let Some(signature) = env.imported_signatures.get(name).cloned() {
-                env.imported_signatures.insert(alias.clone(), signature);
-            }
-            env.imported_functions.insert(alias.clone(), target);
-            let native = Expr::Identifier {
-                name: alias,
-                span,
-                id,
-            };
-            return codegen_call_expression(
-                codegen_context,
-                env,
-                &native,
-                generic_args,
-                args,
-                expected_type,
-            );
-        }
+    if let Some(result) = native::redirect(
+        codegen_context,
+        env,
+        callee,
+        generic_args,
+        args,
+        expected_type,
+    )? {
+        return Ok(result);
     }
     if let Expr::Identifier { ref name, .. } = *callee {
         let imported_name = env.imported_functions.get(name).cloned();

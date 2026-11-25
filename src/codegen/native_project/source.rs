@@ -281,10 +281,16 @@ impl SourceLayouts {
                 _ => {}
             }
         }
-        for function in functions
-            .iter()
-            .filter(|function| function.module == module)
-        {
+        for function in functions {
+            if crate::codegen::native_generics::is_template(&function.signature) {
+                env.native_generic_parameters.insert(
+                    symbol("source", &function.identity)?,
+                    function.parameters.clone(),
+                );
+            }
+            if function.module != module {
+                continue;
+            }
             if function.is_value {
                 super::module_values::bind(&mut env, &function.identity.name, function)?;
             } else {

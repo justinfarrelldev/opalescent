@@ -35,6 +35,18 @@ pub(super) fn ast_type_to_core_type_for_let(ast_type: &Type) -> Result<CoreType,
     }
 }
 
+/// Resolve specialized local annotations without changing production annotation rules.
+pub(super) fn lower_let_annotation(
+    env: &CodegenEnv<'_>,
+    annotation: &Type,
+) -> Result<CoreType, CodegenError> {
+    if env.native_type_arguments.is_empty() {
+        ast_type_to_core_type_for_let(annotation)
+    } else {
+        crate::codegen::native_generics::annotation(env, annotation)
+    }
+}
+
 /// Infer the lowered core type for an expression when statement lowering must allocate storage.
 pub(super) fn infer_core_type_from_expr<'context>(
     codegen_context: &CodegenContext<'context>,

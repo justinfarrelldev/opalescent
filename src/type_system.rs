@@ -94,7 +94,7 @@ pub(crate) use module_resolver::{AdtLayoutManifestKind, ModuleInterface};
 pub mod native_double_signature;
 #[cfg(test)]
 mod native_snapshot_policy_tests;
-mod substitution;
+pub(crate) mod substitution;
 mod symbol_table;
 pub(crate) use native_double_signature::NativeDoubleSignature;
 /// Selected terminal public API prerequisite inventory and diagnostics.

@@ -49,6 +49,9 @@ pub fn emit_checked_project<'context>(
     let layouts = source::SourceLayouts::new(checked)?;
     let functions = source::functions(project, checked)?;
     for function in &functions {
+        if super::native_generics::is_template(&function.signature) {
+            continue;
+        }
         super::native_declarations::declare_source_function(
             codegen,
             &symbol("source", &function.identity)?,
@@ -57,6 +60,9 @@ pub fn emit_checked_project<'context>(
         )?;
     }
     for function in &functions {
+        if super::native_generics::is_template(&function.signature) {
+            continue;
+        }
         let mut env =
             layouts.environment(codegen, project, checked, &function.module, &functions)?;
         if function.is_value {
@@ -114,10 +120,55 @@ pub fn emit_checked_project<'context>(
         &functions,
         &source_callbacks,
     )?;
+    emit_specializations(codegen, project, checked, &layouts, &functions)?;
     Ok(CompiledNativeProject {
         cases,
         source_callbacks,
     })
+}
+
+/// Drain declarations only after callers have finished using the shared LLVM builder.
+fn emit_specializations(
+    codegen: &CodegenContext<'_>,
+    project: &NativeTestProject,
+    checked: &CheckedNativeProject,
+    layouts: &source::SourceLayouts,
+    functions: &[source::SourceFunction],
+) -> Result<(), CodegenError> {
+    let templates = functions
+        .iter()
+        .filter(|value| super::native_generics::is_template(&value.signature))
+        .map(|value| Ok((symbol("source", &value.identity)?, value)))
+        .collect::<Result<BTreeMap<_, _>, CodegenError>>()?;
+    loop {
+        let request = codegen
+            .native_specializations
+            .borrow()
+            .iter()
+            .find(|&(name, _)| {
+                codegen
+                    .module
+                    .get_function(name)
+                    .is_some_and(|function| function.count_basic_blocks() == 0)
+            })
+            .map(|(name, value)| (name.clone(), value.clone()));
+        let Some((name, value)) = request else {
+            return Ok(());
+        };
+        let source = templates
+            .get(&value.base)
+            .ok_or_else(|| CodegenError::new("native specialization has no source template"))?;
+        let mut env = layouts.environment(codegen, project, checked, &source.module, functions)?;
+        env.native_type_arguments.extend(value.arguments);
+        super::native_declarations::emit_source_function(
+            codegen,
+            &mut env,
+            &name,
+            &source.parameters,
+            &value.signature,
+            &source.body,
+        )?;
+    }
 }
 
 /// Hex-encoded structured identities cannot collide through alias punctuation.

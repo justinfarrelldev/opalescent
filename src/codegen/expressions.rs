@@ -109,6 +109,10 @@ pub struct CodegenEnv<'context> {
     pub native_double_descriptors: BTreeMap<String, PointerValue<'context>>,
     /// Explicit import-edge overrides applied before compiler special lowering.
     pub native_double_calls: BTreeMap<String, String>,
+    /// Generic native source templates indexed by canonical implementation symbol.
+    pub native_generic_parameters: BTreeMap<String, Vec<crate::ast::Parameter>>,
+    /// Concrete type bindings in the current specialized body.
+    pub native_type_arguments: BTreeMap<String, CoreType>,
     /// Checked application signatures for compiler-generated rule payloads.
     pub native_double_signatures: BTreeMap<String, crate::type_system::NativeDoubleSignature>,
     /// Compiler-only assertion mismatch retry destinations.
@@ -151,6 +155,8 @@ impl<'context> CodegenEnv<'context> {
             native_assertion_types: BTreeMap::new(),
             native_double_descriptors: BTreeMap::new(),
             native_double_calls: BTreeMap::new(),
+            native_generic_parameters: BTreeMap::new(),
+            native_type_arguments: BTreeMap::new(),
             native_double_signatures: BTreeMap::new(),
             native_polling: Vec::new(),
             adt_layout_aliases: BTreeMap::new(),

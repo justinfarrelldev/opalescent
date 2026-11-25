@@ -58,6 +58,7 @@ pub(crate) mod native_double_rules;
 pub(crate) mod native_doubles;
 /// Explicit test-build function declarations and ordinary result emission.
 pub mod native_functions;
+mod native_generics;
 /// Independent internal result channel for compiled native test artifacts.
 pub mod native_outcome;
 pub(crate) mod native_path_values;

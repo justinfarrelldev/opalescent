@@ -37,6 +37,9 @@ pub struct CodegenContext<'context> {
     pub target: crate::build_system::targets::TargetTriple,
     /// Explicit test-build declarations; never inferred from LLVM struct shapes.
     pub(super) native_functions: RefCell<BTreeMap<String, NativeFunctionAbi<'context>>>,
+    /// Declared concrete generic bodies awaiting emission in their source modules.
+    pub(super) native_specializations:
+        RefCell<BTreeMap<String, super::native_generics::Specialization>>,
 }
 
 impl<'context> CodegenContext<'context> {
@@ -73,6 +76,7 @@ impl<'context> CodegenContext<'context> {
             target_machine: Some(target_machine),
             target: target.clone(),
             native_functions: RefCell::new(BTreeMap::new()),
+            native_specializations: RefCell::new(BTreeMap::new()),
         })
     }
 

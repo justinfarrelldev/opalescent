@@ -1,13 +1,55 @@
 //! Unwrap internal test outcomes before ordinary application result handling.
 extern crate alloc;
 use super::call_arg_cleanup::{CallArgCleanupDisposition, CallArgCleanupRecord};
-use crate::ast::Expr;
+use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::native_abort::emit_native_abort;
 use crate::type_system::types::CoreType;
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+
+/// Resolve edge interception and concrete generic calls before ordinary call lowering.
+pub(super) fn redirect<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    callee: &Expr,
+    generic_args: Option<&[Type]>,
+    args: &[Expr],
+    expected: Option<&CoreType>,
+) -> Result<Option<BasicValueEnum<'ctx>>, CodegenError> {
+    let Expr::Identifier { ref name, span, id } = *callee else {
+        return Ok(None);
+    };
+    let (alias, remaining) = if let Some(target) = env.native_double_calls.get(name).cloned() {
+        // Compiler-private names contain a dot, preventing source shadowing.
+        let alias = env.next_name("__native_double_call");
+        if let Some(signature) = env.imported_signatures.get(name).cloned() {
+            env.imported_signatures.insert(alias.clone(), signature);
+        }
+        env.imported_functions.insert(alias.clone(), target);
+        (alias, generic_args)
+    } else if let Some(alias) =
+        crate::codegen::native_generics::call_alias(ctx, env, name, generic_args, args, expected)?
+    {
+        (alias, None)
+    } else {
+        return Ok(None);
+    };
+    super::codegen_call_expression(
+        ctx,
+        env,
+        &Expr::Identifier {
+            name: alias,
+            span,
+            id,
+        },
+        remaining,
+        args,
+        expected,
+    )
+    .map(Some)
+}
 
 /// Native reference arguments preserve lvalue addresses; ordinary owned values
 /// use the existing expression/temporary ownership lowering.

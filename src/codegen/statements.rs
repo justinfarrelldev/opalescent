@@ -205,7 +205,7 @@ fn codegen_let_statement<'context>(
     }
     let (declared_type, lowered_initializer) = if let Some(ref annotation) = binding.type_annotation
     {
-        let declared_type = ast_type_to_core_type_for_let(annotation)?;
+        let declared_type = inference::lower_let_annotation(env, annotation)?;
         let lowered = if let Some(init_expr) = initializer {
             Some(codegen_expression(
                 codegen_context,
@@ -308,7 +308,7 @@ fn codegen_let_destructure_statement<'context>(
         let mut labels = Vec::new();
         for binding in bindings {
             let binding_type = if let Some(annotation) = binding.type_annotation.as_ref() {
-                ast_type_to_core_type_for_let(annotation)?
+                inference::lower_let_annotation(env, annotation)?
             } else {
                 infer_loop_break_binding_type(
                     codegen_context,
@@ -407,7 +407,7 @@ fn codegen_let_destructure_statement<'context>(
 
     for (binding, binding_type) in bindings.iter().zip(return_types.iter()) {
         let storage_type = if let Some(annotation) = binding.type_annotation.as_ref() {
-            ast_type_to_core_type_for_let(annotation)?
+            inference::lower_let_annotation(env, annotation)?
         } else {
             binding_type.clone()
         };

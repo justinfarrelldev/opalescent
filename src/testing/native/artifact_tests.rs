@@ -52,6 +52,30 @@ fn module_value_accessors_are_lazy_cached_and_resolve_import_aliases_in_native_w
 }
 
 #[test]
+fn native_workers_execute_imported_generic_functions_with_distinct_concrete_types() {
+    let directory = tempfile::tempdir().expect("project");
+    std::fs::write(directory.path().join("helper.op"), "##\n    Description: Returns the input without changing its type.\n##\npublic let identity = f<T>(value: T): T =>\n    let result: T = value\n    return result\n\n##\n    Description: Requests another specialization in the defining module.\n##\npublic let forward = f<T>(value: T): T =>\n    return identity<T>(value)\n").expect("generic helper");
+    let source = directory.path().join("case.test.op");
+    std::fs::write(&source, "import identity as identity_value, forward from ./helper\nscenario generic application calls:\n    it should instantiate both concrete types: f(): void =>\n        expect identity_value<int64>(17) to be 17\n        expect identity_value<string>('café') to be 'café'\n        let inferred = forward('été')\n        expect inferred to be 'été'\n        return void\n").expect("test source");
+    let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
+    let checked = check_project(&project).expect("checked project");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("native artifact");
+    let output = std::process::Command::new(&artifact.executable)
+        .arg(serde_json::to_string(&artifact.cases[0]).expect("case identity"))
+        .arg("1")
+        .arg(directory.path().join("generic.jsonl"))
+        .output()
+        .expect("worker");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn built_worker_selects_independent_examples_from_one_native_executable() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let project =
