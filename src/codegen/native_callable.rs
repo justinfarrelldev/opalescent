@@ -137,12 +137,105 @@ pub(super) fn lambda<'ctx>(
             "borrowed lambda parameters are not representable in the source function-value ABI",
         ));
     }
-    if !captured_variables.is_empty() {
+    if captured_variables
+        .iter()
+        .any(|name| env.variables.contains_key(name))
+    {
         return Err(CodegenError::new(
             "capturing function values require a closure representation in native tests",
         ));
     }
     let signature = signature(env, expr)?;
+    let function = emit_lambda(ctx, env, params, &signature, body, span)?;
+    let erased = super::types::core_type_to_llvm(ctx.context, &signature).into_pointer_type();
+    Ok(ctx
+        .builder
+        .build_pointer_cast(
+            function.as_global_value().as_pointer_value(),
+            erased,
+            "source.lambda.value",
+        )?
+        .into())
+}
+
+/// Lift lexical captures into explicit call-local parameters; they cannot escape as a closure.
+pub(super) fn immediate<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    expr: &Expr,
+    args: &[Expr],
+    expected: Option<&CoreType>,
+) -> Result<BasicValueEnum<'ctx>, CodegenError> {
+    use crate::ast::{BorrowKind, NodeId, Parameter};
+    let Expr::Lambda {
+        ref params,
+        ref body,
+        ref captured_variables,
+        span,
+        ..
+    } = *expr
+    else {
+        return Err(CodegenError::new("expected source lambda"));
+    };
+    let mut signature = signature(env, expr)?;
+    let CoreType::Function {
+        ref mut parameters, ..
+    } = signature
+    else {
+        return Err(CodegenError::new("missing lambda signature"));
+    };
+    let mut lifted = params.clone();
+    let mut inputs = args.to_vec();
+    for name in captured_variables {
+        let Some(binding) = env.variables.get(name) else {
+            continue;
+        };
+        parameters.push(binding.core_type.clone());
+        lifted.push(Parameter {
+            name: name.clone(),
+            param_type: Type::Basic {
+                name: "void".to_owned(),
+                span,
+            },
+            borrow_kind: BorrowKind::Owned,
+            span,
+        });
+        inputs.push(Expr::Identifier {
+            name: name.clone(),
+            span,
+            id: NodeId(0),
+        });
+    }
+    let function = emit_lambda(ctx, env, &lifted, &signature, body, span)?;
+    let alias = env.next_name("__native_immediate_lambda");
+    env.imported_functions.insert(
+        alias.clone(),
+        function.get_name().to_string_lossy().into_owned(),
+    );
+    env.imported_signatures.insert(alias.clone(), signature);
+    super::functions_call::codegen_call_expression(
+        ctx,
+        env,
+        &Expr::Identifier {
+            name: alias,
+            span,
+            id: NodeId(0),
+        },
+        None,
+        &inputs,
+        expected,
+    )
+}
+
+/// Emit a typed body and restore the caller insertion point even on failure.
+fn emit_lambda<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    params: &[crate::ast::Parameter],
+    signature: &CoreType,
+    body: &crate::ast::LambdaBody,
+    span: crate::token::Span,
+) -> Result<inkwell::values::FunctionValue<'ctx>, CodegenError> {
     let caller = ctx
         .builder
         .get_insert_block()
@@ -162,20 +255,11 @@ pub(super) fn lambda<'ctx>(
         &mut nested,
         &name,
         params,
-        &signature,
+        signature,
         &body,
     );
     ctx.builder.position_at_end(caller);
-    let function = result?;
-    let erased = super::types::core_type_to_llvm(ctx.context, &signature).into_pointer_type();
-    Ok(ctx
-        .builder
-        .build_pointer_cast(
-            function.as_global_value().as_pointer_value(),
-            erased,
-            "source.lambda.value",
-        )?
-        .into())
+    result
 }
 
 /// Share only module metadata; never carry outer allocas, guard slots or cleanup scopes into a function.

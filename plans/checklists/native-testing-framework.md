@@ -249,7 +249,9 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Typed source callback parameters committed as `9d83a34`; unchanged pre-commit gates passed.
 - [x] Report graph RED/GREEN: the production editor report now includes ordered canonical dependency edges as well as per-World request origins. The real six-case regression verifies `EditorTerminal` depends on `TerminalWorkspace`.
 - [x] Callable values RED/GREEN: named aliases, function-valued returns, noncapturing local and immediately invoked lambdas execute with the native source outcome ABI. The real worker test also preserves a local lambda assertion abort. Lambda emission shares module metadata but never reuses caller lexical storage or cleanup scopes.
-- [ ] Audit remaining callable forms (capturing functions), generic specialization typing and static unsupported-boundary diagnostics.
+- [x] Local callable values committed as `1aec60b`, with unchanged pre-commit gates (including 257 production integration passes).
+- [x] Immediate lexical capture RED/GREEN: native inline calls lift lexical values as ordinary owned parameters. A linked fixture confirms scalar capture and a returned managed UTF-8 capture without invalidating the caller's value. Source-global names are resolved as globals rather than treated as lexical captures.
+- [ ] Audit escaping closure values, generic specialization typing and static unsupported-boundary diagnostics.
 - [ ] Final requirement-by-requirement conformance audit and thorough overall maintainability/safety review; verify every phase/Section 20/Section 22 item before completion.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
 - [x] Standard original-call adapter RED/GREEN: construct typed compiler-only forwarding containers with existing borrowed parameter, return/error and ordinary standard-library lowering; native metadata stays explicit and production C ABIs are unchanged.

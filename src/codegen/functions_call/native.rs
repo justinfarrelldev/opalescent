@@ -28,10 +28,8 @@ pub(super) fn redirect<'ctx>(
             target = expr;
         }
         if matches!(*target, Expr::Lambda { .. }) {
-            let signature = crate::codegen::native_callable::signature(env, target)?;
-            let pointer =
-                crate::codegen::native_callable::lambda(ctx, env, target)?.into_pointer_value();
-            return indirect::invoke(ctx, env, target, &signature, pointer, args).map(Some);
+            return crate::codegen::native_callable::immediate(ctx, env, target, args, expected)
+                .map(Some);
         }
     }
     let Expr::Identifier { ref name, span, id } = *callee else {
