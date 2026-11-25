@@ -1,0 +1,10 @@
+##
+  Description: Typed scalar stored in a database cell or used as a query literal.
+##
+public type Value:
+    Integer:
+        content: int64
+    Text:
+        content: string
+    Boolean:
+        content: boolean

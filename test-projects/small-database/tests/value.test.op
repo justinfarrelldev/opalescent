@@ -1,0 +1,39 @@
+import type Value from ../src/value.types
+import type BooleanExample from ./value_examples.types
+import text_value, integer_value, boolean_value from ../src/value
+
+scenario typed database values:
+    it should preserve the complete case-sensitive UTF-8 text payload:
+        unit under test: text_value
+        f(): void =>
+            let suffix = 'fé'
+            let value = text_value('Ca{suffix}')
+            expect value to be the Text variant of Value
+            if value is Value.Text into text:
+                expect text.content to be 'Café'
+            return void
+
+    it should preserve all 64 bits of an integer payload:
+        unit under test: integer_value
+        f(): void =>
+            let minimum: int64 = -9223372036854775807 - 1
+            let value = integer_value(minimum)
+            expect value to be the Integer variant of Value
+            if value is Value.Integer into number:
+                expect number.content to be minimum
+            return void
+
+    it should preserve booleans without treating them as integers or text:
+        unit under test: boolean_value
+        examples of BooleanExample:
+            example true:
+                content: true
+            example false:
+                content: false
+
+        f(ref example: BooleanExample): void =>
+            let value = boolean_value(example.content)
+            expect value to be the Boolean variant of Value
+            if value is Value.Boolean into flag:
+                expect flag.content to be example.content
+            return void

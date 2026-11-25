@@ -1,0 +1,22 @@
+import type Value from ./value.types
+
+##
+  Description: Constructs a database text value without normalizing its content.
+##
+public let text_value = f(content: string): Value =>
+    return new Value.Text:
+        content: content
+
+##
+  Description: Constructs a signed 64-bit database integer.
+##
+public let integer_value = f(content: int64): Value =>
+    return new Value.Integer:
+        content: content
+
+##
+  Description: Constructs a database boolean without coercion.
+##
+public let boolean_value = f(content: boolean): Value =>
+    return new Value.Boolean:
+        content: content
