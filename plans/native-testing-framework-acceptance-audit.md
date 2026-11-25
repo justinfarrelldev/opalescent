@@ -1,10 +1,10 @@
 # Native testing framework: conformance audit in progress
 
-Specification: `TESTING_FRAMEWORK.md`, Sections 1–22. This audit refers to current
-files and executable tests, not earlier implementation summaries. This is not a
-completion sign-off: generic application lowering and ordinary higher-order call
-paths still require implementation/verification inside native artifacts. Evidence
-below is limited to the tested cases and the stated verification revisions.
+Specification: [original design](native-testing-framework-spec.md), Sections 1–22.
+This audit refers to source files and executable tests at the revisions checked,
+not earlier implementation summaries. It is not a completion sign-off: generic
+application lowering and ordinary higher-order call paths still required
+implementation or verification at those revisions.
 
 ## Verification scope
 

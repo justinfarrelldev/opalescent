@@ -1,6 +1,6 @@
 # Native testing framework delivery checklist
 
-Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tests).
+[Original design specification](../native-testing-framework-spec.md) (all normative sections and acceptance tests).
 
 - [x] Read repository instructions, specification, README, standard-library reference, crash course, and language-spec files.
 - [x] Phase 0: verify compiler pipeline, CLI, editor APIs, relevant frontend baseline tests; record source map and syntax adaptations (`plans/native-testing-framework-source-map.md`).

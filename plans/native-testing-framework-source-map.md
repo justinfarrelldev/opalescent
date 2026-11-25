@@ -1,7 +1,7 @@
 # Native testing framework: verified integration map
 
-Implements the delivery plan in `TESTING_FRAMEWORK.md`; progress is tracked in
-`plans/checklists/native-testing-framework.md`.
+Maps the delivery plan in the [original design specification](native-testing-framework-spec.md).
+Progress is tracked in the [delivery checklist](checklists/native-testing-framework.md).
 
 ## Baseline (Phase 0)
 
