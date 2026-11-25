@@ -831,6 +831,45 @@ fn listing_rejects_conflicting_straight_line_world_activations() {
 }
 
 #[test]
+fn actual_retries_reinitialize_worlds_and_setup_failures_remain_setup_failures() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-retry-state");
+    let result = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--jobs".to_owned(),
+        "2".to_owned(),
+        "--retries".to_owned(),
+        "1".to_owned(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("command");
+    assert_eq!(result.exit_code, 1_i32, "{}", result.text);
+    let report: serde_json::Value = serde_json::from_str(&result.text).expect("JSON report");
+    let retry = &report["cases"][0]["execution"];
+    assert_eq!(retry["outcome"], "flaky_passed");
+    assert_eq!(retry["attempts"][0]["outcome"], "assertion_failed");
+    assert_eq!(retry["attempts"][1]["outcome"], "passed");
+    assert_ne!(
+        retry["attempts"][0]["process_id"],
+        retry["attempts"][1]["process_id"]
+    );
+    let setup = &report["cases"][1]["execution"];
+    assert_eq!(setup["outcome"], "world_setup_failed");
+    for attempt in setup["attempts"].as_array().expect("setup attempts") {
+        assert_eq!(attempt["result"]["body_started"], false);
+        assert_eq!(attempt["callbacks"].as_array().expect("callbacks").len(), 1);
+        assert_eq!(attempt["callbacks"][0]["phase"], 2_u64);
+        assert!(
+            std::fs::read_to_string(attempt["stdout_path"].as_str().expect("stdout"))
+                .expect("worker stdout")
+                .is_empty()
+        );
+    }
+}
+
+#[test]
 fn compiler_errors_are_machine_distinguishable_from_assertion_failures() {
     let directory = tempfile::tempdir().expect("invalid source");
     std::fs::create_dir_all(directory.path().join("tests")).expect("test root");

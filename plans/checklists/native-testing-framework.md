@@ -4,13 +4,13 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 
 - [x] Read repository instructions, specification, README, standard-library reference, crash course, and language-spec files.
 - [x] Phase 0: verify compiler pipeline, CLI, editor APIs, relevant frontend baseline tests; record source map and syntax adaptations (`plans/native-testing-framework-source-map.md`).
-- [ ] Phase 1: explicit test-module mode, prose lexing and spans, structured AST/parser, documentation, test-only imports, assertions and doubles.
+- [x] Phase 1: explicit test-module mode, prose lexing and spans, structured AST/parser, documentation, test-only imports, assertions and doubles. Verified with lexer/parser regressions and unchanged production integration gates.
 - [ ] Phase 2: canonical subjects, nominal Worlds, graph and injection validation, unused parameters, examples, typed matchers/doubles, callback error inference.
-- [ ] Phase 3: compiled descriptors/wrappers, per-attempt state, deterministic lifecycle, independent internal failure transport, primary/secondary failures.
+- [x] Phase 3: compiled descriptors/wrappers, per-attempt state, deterministic lifecycle, independent internal failure transport, primary/secondary failures. Verified by the C lifecycle failure matrix and linked native guard/body/hook/cleanup regressions.
 - [ ] Phase 4: matcher vocabulary, single operand evaluation, diagnostics, import-edge interception, stubs/replacements/spies/history/verification.
-- [ ] Phase 5: discovery, independent fresh-process bounded scheduling, stable examples, selection, exclusion, retries/timeouts, text/JSON/JUnit and association views.
+- [x] Phase 5: discovery, independent fresh-process bounded scheduling, stable examples, selection, exclusion, retries/timeouts, text/JSON/JUnit and association views. Covered by real parallel and retry fixtures, complete-key admission tests, interrupted callback transport and editor reports.
 - [x] Phase 6: explicit directory helpers, PTY driver, normal application artifact, editor unit/integration/mocked/E2E fixtures. Audited by the six real native editor cases and a real CLI run with fake-terminal overrides deliberately set; all six pass.
-- [ ] Phase 7: grammar, lifecycle, mocking, reporting, parallel responsibility and limitations documentation.
+- [x] Phase 7: grammar, lifecycle, mocking, reporting, parallel responsibility and deferred-feature documentation in `docs/native-testing*.md`, linked from README and STDLIB.
 - [ ] Run every Section 20 acceptance category and audit all Section 22 completion requirements.
 - [ ] Thorough maintainability/safety code review; fix findings and rerun verification.
 - [ ] Atomic commits using the unchanged pre-commit hook.
@@ -270,7 +270,7 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Actual parsed/type-checked Opalescent assertion and propagated application-error bodies run through generated LLVM wrappers and the C lifecycle; after-hook failure remains secondary.
 - [x] Current verification: 1,763 library tests passed (8 existing ignored); strict lint, GCC/Clang warning checks and direct new-runtime Clang analysis passed.
 - [x] Lifecycle/wrapper integration committed as `dc92649`; all unchanged pre-commit gates and Cppcheck passed.
-- [ ] Generate full case descriptors, typed World/example/context argument wrapper plans and setup/state-value wrappers from `CheckedNativeProject`; connect artifact builds and worker entry selection.
+- [x] Generate case descriptors and typed World/example/context wrappers from `CheckedNativeProject`; `native_project/cases.rs`, lifecycle and worker artifact tests verify round-trip execution.
 
 - [x] Checked source function-definition RED/GREEN: emit native function bodies from ordinary AST parameters and checked signatures; borrowed parameters bind original storage rather than copied local values.
 - [x] Native reference-call RED/GREEN: a compiled mutable-reference helper updates its caller's original scalar binding; native array values use private opaque-value argument slots without changing production ABI.
@@ -346,11 +346,12 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Reject source mock error references that omit a variant or its required payload.
 - [ ] Audit built-in mocked error constructors against their supported executable ABI; reject unsupported foreign/resource-bearing payloads explicitly.
 - [ ] Complete all remaining static validation and compiler acceptance tests.
-- [ ] Implement native artifact lowering and executable test artifact builds.
-- [ ] Implement the internal test-abort channel separately from application errors.
-- [ ] Implement and verify runtime World, hook, body and cleanup lifecycle behavior.
-- [ ] Connect discovery, selection and execution to the compiler CLI.
-- [ ] Implement bounded fresh-process parallel scheduling, retries, timeouts and exclusion keys.
-- [ ] Implement structured result transport and text, JSON and JUnit reports.
-- [ ] Implement testing support libraries and editor conformance fixtures.
-- [ ] Verify executable end-to-end conformance, not just parsing or static checking.
+- [x] Implement native artifact lowering and executable test artifact builds.
+- [x] Implement the internal test-abort channel separately from application errors.
+- [x] Implement and verify runtime World, hook, body and cleanup lifecycle behavior.
+- [x] Connect discovery, selection and execution to the compiler CLI.
+- [x] Implement bounded fresh-process parallel scheduling, retries, timeouts and exclusion keys.
+- [x] Implement structured result transport and text, JSON and JUnit reports.
+- [x] Implement testing support libraries and editor conformance fixtures.
+- [x] Verify executable editor end-to-end conformance, not just parsing or static checking.
+- [x] Real source retry now proves the first attempt's World mutation is absent from the second worker. A separate setup-abort case verifies both retries remain setup failures, with no body or uninitialized cleanup callbacks.

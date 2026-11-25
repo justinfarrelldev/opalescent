@@ -1,0 +1,28 @@
+world Counter:
+    setup: f(): int64 =>
+        return 0
+
+world Broken:
+    setup: f(): int64 =>
+        expect false to be true
+        return 1
+    cleanup:
+        f(ref state: int64): void =>
+            print('uninitialized cleanup must not execute')
+            return void
+
+scenario attempt isolation:
+    worlds: Counter
+    it should retry with untouched World state:
+        f(mutable ref counter: Counter, mutable ref context: TestContext): void =>
+            expect counter.state to be 0
+            counter.state = 1
+            expect context.attempt to be 2
+            return void
+
+scenario setup attribution:
+    activate worlds: Broken
+    it should not execute the body after failed setup:
+        f(): void =>
+            print('body must not execute')
+            return void
