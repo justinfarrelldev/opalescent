@@ -7,7 +7,11 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::native_abort::emit_native_abort;
 use crate::type_system::types::CoreType;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, StructValue,
+};
+#[path = "native_indirect.rs"]
+mod indirect;
 
 /// Resolve edge interception and concrete generic calls before ordinary call lowering.
 pub(super) fn redirect<'ctx>(
@@ -21,6 +25,9 @@ pub(super) fn redirect<'ctx>(
     let Expr::Identifier { ref name, span, id } = *callee else {
         return Ok(None);
     };
+    if let Some(result) = indirect::lower(ctx, env, callee, name, args)? {
+        return Ok(Some(result));
+    }
     let (alias, remaining) = if let Some(target) = env.native_double_calls.get(name).cloned() {
         // Compiler-private names contain a dot, preventing source shadowing.
         let alias = env.next_name("__native_double_call");
@@ -62,6 +69,46 @@ pub(super) fn lower_native_argument<'context>(
     expected: Option<&CoreType>,
     cleanup_records: &mut Vec<CallArgCleanupRecord>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if let Some(
+        signature @ &CoreType::Function {
+            ref parameters,
+            ref return_types,
+            ref error_types,
+            ..
+        },
+    ) = expected
+    {
+        if let Expr::Identifier { ref name, .. } = *argument {
+            if !env.variables.contains_key(name) {
+                if env.native_double_calls.contains_key(name) {
+                    return Err(CodegenError::new(
+                        "indirect interception of a doubled source import is unsupported",
+                    ));
+                }
+                let symbol = env.imported_functions.get(name).unwrap_or(name);
+                let function = codegen.module.get_function(symbol).ok_or_else(|| {
+                    CodegenError::new("callback must name a concrete native source function")
+                })?;
+                let (abi, _) = indirect::abi(codegen, parameters, return_types, error_types)?;
+                if codegen.native_function_outcome(function).is_none() || function.get_type() != abi
+                {
+                    return Err(CodegenError::new(
+                        "foreign or incompatible source callback ABI is unsupported in native tests",
+                    ));
+                }
+                let erased =
+                    super::core_type_to_llvm(codegen.context, signature).into_pointer_type();
+                return Ok(codegen
+                    .builder
+                    .build_pointer_cast(
+                        function.as_global_value().as_pointer_value(),
+                        erased,
+                        "source.callback.value",
+                    )?
+                    .into());
+            }
+        }
+    }
     if let Expr::BorrowArgument { ref target, .. } = *argument {
         if let Expr::Identifier { ref name, .. } = **target {
             return env
@@ -115,6 +162,17 @@ pub(super) fn lower_native_call<'context>(
         .basic()
         .ok_or_else(|| CodegenError::new("native call did not produce its declared outcome"))?
         .into_struct_value();
+    unwrap(codegen, env, callee, result, cleanup_records)
+}
+
+/// Apply identical abort propagation to direct and typed indirect outcomes.
+fn unwrap<'ctx>(
+    codegen: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    callee: crate::codegen::native_outcome::NativeOutcomeType<'ctx>,
+    result: StructValue<'ctx>,
+    cleanup_records: &[CallArgCleanupRecord],
+) -> Result<BasicValueEnum<'ctx>, CodegenError> {
     let branch = callee.branch_after_call(codegen, result)?;
     codegen.builder.position_at_end(branch.aborted);
     let transferred: Vec<_> = cleanup_records

@@ -76,6 +76,53 @@ fn native_workers_execute_imported_generic_functions_with_distinct_concrete_type
 }
 
 #[test]
+fn ordinary_function_parameters_preserve_native_callback_results_and_aborts() {
+    let directory = tempfile::tempdir().expect("callback project");
+    let source = directory.path().join("callbacks.test.op");
+    std::fs::write(&source,"let apply = f(callback: f(int64): int64, input: int64): int64 =>\n    return callback(input)\nlet apply_fallible = f(callback: f(string): int32 errors ParseError): int32 errors ParseError =>\n    return propagate callback('invalid')\nlet parse = f(input: string): int32 errors ParseError =>\n    return propagate string_to_int32(input)\nlet twice = f(input: int64): int64 =>\n    return input + input\nlet fail = f(input: int64): int64 =>\n    expect false to be true\n    return input\nscenario source callbacks:\n    it should execute a typed function parameter: f(): void =>\n        expect apply(twice, 21) to be 42\n        let handled = guard apply_fallible(parse) into value: int32 else\n            9 as int32\n        expect handled to be (9 as int32)\n        return void\n    it should propagate callback aborts: f(): void =>\n        expect apply(fail, 21) to be 21\n        print('not reached')\n        return void\n").expect("source");
+    let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
+    let checked = check_project(&project).expect("checked");
+    let artifact =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect("artifact");
+    for (index, case) in artifact.cases.iter().enumerate() {
+        let path = directory.path().join(format!("result-{index}.jsonl"));
+        let output = std::process::Command::new(&artifact.executable)
+            .arg(serde_json::to_string(case).expect("identity"))
+            .arg("1")
+            .arg(&path)
+            .output()
+            .expect("worker");
+        assert_eq!(output.status.code(), Some(i32::from(index == 1)));
+        assert!(output.stdout.is_empty());
+        let transport = std::fs::read_to_string(path).expect("transport");
+        let result: serde_json::Value =
+            serde_json::from_str(transport.lines().last().expect("result")).expect("JSON");
+        if index == 1 {
+            assert_eq!(result["failures"][0]["kind"], 1_u64);
+        }
+    }
+}
+
+#[test]
+fn foreign_function_parameters_are_rejected_before_executing_native_workers() {
+    let directory = tempfile::tempdir().expect("project");
+    let source = directory.path().join("foreign.test.op");
+    std::fs::write(&source,"import int64_to_string from standard\nlet format_value = f(callback: f(int64): string): string =>\n    return callback(42)\nscenario foreign callback ABI:\n    it should reject a foreign callback: f(): void =>\n        expect format_value(int64_to_string) to be '42'\n        return void\n").expect("source");
+    let project = NativeTestProject::load(directory.path(), &[source]).expect("project");
+    let checked = check_project(&project).expect("checked");
+    let error =
+        super::artifact::build_native_artifact(&project, &checked, &directory.path().join("build"))
+            .expect_err("foreign function cannot enter native callback ABI");
+    assert!(
+        error
+            .to_string()
+            .contains("foreign or incompatible source callback ABI"),
+        "{error}"
+    );
+}
+
+#[test]
 fn built_worker_selects_independent_examples_from_one_native_executable() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let project =
