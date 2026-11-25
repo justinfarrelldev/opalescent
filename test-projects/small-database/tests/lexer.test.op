@@ -1,0 +1,76 @@
+import tokenize from ../src/lexer
+import type LexResult, Token, TokenKind, LexErrorKind from ../src/lexer.types
+
+scenario query tokenization:
+    unit under test: tokenize
+
+    it should normalize names and preserve scalar positions across newlines:
+        f(): void errors inferred =>
+            let result = propagate tokenize(' _MiXeD09\r\n (Ab, *);')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 8
+                let first: Token = propagate tokens.at(0)
+                let first_kind: TokenKind = first.kind
+                expect first_kind to be the Identifier variant of TokenKind
+                if first_kind is TokenKind.Identifier into identifier:
+                    expect identifier.name to be '_mixed09'
+                expect first.position.line to be 1
+                expect first.position.column to be 2
+                let open: Token = propagate tokens.at(1)
+                expect open.kind to be the OpenParen variant of TokenKind
+                expect open.position.line to be 2
+                expect open.position.column to be 2
+                let second: Token = propagate tokens.at(2)
+                let second_kind: TokenKind = second.kind
+                expect second_kind to be the Identifier variant of TokenKind
+                if second_kind is TokenKind.Identifier into identifier:
+                    expect identifier.name to be 'ab'
+                let comma: Token = propagate tokens.at(3)
+                let star: Token = propagate tokens.at(4)
+                let close: Token = propagate tokens.at(5)
+                let terminator: Token = propagate tokens.at(6)
+                let end: Token = propagate tokens.at(7)
+                expect comma.kind to be the Comma variant of TokenKind
+                expect star.kind to be the Asterisk variant of TokenKind
+                expect close.kind to be the CloseParen variant of TokenKind
+                expect terminator.kind to be the Semicolon variant of TokenKind
+                expect end.kind to be the EndOfInput variant of TokenKind
+                expect end.position.line to be 2
+                expect end.position.column to be 10
+            return void
+
+    it should distinguish reserved words from longer identifiers with the same prefix:
+        f(): void errors inferred =>
+            let result = propagate tokenize('cReAtE TABLE Int TEXT Bool create10 TABLE_name')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 8
+                let create_token: Token = propagate tokens.at(0)
+                let table_token: Token = propagate tokens.at(1)
+                let int_token: Token = propagate tokens.at(2)
+                let text_token: Token = propagate tokens.at(3)
+                let bool_token: Token = propagate tokens.at(4)
+                let longer_word: Token = propagate tokens.at(5)
+                let underscored_word: Token = propagate tokens.at(6)
+                expect create_token.kind to be the Create variant of TokenKind
+                expect table_token.kind to be the Table variant of TokenKind
+                expect int_token.kind to be the IntType variant of TokenKind
+                expect text_token.kind to be the TextType variant of TokenKind
+                expect bool_token.kind to be the BoolType variant of TokenKind
+                expect longer_word.kind to be the Identifier variant of TokenKind
+                expect underscored_word.kind to be the Identifier variant of TokenKind
+            return void
+
+    it should reject an unexpected character with its source position:
+        f(): void errors inferred =>
+            let result = propagate tokenize('\tname @')
+            expect result to be the Failure variant of LexResult
+            if result is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.UnexpectedCharacter
+                expect failure.position.line to be 1
+                expect failure.position.column to be 7
+                expect failure.detail to be '@'
+            return void

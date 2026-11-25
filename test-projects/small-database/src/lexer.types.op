@@ -1,0 +1,48 @@
+##
+  Description: One-based line and Unicode scalar column in query text.
+##
+public type SourcePosition:
+    line: int64
+    column: int64
+
+##
+  Description: Keyword, identifier, delimiter, or end marker emitted by the tokenizer.
+##
+public type TokenKind:
+    Identifier:
+        name: string
+    Create
+    Table
+    IntType
+    TextType
+    BoolType
+    OpenParen
+    CloseParen
+    Comma
+    Semicolon
+    Asterisk
+    EndOfInput
+
+##
+  Description: A query token with its starting position.
+##
+public type Token:
+    kind: TokenKind
+    position: SourcePosition
+
+##
+  Description: Categories of invalid query text detected during tokenization.
+##
+public type LexErrorKind:
+    UnexpectedCharacter
+
+##
+  Description: Tokenization yields either a complete token stream or a diagnostic.
+##
+public type LexResult:
+    Success:
+        tokens: Token[]
+    Failure:
+        kind: LexErrorKind
+        position: SourcePosition
+        detail: string

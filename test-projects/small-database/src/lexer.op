@@ -1,0 +1,129 @@
+import string_join, string_is_blank, string_find_index_or from standard
+import type IndexAccessErrors, AllocationErrors from standard.errors
+import type LexResult, LexErrorKind, Token, TokenKind, SourcePosition from ./lexer.types
+
+let lowercase = f(): string =>
+    return 'abcdefghijklmnopqrstuvwxyz'
+
+let uppercase = f(): string =>
+    return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+let digits = f(): string =>
+    return '0123456789'
+
+let contains_scalar = f(alphabet: string, scalar: string): boolean =>
+    return string_find_index_or(alphabet, scalar, -1) >= 0
+
+let is_identifier_start = f(scalar: string): boolean =>
+    return scalar is '_' or contains_scalar(lowercase(), scalar) or contains_scalar(uppercase(), scalar)
+
+let classify_word = f(name: string): TokenKind =>
+    if name is 'create':
+        return new TokenKind.Create
+    if name is 'table':
+        return new TokenKind.Table
+    if name is 'int':
+        return new TokenKind.IntType
+    if name is 'text':
+        return new TokenKind.TextType
+    if name is 'bool':
+        return new TokenKind.BoolType
+    return new TokenKind.Identifier:
+        name: name
+
+let word_at = f(
+    source: string,
+    start: int64,
+    length: int64
+): kind: TokenKind, next_index: int64 errors IndexAccessErrors, AllocationErrors =>
+    let lower = lowercase()
+    let upper = uppercase()
+    let decimal = digits()
+    let mutable parts: string[] = []
+    let mutable index = start
+    let mutable scanning = true
+    while index < length and scanning:
+        let scalar: string = propagate source.at(index)
+        let upper_index = string_find_index_or(upper, scalar, -1)
+        if upper_index >= 0:
+            let normalized: string = propagate lower.at(upper_index)
+            parts.push(normalized)
+        else:
+            if scalar is '_' or contains_scalar(lower, scalar) or contains_scalar(decimal, scalar):
+                parts.push(scalar)
+            else:
+                scanning = false
+                continue
+        index = index + 1
+    let name: string = propagate string_join(parts, '')
+    return kind: classify_word(name), next_index: index
+
+let token_at = f(kind: TokenKind, line: int64, column: int64): Token =>
+    let position: SourcePosition = new SourcePosition:
+        line: line
+        column: column
+    return new Token:
+        kind: kind
+        position: position
+
+let unexpected_character = f(scalar: string, line: int64, column: int64): LexResult =>
+    let position: SourcePosition = new SourcePosition:
+        line: line
+        column: column
+    return new LexResult.Failure:
+        kind: new LexErrorKind.UnexpectedCharacter
+        position: position
+        detail: scalar
+
+##
+  Description: Tokenizes one query without executing it or requiring a terminal.
+##
+public let tokenize = f(source: string): LexResult errors IndexAccessErrors, AllocationErrors =>
+    let length = source.length
+    let mutable tokens: Token[] = []
+    let mutable index: int64 = 0
+    let mutable line: int64 = 1
+    let mutable column: int64 = 1
+    let mutable previous_cr = false
+    while index < length:
+        let scalar: string = propagate source.at(index)
+        if scalar is '\r' or scalar is '\n':
+            if scalar is '\r' or not previous_cr:
+                line = line + 1
+            column = 1
+            index = index + 1
+            previous_cr = scalar is '\r'
+            continue
+        previous_cr = false
+        if string_is_blank(scalar):
+            column = column + 1
+            index = index + 1
+            continue
+        if is_identifier_start(scalar):
+            let kind, next_index = propagate word_at(source, index, length)
+            tokens.push(token_at(kind, line, column))
+            column = column + next_index - index
+            index = next_index
+            continue
+        if scalar is '(':
+            tokens.push(token_at(new TokenKind.OpenParen, line, column))
+        else:
+            if scalar is ')':
+                tokens.push(token_at(new TokenKind.CloseParen, line, column))
+            else:
+                if scalar is ',':
+                    tokens.push(token_at(new TokenKind.Comma, line, column))
+                else:
+                    if scalar is ';':
+                        tokens.push(token_at(new TokenKind.Semicolon, line, column))
+                    else:
+                        if scalar is '*':
+                            tokens.push(token_at(new TokenKind.Asterisk, line, column))
+                        else:
+                            return unexpected_character(scalar, line, column)
+        index = index + 1
+        column = column + 1
+    tokens.push(token_at(new TokenKind.EndOfInput, line, column))
+    let result: LexResult = new LexResult.Success:
+        tokens: tokens
+    return result
