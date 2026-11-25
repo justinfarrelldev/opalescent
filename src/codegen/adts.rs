@@ -9,6 +9,8 @@ use crate::ast::{Expr, Pattern};
 pub(crate) mod adts_borrow;
 #[path = "adts_manifest.rs"]
 mod adts_manifest;
+#[path = "adts_product_fields.rs"]
+mod adts_product_fields;
 #[path = "adts_record_update.rs"]
 pub(crate) mod adts_record_update;
 #[path = "adts_sum.rs"]
@@ -23,7 +25,7 @@ use crate::codegen::expressions_array::{
     load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
-use crate::codegen::string_ownership::{emit_string_release, retain_string_for_expr_boundary};
+use crate::codegen::string_ownership::emit_string_release;
 use crate::codegen::types::{core_type_to_llvm, integer_literal_bits};
 use crate::type_system::fallible_constructors::{
     CanonicalTypeIdentity, FallibleConstructorEntry, lookup_fallible_constructor,
@@ -752,11 +754,9 @@ pub(crate) fn codegen_product_constructor<'context>(
             )? {
                 return Ok(aggregate);
             }
-            let field_map = fields
-                .iter()
-                .map(|field| (field.name.as_str(), &field.value))
-                .collect::<BTreeMap<_, _>>();
-            let mut lowered_fields = Vec::with_capacity(field_layout.len());
+            let lowered_fields = adts_product_fields::lower_product_fields(
+                codegen_context, env, name, fields, &field_layout,
+            )?;
             let field_types = field_layout
                 .iter()
                 .map(|&(_, ref field_type)| core_type_to_llvm(codegen_context.context, field_type))
@@ -764,19 +764,6 @@ pub(crate) fn codegen_product_constructor<'context>(
             let struct_type = codegen_context
                 .context
                 .struct_type(field_types.as_slice(), false);
-            for &(ref field_name, ref field_type) in &field_layout {
-                let field_expr = field_map.get(field_name.as_str()).copied().ok_or_else(|| {
-                    CodegenError::new(format!(
-                        "missing field '{field_name}' for constructor '{name}'"
-                    ))
-                })?;
-                let lowered =
-                    codegen_expression(codegen_context, env, field_expr, Some(field_type))?;
-                if field_type == &CoreType::String {
-                    retain_string_for_expr_boundary(codegen_context, env, field_expr, lowered)?;
-                }
-                lowered_fields.push(lowered);
-            }
             let payload_size = struct_type.size_of().ok_or_else(|| {
                 CodegenError::new(format!(
                     "could not compute payload size for constructor '{name}'"

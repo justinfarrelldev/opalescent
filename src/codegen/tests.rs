@@ -3068,6 +3068,10 @@ fn test_codegen_nominal_product_with_array_child_emits_drop_callback() {
             ),
         "nominal product allocation should pass the child-drop callback to opal_rc_alloc: {ir}"
     );
+    assert!(
+        !ir.contains("call void @opal_rc_inc"),
+        "a fresh array literal must transfer its reference without a retain: {ir}"
+    );
 }
 
 #[test]

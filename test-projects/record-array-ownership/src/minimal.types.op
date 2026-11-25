@@ -1,0 +1,6 @@
+public type ArrayHolder:
+    items: int64[]
+
+public type ParsedHolder:
+    items: int64[]
+    number: int64

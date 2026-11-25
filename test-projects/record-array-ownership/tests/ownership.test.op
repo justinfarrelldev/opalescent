@@ -1,0 +1,24 @@
+import type ArrayHolder, ParsedHolder from ../src/minimal.types
+import empty_holder, parsed_holder from ../src/holder
+
+let fallback = f(): ParsedHolder =>
+    return new ParsedHolder:
+        items: []
+        number: -1
+
+scenario an owned array in a returned record:
+    it should stay empty after a separate allocation:
+        f(): void =>
+            let holder: ArrayHolder = empty_holder()
+            let other: int64[] = [7]
+            expect holder.items.length to be 0
+            expect other.length to be 1
+            return void
+
+    it should keep the caller array live when a later field fails:
+        f(): void =>
+            let items: int64[] = [9]
+            let recovered: ParsedHolder = guard parsed_holder(items, 'invalid') into unexpected else fallback()
+            expect recovered.number to be -1
+            expect items to be [9]
+            return void

@@ -1,0 +1,12 @@
+import empty_holder from ./holder
+import type ArrayHolder from ./minimal.types
+
+##
+  Description: Checks array ownership in an ordinary executable, without a native test build.
+##
+entry main = f(args: string[]): void =>
+    let holder: ArrayHolder = empty_holder()
+    let other: int64[] = [7]
+    let stored_length: int64 = holder.items.length
+    print('stored={stored_length}, other={other.length}')
+    return void

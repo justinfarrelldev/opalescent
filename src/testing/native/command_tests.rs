@@ -239,6 +239,21 @@ fn compiled_array_matchers_compare_typed_elements_lengths_order_and_multiplicity
 }
 
 #[test]
+fn compiled_returned_record_owns_its_array_field() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/record-array-ownership");
+    let output = execute(&[
+        "--root".to_owned(),
+        root.display().to_string(),
+        "--reporter".to_owned(),
+        "json".to_owned(),
+    ])
+    .expect("native record array ownership");
+    assert_eq!(output.exit_code, 0_i32, "{}", output.text);
+    let report: serde_json::Value = serde_json::from_str(&output.text).expect("JSON results");
+    assert_eq!(report["totals"]["passed"], 2_u64);
+}
+
+#[test]
 fn compiled_products_use_field_equality_and_variants_use_nominal_tags() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-products");
     let output = execute(&[

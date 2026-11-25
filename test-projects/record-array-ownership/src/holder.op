@@ -1,0 +1,19 @@
+import string_to_int64 from standard
+import type ArrayHolder, ParsedHolder from ./minimal.types
+
+##
+  Description: Returns a record with its own empty array.
+##
+public let empty_holder = f(): ArrayHolder =>
+    let items: int64[] = []
+    return new ArrayHolder:
+        items: items
+
+##
+  Description: Constructs a record only when the second field parses successfully.
+##
+public let parsed_holder = f(items: int64[], number: string): ParsedHolder errors ParseError =>
+    let holder: ParsedHolder = new ParsedHolder:
+        items: items
+        number: propagate string_to_int64(number)
+    return holder
