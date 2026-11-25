@@ -864,7 +864,9 @@ normal-application executable descriptor, synchronous POSIX PTY process drivers,
 and `attach_text(mutable ref context, name, text)` diagnostics. These imports are
 rejected in production modules. World cleanup is explicit; none of these helpers
 implements leak protection or resource discovery. See the [native testing guide](docs/native-testing.md)
-for checked signatures, lifecycle, platform limits and runnable examples.
+for test syntax and runnable examples, and the companion references for
+[workspace operations](docs/native-testing-workspaces.md), [PTY operations](docs/native-testing-terminal.md),
+and [attachments](docs/native-testing-reports.md).
 
 ## Planned standard-library areas
 

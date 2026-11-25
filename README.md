@@ -137,6 +137,24 @@ public let next_generation = f(board: int8[], width: int64, height: int64): int8
     return next_board
 ```
 
+## Testing Opalescent code
+
+Opalescent has a built-in test runner. Write tests in `tests/**/*.test.op` using
+`scenario` and `it should` to describe behavior and `expect` to assert typed
+values. The runner compiles the tests to native code and runs each case in a
+fresh process, in parallel by default. No Rust test harness is needed to run
+Opalescent tests.
+
+```bash
+./target/release/opalescent test --root test-projects/native-testing-basic --list
+./target/release/opalescent test --root test-projects/native-testing-basic
+```
+
+The [testing guide](docs/native-testing.md) covers test syntax, per-attempt
+Worlds with `setup` and `cleanup`, named examples, hooks, typed doubles, and
+CLI reports. It also links to the test-only `standard.testing` helpers for
+workspaces, diagnostic attachments, and testing a real terminal application.
+
 ## Project status
 
 Opalescent is early software. **Memory bugs and general instability are to be expected**. Many pieces work end-to-end, but the language and library are still changing. The checklist below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
@@ -167,6 +185,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Standard-library I/O, string, bytes, filesystem, terminal, stdout-writer, time/frame-clock, and process symbols
 - [x] Dedicated `Bytes` values with hex conversion, concatenation, slicing, and `.length`
 - [x] Native compilation, `opal run`, `opal check`, `opal build`, `opal fmt`, `opal doc`, `opal test`, `opal bench`, `opal watch`, and `opal lsp --stdio`
+- [x] [Compiled native tests](docs/native-testing.md) with scenarios, Worlds, named examples, typed assertions and doubles, and text/JSON/JUnit reports
 - [x] Linux native builds and Windows MSVC target support through the documented cross-compilation path
 - [x] VS Code syntax highlighting and LSP wiring under `vscode-extension/`
 
@@ -188,7 +207,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)
-- [x] Compiled native testing: scenarios, nominal Worlds, named examples, typed assertions/doubles, parallel fresh workers, reports and production-binary PTY tests ([guide](docs/native-testing.md)). Snapshot/property-testing DSLs remain deferred.
+- [ ] Snapshot- and property-testing DSLs
 - [ ] Final memory-model design beyond the current reference-counted runtime (`memory-model-proposals/`)
 - [ ] Final public package registry and publishing flow
 
@@ -303,7 +322,7 @@ Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must 
 | `opal build` | working | Build the current `opal.toml` project. |
 | `opal fmt [--check] [--config <path>] [--output <path>] <file>` / `opal fmt --project [path] [--check] [--config <path>]` | working, but not perfect | Format one Opalescent source file or every `.op` file in a project. Needs additional work done in the future. |
 | `opal doc <file.op>` | working | Generate Markdown documentation from doc comments. |
-| `opal test [--root <project>] [--filter <pattern>] [--target <triple>]` | implemented | Discovers/checks native tests, runs fresh workers in parallel, and emits text/JSON/JUnit reports. Host execution; see the [testing guide](docs/native-testing.md). |
+| `opal test [options]` | working | Check, list, or run native Opalescent tests on the host. See [test options and reports](docs/native-testing.md#cli-scheduling-and-reports). |
 | `opal bench` | stub | Runs two hard-coded micro-benchmarks (`parse` and `typecheck` on `"let x = 1"`); project-level benchmark discovery is not implemented. |
 | `opal watch <file.op>` | working | Recompile and run when a source file changes. |
 | `opal lsp --stdio` | stub | Creates the LSP server instance and prints a startup message, but no stdio message loop is wired up; the server cannot respond to editor requests. |
@@ -339,6 +358,7 @@ Top-level Markdown files are intended to answer different questions:
 | [README.md](README.md) | Project overview, status, requirements, build/run commands, and the feature checklist. |
 | [OPALESCENT_CRASH_COURSE.md](OPALESCENT_CRASH_COURSE.md) | Beginner-friendly language tutorial, local `opal` alias setup, and common language footguns. |
 | [STDLIB.md](STDLIB.md) | User-facing standard-library reference with function behavior, signatures, and error notes. Includes notes on the `exit_process` `void` now / `never` later footgun. |
+| [Testing guide](docs/native-testing.md) | Write and run Opalescent tests; reference for test syntax, Worlds, assertions, doubles, and runner options. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, architecture map, testing strategy, documentation rules, and PR checklist. |
 | [ARRAY_FEATURES.md](ARRAY_FEATURES.md) | Notes on implemented array behavior and array-related language/runtime support. |
 | [ERROR_HANDLING_STANDARDS.md](ERROR_HANDLING_STANDARDS.md) | Error-handling design expectations and implementation standards. |

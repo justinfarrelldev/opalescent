@@ -674,6 +674,11 @@ opal fmt --check src/main.op
 opal fmt --project --check
 ```
 
+To test behavior rather than just check a source file, write scenarios in
+`tests/**/*.test.op` and run `opal test` from the project root. Start with the
+[Opalescent testing guide](docs/native-testing.md); it covers `expect`, Worlds,
+and running individual cases.
+
 ## 25. Common footguns
 
 - Use an `opal` alias locally; the built binary is `opalescent`.

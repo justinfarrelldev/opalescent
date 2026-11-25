@@ -187,7 +187,7 @@ native executable <-------------------------------------------------------'
 - `runtime/*.c` implements helpers used by generated programs: printing, parsing, bytes, strings, filesystem operations, reference counting, errors, and terminal/time helpers. `RuntimeTempFile` materializes the embedded runtime for native linking.
 - `src/runtime/terminal/` owns the selected `typed-event-session` runtime model, lifecycle, platform backend contracts, fake test backend, output trust boundary, and chord router. Keep historical terminal alternatives out of this surface unless the proposal process explicitly selects a new version. Windows process-control remains an unsupported-host contract, not a terminal event.
 - `src/build_system/targets.rs` describes target triples and file naming; `src/build_system/linker.rs` chooses and configures platform linkers. `link_object_files_with_policy` ties those pieces to the emitted object files.
-- `src/formatter/`, `src/doc_gen/`, `src/lsp/`, and `src/testing/` are sibling tooling paths. They reuse lexer/parser/type information where needed, but they do not all run the full native-code pipeline.
+- `src/formatter/`, `src/doc_gen/`, and `src/lsp/` reuse lexer/parser/type information without building binaries. `src/testing/native/` checks Opalescent suites and drives native worker compilation and execution.
 
 ### Standard-library hand-off
 
@@ -209,10 +209,9 @@ opal check: source -> lexer -> parser -> module role validation -> type_system
 opal fmt:   source -> formatter parser/printer path -> formatted source
 opal doc:   source -> lexer -> parser -> doc_gen Markdown renderer
 opal lsp:   editor transport -> lsp server modules -> parser/type information over time
-opal test:  project test runner, not the Rust `cargo test` harness
 ```
 
-These commands share pieces with compilation, but they intentionally stop before codegen or linking.
+These commands share pieces with compilation, but they intentionally stop before codegen or linking. `opal test --list` also checks without building; `opal test` without `--list` compiles and runs native workers.
 
 ## Where to make changes
 
@@ -236,7 +235,7 @@ When a feature crosses layers, update the layers together. A new standard-librar
 
 ## Test strategy
 
-Run the narrowest useful test first, then widen the gate.
+Run the narrowest useful test first, then widen the gate. Use `cargo test` for the compiler and runtime's Rust test suite. Use `opal test` to run scenarios written in Opalescent; see the [testing guide](docs/native-testing.md) for authoring and running them.
 
 ```bash
 cargo test
