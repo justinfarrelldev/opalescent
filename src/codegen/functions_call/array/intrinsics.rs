@@ -33,6 +33,53 @@ use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue,
 };
 
+/// Instrument inline source callbacks using the same capture lifting as direct invocation.
+fn resolve_callback<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    expr: &Expr,
+) -> Result<(FunctionValue<'ctx>, Vec<String>), CodegenError> {
+    if let Expr::Identifier { ref name, .. } = *expr {
+        if env.native_double_calls.contains_key(name) && !env.variables.contains_key(name) {
+            return Err(CodegenError::new(
+                "indirect interception of a doubled source import is unsupported",
+            ));
+        }
+    }
+    let captures = if let Expr::Lambda {
+        ref captured_variables,
+        ..
+    } = *expr
+    {
+        if crate::codegen::native_callable::active(ctx) {
+            let (function, _, captures) = crate::codegen::native_callable::lift(ctx, env, expr)?;
+            return Ok((function, captures));
+        }
+        captured_variables.clone()
+    } else {
+        Vec::new()
+    };
+    Ok((resolve_callee_function(ctx, env, expr, None)?, captures))
+}
+
+/// Append the lexical values matching the lifted callback parameter order.
+fn append_captures<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &CodegenEnv<'ctx>,
+    captures: &[String],
+    args: &mut Vec<BasicMetadataValueEnum<'ctx>>,
+) -> Result<(), CodegenError> {
+    for capture in captures {
+        let binding = env.variables.get(capture).ok_or_else(|| {
+            CodegenError::new(format!(
+                "array callback capture '{capture}' not found in scope"
+            ))
+        })?;
+        args.push(ctx.builder.build_load(binding.alloca, capture)?.into());
+    }
+    Ok(())
+}
+
 /// Compiler-driven higher-order operations must test abort before loading a callback value.
 fn invoke_callback<'ctx>(
     ctx: &CodegenContext<'ctx>,
@@ -1418,7 +1465,7 @@ fn codegen_array_map_call<'context>(
         .clone();
 
     let insertion_block = codegen_context.builder.get_insert_block();
-    let callback_function = resolve_callee_function(codegen_context, env, &args[0], None)?;
+    let (callback_function, captures) = resolve_callback(codegen_context, env, &args[0])?;
     if let Some(block) = insertion_block {
         codegen_context.builder.position_at_end(block);
     }
@@ -1505,23 +1552,7 @@ fn codegen_array_map_call<'context>(
         .builder
         .build_load(source_slot, &env.next_name("map.value"))?;
     let mut callback_args: Vec<BasicMetadataValueEnum<'context>> = vec![source_value.into()];
-    if let Expr::Lambda {
-        ref captured_variables,
-        ..
-    } = args[0]
-    {
-        for capture in captured_variables {
-            let Some(binding) = env.variables.get(capture.as_str()) else {
-                return Err(CodegenError::new(format!(
-                    "map callback capture '{capture}' not found in scope"
-                )));
-            };
-            let captured_value = codegen_context
-                .builder
-                .build_load(binding.alloca, capture.as_str())?;
-            callback_args.push(captured_value.into());
-        }
-    }
+    append_captures(codegen_context, env, &captures, &mut callback_args)?;
     let mapped_value = invoke_callback(
         codegen_context,
         env,
@@ -1608,7 +1639,7 @@ fn codegen_array_filter_call<'context>(
         .clone();
 
     let insertion_block = codegen_context.builder.get_insert_block();
-    let callback_function = resolve_callee_function(codegen_context, env, &args[0], None)?;
+    let (callback_function, captures) = resolve_callback(codegen_context, env, &args[0])?;
     if let Some(block) = insertion_block {
         codegen_context.builder.position_at_end(block);
     }
@@ -1710,23 +1741,7 @@ fn codegen_array_filter_call<'context>(
         .builder
         .build_load(source_slot, &env.next_name("filter.value"))?;
     let mut callback_args: Vec<BasicMetadataValueEnum<'context>> = vec![source_value.into()];
-    if let Expr::Lambda {
-        ref captured_variables,
-        ..
-    } = args[0]
-    {
-        for capture in captured_variables {
-            let Some(binding) = env.variables.get(capture.as_str()) else {
-                return Err(CodegenError::new(format!(
-                    "filter callback capture '{capture}' not found in scope"
-                )));
-            };
-            let captured_value = codegen_context
-                .builder
-                .build_load(binding.alloca, capture.as_str())?;
-            callback_args.push(captured_value.into());
-        }
-    }
+    append_captures(codegen_context, env, &captures, &mut callback_args)?;
     let predicate_value = invoke_callback(
         codegen_context,
         env,
@@ -1858,7 +1873,7 @@ fn codegen_array_reduce_call<'context>(
         .clone();
 
     let insertion_block = codegen_context.builder.get_insert_block();
-    let callback_function = resolve_callee_function(codegen_context, env, &args[1], None)?;
+    let (callback_function, captures) = resolve_callback(codegen_context, env, &args[1])?;
     if let Some(block) = insertion_block {
         codegen_context.builder.position_at_end(block);
     }
@@ -1943,23 +1958,7 @@ fn codegen_array_reduce_call<'context>(
         .build_load(source_slot, &env.next_name("reduce.value"))?;
     let mut callback_args: Vec<BasicMetadataValueEnum<'context>> =
         vec![accumulator_value.into(), source_value.into()];
-    if let Expr::Lambda {
-        ref captured_variables,
-        ..
-    } = args[1]
-    {
-        for capture in captured_variables {
-            let Some(binding) = env.variables.get(capture.as_str()) else {
-                return Err(CodegenError::new(format!(
-                    "reduce callback capture '{capture}' not found in scope"
-                )));
-            };
-            let captured_value = codegen_context
-                .builder
-                .build_load(binding.alloca, capture.as_str())?;
-            callback_args.push(captured_value.into());
-        }
-    }
+    append_captures(codegen_context, env, &captures, &mut callback_args)?;
     let next_accumulator = invoke_callback(
         codegen_context,
         env,

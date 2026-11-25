@@ -166,47 +166,15 @@ pub(super) fn immediate<'ctx>(
     args: &[Expr],
     expected: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'ctx>, CodegenError> {
-    use crate::ast::{BorrowKind, NodeId, Parameter};
-    let Expr::Lambda {
-        ref params,
-        ref body,
-        ref captured_variables,
-        span,
-        ..
-    } = *expr
-    else {
-        return Err(CodegenError::new("expected source lambda"));
-    };
-    let mut signature = signature(env, expr)?;
-    let CoreType::Function {
-        ref mut parameters, ..
-    } = signature
-    else {
-        return Err(CodegenError::new("missing lambda signature"));
-    };
-    let mut lifted = params.clone();
+    use crate::ast::{AstNode, NodeId};
+    let (function, signature, captures) = lift(ctx, env, expr)?;
+    let span = expr.span();
     let mut inputs = args.to_vec();
-    for name in captured_variables {
-        let Some(binding) = env.variables.get(name) else {
-            continue;
-        };
-        parameters.push(binding.core_type.clone());
-        lifted.push(Parameter {
-            name: name.clone(),
-            param_type: Type::Basic {
-                name: "void".to_owned(),
-                span,
-            },
-            borrow_kind: BorrowKind::Owned,
-            span,
-        });
-        inputs.push(Expr::Identifier {
-            name: name.clone(),
-            span,
-            id: NodeId(0),
-        });
-    }
-    let function = emit_lambda(ctx, env, &lifted, &signature, body, span)?;
+    inputs.extend(captures.into_iter().map(|name| Expr::Identifier {
+        name,
+        span,
+        id: NodeId(0),
+    }));
     let alias = env.next_name("__native_immediate_lambda");
     env.imported_functions.insert(
         alias.clone(),
@@ -225,6 +193,52 @@ pub(super) fn immediate<'ctx>(
         &inputs,
         expected,
     )
+}
+
+/// Compiles a non-escaping lambda with an explicit owned argument for each lexical capture.
+pub(super) fn lift<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    expr: &Expr,
+) -> Result<(inkwell::values::FunctionValue<'ctx>, CoreType, Vec<String>), CodegenError> {
+    use crate::ast::{BorrowKind, Parameter};
+    let Expr::Lambda {
+        ref params,
+        ref body,
+        ref captured_variables,
+        span,
+        ..
+    } = *expr
+    else {
+        return Err(CodegenError::new("expected source lambda"));
+    };
+    let mut signature = signature(env, expr)?;
+    let CoreType::Function {
+        ref mut parameters, ..
+    } = signature
+    else {
+        return Err(CodegenError::new("missing lambda signature"));
+    };
+    let mut lifted = params.clone();
+    let mut captures = Vec::new();
+    for name in captured_variables {
+        let Some(binding) = env.variables.get(name) else {
+            continue;
+        };
+        parameters.push(binding.core_type.clone());
+        lifted.push(Parameter {
+            name: name.clone(),
+            param_type: Type::Basic {
+                name: "void".to_owned(),
+                span,
+            },
+            borrow_kind: BorrowKind::Owned,
+            span,
+        });
+        captures.push(name.clone());
+    }
+    let function = emit_lambda(ctx, env, &lifted, &signature, body, span)?;
+    Ok((function, signature, captures))
 }
 
 /// Emit a typed body and restore the caller insertion point even on failure.

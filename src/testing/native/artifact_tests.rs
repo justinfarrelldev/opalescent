@@ -143,7 +143,7 @@ fn native_test_workers_execute_local_lambdas_and_returned_source_functions() {
 fn native_array_callbacks_preserve_completed_values_and_assertion_aborts() {
     let root = tempfile::tempdir().expect("project");
     std::fs::create_dir_all(root.path().join("tests")).expect("tests");
-    std::fs::write(root.path().join("tests/arrays.test.op"),"let twice = f(value: int64): int64 =>\n    return value + value\nlet fails = f(value: int64): int64 =>\n    expect false to be true\n    return value\nlet keep = f(value: string): boolean =>\n    expect value not to be 'fail'\n    return true\nscenario source array callbacks:\n    it should map typed values: f(): void =>\n        let input: int64[] = [1, 2]\n        expect input.map(twice) to contain exactly [2, 4] in order\n        let words: string[] = ['café', 'été']\n        expect words.filter(keep) to be ['café', 'été']\n        expect words to be ['café', 'été']\n        return void\n    it should abort rather than store an application payload: f(): void =>\n        let input: int64[] = [1]\n        expect input.map(fails) to be [1]\n        return void\n    it should abort after keeping a managed element: f(): void =>\n        let words: string[] = ['café', 'fail']\n        expect words.filter(keep) to be ['café']\n        return void\n").expect("source");
+    std::fs::write(root.path().join("tests/arrays.test.op"),"let twice = f(value: int64): int64 =>\n    return value + value\nlet fails = f(value: int64): int64 =>\n    expect false to be true\n    return value\nlet keep = f(value: string): boolean =>\n    expect value not to be 'fail'\n    return true\nscenario source array callbacks:\n    it should map typed values: f(): void =>\n        let input: int64[] = [1, 2]\n        expect input.map(twice) to contain exactly [2, 4] in order\n        let multiplier = 3\n        expect input.map(f(value: int64): int64 => value * multiplier) to be [3, 6]\n        expect input.filter(f(value: int64): boolean => value < multiplier) to be [1, 2]\n        expect input.reduce(0, f(acc: int64, value: int64): int64 => acc + value * multiplier) to be 9\n        let words: string[] = ['café', 'été']\n        expect words.filter(keep) to be ['café', 'été']\n        expect words to be ['café', 'été']\n        return void\n    it should abort rather than store an application payload: f(): void =>\n        let input: int64[] = [1]\n        expect input.map(fails) to be [1]\n        return void\n    it should abort inside an inline array callback: f(): void =>\n        let input: int64[] = [1]\n        let threshold = 2\n        let result = input.map(f(value: int64): int64 =>\n            expect value to be threshold\n            return value\n        )\n        expect result to be [1]\n        return void\n    it should abort after keeping a managed element: f(): void =>\n        let words: string[] = ['café', 'fail']\n        expect words.filter(keep) to be ['café']\n        return void\n").expect("source");
     let project = NativeTestProject::load(root.path(), &[root.path().join("tests/arrays.test.op")])
         .expect("project");
     let checked = check_project(&project).expect("checked");
@@ -163,7 +163,7 @@ fn native_array_callbacks_preserve_completed_values_and_assertion_aborts() {
         .expect("run");
     assert_eq!(result.exit_code, 1_i32, "{}", result.text);
     assert!(
-        result.text.contains("1 passed, 0 flaky, 2 failed"),
+        result.text.contains("1 passed, 0 flaky, 3 failed"),
         "{}",
         result.text
     );

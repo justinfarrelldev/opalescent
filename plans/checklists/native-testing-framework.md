@@ -258,6 +258,8 @@ Specification: `TESTING_FRAMEWORK.md` (all normative sections and acceptance tes
 - [x] Array callback outcome fix committed as `8cfa527`; unchanged pre-commit gates passed.
 - [x] JUnit RED/GREEN: XML now preserves a canonical case record for every case, including successful attempt metrics and attachments. An XML/JSON parse regression verifies successful diagnostics and XML-sensitive text round-trip.
 - [x] Partial array callback results use ordinary lexical cleanup on test abort. Map/filter publish only the initialized prefix for dropping, and normal completion transfers the result unchanged. The linked regression checks an abort after filter keeps a UTF-8 element; the IR regression checks partial map ownership on the abort path.
+- [x] Partial array cleanup committed as `ba56587`; unchanged pre-commit gates passed.
+- [x] Inline array callback RED/GREEN: map/filter/reduce now compile non-escaping lambdas using shared lexical capture lifting and the native outcome ABI. The linked fixture exercises captures in all three intrinsics and assertion abort from inside inline map.
 - [ ] Audit escaping closure values, generic specialization typing and remaining unsupported-boundary diagnostics.
 - [ ] Final requirement-by-requirement conformance audit and thorough overall maintainability/safety review; verify every phase/Section 20/Section 22 item before completion.
 - [ ] Complete remaining support libraries/reports/editor acceptance, target/profile integration and final specification audit, including complete matcher/negative-count/boundary matrices; no full phase is marked complete merely by these increments.
