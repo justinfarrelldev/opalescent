@@ -1341,6 +1341,44 @@ fn release_array_live_elements_if_needed<'context>(
     Ok(())
 }
 
+/// Give an unpublished array result an ordinary lexical owner during a fallible callback loop.
+fn protect_partial_result<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    operation: &str,
+    callback: FunctionValue<'ctx>,
+    array: PointerValue<'ctx>,
+    element: &CoreType,
+) -> Result<bool, CodegenError> {
+    if ctx.native_function_outcome(callback).is_none() {
+        return Ok(false);
+    }
+    let _scope = env.enter_scope();
+    let name = env.next_name(&format!("{operation}.partial.owner"));
+    let slot =
+        crate::codegen::native_assertion_storage::entry_slot(ctx, array.get_type().into(), &name)?;
+    env.variables.insert(
+        name.clone(),
+        crate::codegen::expressions::VariableBinding {
+            alloca: slot,
+            core_type: CoreType::Array(Box::new(element.clone())),
+            length: None,
+            capacity: None,
+            is_mutable: false,
+        },
+    );
+    env.register_scope_binding(&name);
+    crate::codegen::binding_store::initialize_binding_value(
+        ctx,
+        env,
+        &name,
+        array.into(),
+        "partial array result",
+        false,
+    )?;
+    Ok(true)
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "map lowering keeps callback invocation and output write loop together"
@@ -1408,6 +1446,14 @@ fn codegen_array_map_call<'context>(
         "map",
         &output_element_core_type,
         length_value,
+    )?;
+    let protected = protect_partial_result(
+        codegen_context,
+        env,
+        "map",
+        callback_function,
+        result_array,
+        &output_element_core_type,
     )?;
     let current_function = current_function(codegen_context)?;
     let loop_block = codegen_context
@@ -1499,6 +1545,15 @@ fn codegen_array_map_call<'context>(
         codegen_context.context.i64_type().const_int(1, false),
         &env.next_name("map.next"),
     )?;
+    if protected {
+        set_array_payload_length(
+            codegen_context,
+            env,
+            result_array,
+            next_index,
+            "map.partial",
+        )?;
+    }
     codegen_context
         .builder
         .build_store(index_alloca, next_index)?;
@@ -1508,6 +1563,9 @@ fn codegen_array_map_call<'context>(
 
     codegen_context.builder.position_at_end(exit_block);
     set_array_payload_length(codegen_context, env, result_array, length_value, "map")?;
+    if protected {
+        crate::codegen::statements::unwind_scope_without_cleanup(env);
+    }
     Ok(result_array.as_basic_value_enum())
 }
 
@@ -1596,6 +1654,14 @@ fn codegen_array_filter_call<'context>(
         "filter",
         &input_element_core_type,
         length_value,
+    )?;
+    let protected = protect_partial_result(
+        codegen_context,
+        env,
+        "filter",
+        callback_function,
+        result_array,
+        &input_element_core_type,
     )?;
     let loop_block = codegen_context
         .context
@@ -1695,6 +1761,15 @@ fn codegen_array_filter_call<'context>(
             &env.next_name("filter.dst"),
         )?
     };
+    if protected {
+        retain_rc_element_if_needed(
+            codegen_context,
+            env,
+            &input_element_core_type,
+            source_value,
+            "filter.partial",
+        )?;
+    }
     codegen_context
         .builder
         .build_store(destination_slot, source_value)?;
@@ -1703,6 +1778,15 @@ fn codegen_array_filter_call<'context>(
         codegen_context.context.i64_type().const_int(1, false),
         &env.next_name("filter.write_index.next"),
     )?;
+    if protected {
+        set_array_payload_length(
+            codegen_context,
+            env,
+            result_array,
+            next_write_index,
+            "filter.partial",
+        )?;
+    }
     codegen_context
         .builder
         .build_store(write_index_alloca, next_write_index)?;
@@ -1729,6 +1813,9 @@ fn codegen_array_filter_call<'context>(
         .build_load(write_index_alloca, &env.next_name("filter.length.final"))?
         .into_int_value();
     set_array_payload_length(codegen_context, env, result_array, final_length, "filter")?;
+    if protected {
+        crate::codegen::statements::unwind_scope_without_cleanup(env);
+    }
     Ok(result_array.as_basic_value_enum())
 }
 

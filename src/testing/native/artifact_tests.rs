@@ -143,12 +143,27 @@ fn native_test_workers_execute_local_lambdas_and_returned_source_functions() {
 fn native_array_callbacks_preserve_completed_values_and_assertion_aborts() {
     let root = tempfile::tempdir().expect("project");
     std::fs::create_dir_all(root.path().join("tests")).expect("tests");
-    std::fs::write(root.path().join("tests/arrays.test.op"),"let twice = f(value: int64): int64 =>\n    return value + value\nlet fails = f(value: int64): int64 =>\n    expect false to be true\n    return value\nscenario source array callbacks:\n    it should map typed values: f(): void =>\n        let input: int64[] = [1, 2]\n        expect input.map(twice) to contain exactly [2, 4] in order\n        return void\n    it should abort rather than store an application payload: f(): void =>\n        let input: int64[] = [1]\n        expect input.map(fails) to be [1]\n        return void\n").expect("source");
+    std::fs::write(root.path().join("tests/arrays.test.op"),"let twice = f(value: int64): int64 =>\n    return value + value\nlet fails = f(value: int64): int64 =>\n    expect false to be true\n    return value\nlet keep = f(value: string): boolean =>\n    expect value not to be 'fail'\n    return true\nscenario source array callbacks:\n    it should map typed values: f(): void =>\n        let input: int64[] = [1, 2]\n        expect input.map(twice) to contain exactly [2, 4] in order\n        let words: string[] = ['café', 'été']\n        expect words.filter(keep) to be ['café', 'été']\n        expect words to be ['café', 'été']\n        return void\n    it should abort rather than store an application payload: f(): void =>\n        let input: int64[] = [1]\n        expect input.map(fails) to be [1]\n        return void\n    it should abort after keeping a managed element: f(): void =>\n        let words: string[] = ['café', 'fail']\n        expect words.filter(keep) to be ['café']\n        return void\n").expect("source");
+    let project = NativeTestProject::load(root.path(), &[root.path().join("tests/arrays.test.op")])
+        .expect("project");
+    let checked = check_project(&project).expect("checked");
+    let llvm = inkwell::context::Context::create();
+    let ctx = crate::codegen::context::CodegenContext::new(&llvm, "array_abort_cleanup");
+    crate::codegen::native_project::emit_checked_project(&ctx, &project, &checked)
+        .expect("LLVM suite");
+    let ir = ctx.module.print_to_string().to_string();
+    assert!(
+        ir.lines()
+            .filter(|line| line.contains("load") && line.contains("map.partial.owner"))
+            .count()
+            >= 2,
+        "each map callback abort must release its partial result"
+    );
     let result = super::command::execute(&["--root".to_owned(), root.path().display().to_string()])
         .expect("run");
     assert_eq!(result.exit_code, 1_i32, "{}", result.text);
     assert!(
-        result.text.contains("1 passed, 0 flaky, 1 failed"),
+        result.text.contains("1 passed, 0 flaky, 2 failed"),
         "{}",
         result.text
     );
