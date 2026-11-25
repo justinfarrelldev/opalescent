@@ -123,6 +123,23 @@ fn foreign_function_parameters_are_rejected_before_executing_native_workers() {
 }
 
 #[test]
+fn native_test_workers_execute_local_lambdas_and_returned_source_functions() {
+    use super::command::execute;
+    let project = tempfile::tempdir().expect("project");
+    std::fs::create_dir_all(project.path().join("tests")).expect("test root");
+    std::fs::write(project.path().join("tests/lambda.test.op"),"let plus_one = f(value: int64): int64 =>\n    return value + 1\nlet select = f(): f(int64): int64 =>\n    return plus_one\nscenario callable values:\n    it should call local and returned functions: f(): void =>\n        let local = f(value: int64): int64 =>\n            return value + 2\n        expect local(40) to be 42\n        let chosen = select()\n        expect chosen(41) to be 42\n        let alias = plus_one\n        expect alias(41) to be 42\n        expect (f(value: int64): int64 => value + 1)(41) to be 42\n        return void\n    it should retain an assertion from a local function: f(): void =>\n        let local = f(): int64 =>\n            expect false to be true\n            return 1\n        expect local() to be 1\n        return void\n").expect("source");
+    let result =
+        execute(&["--root".to_owned(), project.path().display().to_string()]).expect("run command");
+    assert_eq!(result.exit_code, 1_i32, "{}", result.text);
+    assert!(
+        result.text.contains("1 passed, 0 flaky, 1 failed"),
+        "{}",
+        result.text
+    );
+    assert!(result.text.contains("assertion_failed:"), "{}", result.text);
+}
+
+#[test]
 fn built_worker_selects_independent_examples_from_one_native_executable() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let project =

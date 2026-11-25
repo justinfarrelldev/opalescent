@@ -33,32 +33,44 @@ pub(super) fn lower<'ctx>(
     let Some(binding) = env.variables.get(name).cloned() else {
         return Ok(None);
     };
-    let CoreType::Function {
-        parameters,
-        return_types,
-        error_types,
-        ..
-    } = binding.core_type
-    else {
-        return Ok(None);
-    };
-    let caller = ctx
-        .builder
-        .get_insert_block()
-        .and_then(inkwell::basic_block::BasicBlock::get_parent);
-    if !caller.is_some_and(|function| ctx.native_function_outcome(function).is_some()) {
+    if !matches!(binding.core_type, CoreType::Function { .. })
+        || !crate::codegen::native_callable::active(ctx)
+    {
         return Ok(None);
     }
+    let pointer = ctx
+        .builder
+        .build_load(binding.alloca, "source.callback")?
+        .into_pointer_value();
+    invoke(ctx, env, callee, &binding.core_type, pointer, args).map(Some)
+}
+
+/// Call an evaluated source callable, without retaining its lexical storage address.
+pub(super) fn invoke<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    callee: &Expr,
+    signature: &CoreType,
+    pointer: inkwell::values::PointerValue<'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, CodegenError> {
+    let CoreType::Function {
+        ref parameters,
+        ref return_types,
+        ref error_types,
+        ..
+    } = *signature
+    else {
+        return Err(CodegenError::new(
+            "indirect source call requires a function signature",
+        ));
+    };
     if args.len() != parameters.len() {
         return Err(CodegenError::new(
             "typed source callback argument count mismatch",
         ));
     }
-    let (function_type, outcome) = abi(ctx, &parameters, &return_types, &error_types)?;
-    let pointer = ctx
-        .builder
-        .build_load(binding.alloca, "source.callback")?
-        .into_pointer_value();
+    let (function_type, outcome) = abi(ctx, parameters, return_types, error_types)?;
     let typed = ctx.builder.build_pointer_cast(
         pointer,
         function_type.ptr_type(AddressSpace::default()),
@@ -70,7 +82,7 @@ pub(super) fn lower<'ctx>(
     let _scope = env.enter_scope();
     let mut cleanup = Vec::new();
     let mut lowered = Vec::new();
-    for (index, (arg, ty)) in args.iter().zip(&parameters).enumerate() {
+    for (index, (arg, ty)) in args.iter().zip(parameters).enumerate() {
         lowered.push(
             lower_native_argument(ctx, env, callee, index, arg, Some(ty), &mut cleanup)?.into(),
         );
@@ -84,5 +96,5 @@ pub(super) fn lower<'ctx>(
         .into_struct_value();
     let completed = unwrap(ctx, env, outcome, value, &cleanup)?;
     super::super::call_arg_cleanup::cleanup_call_argument_temporaries(ctx, env, depth, &cleanup)?;
-    Ok(Some(completed))
+    Ok(completed)
 }

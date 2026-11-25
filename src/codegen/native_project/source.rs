@@ -374,7 +374,7 @@ fn requires_imported_signature(
 }
 
 /// Preserve original expression nodes and spans; synthesize only a return container.
-pub(super) fn lambda_body(body: &LambdaBody, span: crate::token::Span) -> Stmt {
+pub(in crate::codegen) fn lambda_body(body: &LambdaBody, span: crate::token::Span) -> Stmt {
     match *body {
         LambdaBody::Block(ref statements) => Stmt::Block {
             statements: statements.clone(),

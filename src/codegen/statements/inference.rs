@@ -69,6 +69,9 @@ pub(super) fn infer_core_type_from_expr<'context>(
             },
         ),
         Expr::StringInterpolation { .. } => CoreType::String,
+        Expr::Lambda { .. } if crate::codegen::native_callable::active(codegen_context) => {
+            crate::codegen::native_callable::signature(env, expr).unwrap_or(CoreType::Int64)
+        }
         Expr::Call {
             ref callee,
             ref args,
@@ -101,7 +104,17 @@ pub(super) fn infer_core_type_from_expr<'context>(
         Expr::Identifier { ref name, .. } => env
             .variables
             .get(name)
-            .map_or(CoreType::Int64, |binding| binding.core_type.clone()),
+            .map(|binding| binding.core_type.clone())
+            .or_else(|| {
+                if !crate::codegen::native_callable::active(codegen_context) {
+                    return None;
+                }
+                env.value_accessors
+                    .get(name)
+                    .map(|binding| binding.core_type.clone())
+                    .or_else(|| env.imported_signatures.get(name).cloned())
+            })
+            .unwrap_or(CoreType::Int64),
         Expr::Member {
             ref object,
             ref member,

@@ -123,10 +123,18 @@ pub fn codegen_expression<'context>(
             codegen_literal(codegen_context, env, value, expected_type)
         }
         Expr::Identifier { ref name, .. } => {
+            if let Some(value) =
+                crate::codegen::native_callable::named(codegen_context, env, name, expected_type)?
+            {
+                return Ok(value);
+            }
             codegen_identifier(codegen_context, env, name, expected_type)
         }
         Expr::Parenthesized { ref expr, .. } => {
             codegen_expression(codegen_context, env, expr, expected_type)
+        }
+        Expr::Lambda { .. } if crate::codegen::native_callable::active(codegen_context) => {
+            crate::codegen::native_callable::lambda(codegen_context, env, expr)
         }
         Expr::BorrowArgument { ref target, .. } => {
             codegen_expression(codegen_context, env, target.as_ref(), expected_type)

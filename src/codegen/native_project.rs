@@ -2,7 +2,7 @@
 extern crate alloc;
 mod cases;
 mod module_values;
-mod source;
+pub(super) mod source;
 use super::context::CodegenContext;
 use super::error::CodegenError;
 use crate::ast::{AstNode, Expr};

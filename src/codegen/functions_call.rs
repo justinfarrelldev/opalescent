@@ -39,7 +39,7 @@ mod error_propagation;
 #[doc = "Helper utilities for call-expression lowering internals."]
 mod functions_call_helpers;
 #[path = "functions_call/native.rs"]
-mod native;
+pub(super) mod native;
 #[path = "functions_call/string_array_calls.rs"]
 mod string_array_calls;
 #[path = "functions_call/tail.rs"]

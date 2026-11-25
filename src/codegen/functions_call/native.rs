@@ -11,7 +11,7 @@ use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, StructValue,
 };
 #[path = "native_indirect.rs"]
-mod indirect;
+pub(in crate::codegen) mod indirect;
 
 /// Resolve edge interception and concrete generic calls before ordinary call lowering.
 pub(super) fn redirect<'ctx>(
@@ -22,6 +22,18 @@ pub(super) fn redirect<'ctx>(
     args: &[Expr],
     expected: Option<&CoreType>,
 ) -> Result<Option<BasicValueEnum<'ctx>>, CodegenError> {
+    if crate::codegen::native_callable::active(ctx) {
+        let mut target = callee;
+        while let Expr::Parenthesized { ref expr, .. } = *target {
+            target = expr;
+        }
+        if matches!(*target, Expr::Lambda { .. }) {
+            let signature = crate::codegen::native_callable::signature(env, target)?;
+            let pointer =
+                crate::codegen::native_callable::lambda(ctx, env, target)?.into_pointer_value();
+            return indirect::invoke(ctx, env, target, &signature, pointer, args).map(Some);
+        }
+    }
     let Expr::Identifier { ref name, span, id } = *callee else {
         return Ok(None);
     };
@@ -69,46 +81,6 @@ pub(super) fn lower_native_argument<'context>(
     expected: Option<&CoreType>,
     cleanup_records: &mut Vec<CallArgCleanupRecord>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    if let Some(
-        signature @ &CoreType::Function {
-            ref parameters,
-            ref return_types,
-            ref error_types,
-            ..
-        },
-    ) = expected
-    {
-        if let Expr::Identifier { ref name, .. } = *argument {
-            if !env.variables.contains_key(name) {
-                if env.native_double_calls.contains_key(name) {
-                    return Err(CodegenError::new(
-                        "indirect interception of a doubled source import is unsupported",
-                    ));
-                }
-                let symbol = env.imported_functions.get(name).unwrap_or(name);
-                let function = codegen.module.get_function(symbol).ok_or_else(|| {
-                    CodegenError::new("callback must name a concrete native source function")
-                })?;
-                let (abi, _) = indirect::abi(codegen, parameters, return_types, error_types)?;
-                if codegen.native_function_outcome(function).is_none() || function.get_type() != abi
-                {
-                    return Err(CodegenError::new(
-                        "foreign or incompatible source callback ABI is unsupported in native tests",
-                    ));
-                }
-                let erased =
-                    super::core_type_to_llvm(codegen.context, signature).into_pointer_type();
-                return Ok(codegen
-                    .builder
-                    .build_pointer_cast(
-                        function.as_global_value().as_pointer_value(),
-                        erased,
-                        "source.callback.value",
-                    )?
-                    .into());
-            }
-        }
-    }
     if let Expr::BorrowArgument { ref target, .. } = *argument {
         if let Expr::Identifier { ref name, .. } = **target {
             return env
