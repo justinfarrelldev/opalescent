@@ -29,7 +29,27 @@ use crate::codegen::string_ownership::emit_string_release;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, PointerValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue,
+};
+
+/// Compiler-driven higher-order operations must test abort before loading a callback value.
+fn invoke_callback<'ctx>(
+    ctx: &CodegenContext<'ctx>,
+    env: &mut CodegenEnv<'ctx>,
+    function: FunctionValue<'ctx>,
+    args: &[BasicMetadataValueEnum<'ctx>],
+    name: &str,
+) -> Result<BasicValueEnum<'ctx>, CodegenError> {
+    if ctx.native_function_outcome(function).is_some() {
+        return super::super::native::lower_native_call(ctx, env, function, args, &[]);
+    }
+    ctx.builder
+        .build_call(function, args, &env.next_name(name))?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new("array callback must return a value"))
+}
 
 pub(super) fn is_array_intrinsic_name(name: &str) -> bool {
     matches!(name, "append" | "array_filled" | "reserve" | "clear")
@@ -1456,16 +1476,13 @@ fn codegen_array_map_call<'context>(
             callback_args.push(captured_value.into());
         }
     }
-    let mapped_value = codegen_context
-        .builder
-        .build_call(
-            callback_function,
-            callback_args.as_slice(),
-            &env.next_name("map.call"),
-        )?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new(String::from("array map callback must return a value")))?;
+    let mapped_value = invoke_callback(
+        codegen_context,
+        env,
+        callback_function,
+        &callback_args,
+        "map.call",
+    )?;
     // SAFETY: destination buffer was allocated for `length_value` slots and the loop index is in bounds.
     let destination_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
@@ -1644,18 +1661,13 @@ fn codegen_array_filter_call<'context>(
             callback_args.push(captured_value.into());
         }
     }
-    let predicate_value = codegen_context
-        .builder
-        .build_call(
-            callback_function,
-            callback_args.as_slice(),
-            &env.next_name("filter.call"),
-        )?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| {
-            CodegenError::new(String::from("array filter predicate must return a value"))
-        })?;
+    let predicate_value = invoke_callback(
+        codegen_context,
+        env,
+        callback_function,
+        &callback_args,
+        "filter.call",
+    )?;
     if !predicate_value.is_int_value() {
         return Err(CodegenError::new(String::from(
             "array filter predicate must lower to a boolean value",
@@ -1861,18 +1873,13 @@ fn codegen_array_reduce_call<'context>(
             callback_args.push(captured_value.into());
         }
     }
-    let next_accumulator = codegen_context
-        .builder
-        .build_call(
-            callback_function,
-            callback_args.as_slice(),
-            &env.next_name("reduce.call"),
-        )?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| {
-            CodegenError::new(String::from("array reduce callback must return a value"))
-        })?;
+    let next_accumulator = invoke_callback(
+        codegen_context,
+        env,
+        callback_function,
+        &callback_args,
+        "reduce.call",
+    )?;
     codegen_context
         .builder
         .build_store(accumulator_alloca, next_accumulator)?;

@@ -140,6 +140,21 @@ fn native_test_workers_execute_local_lambdas_and_returned_source_functions() {
 }
 
 #[test]
+fn native_array_callbacks_preserve_completed_values_and_assertion_aborts() {
+    let root = tempfile::tempdir().expect("project");
+    std::fs::create_dir_all(root.path().join("tests")).expect("tests");
+    std::fs::write(root.path().join("tests/arrays.test.op"),"let twice = f(value: int64): int64 =>\n    return value + value\nlet fails = f(value: int64): int64 =>\n    expect false to be true\n    return value\nscenario source array callbacks:\n    it should map typed values: f(): void =>\n        let input: int64[] = [1, 2]\n        expect input.map(twice) to contain exactly [2, 4] in order\n        return void\n    it should abort rather than store an application payload: f(): void =>\n        let input: int64[] = [1]\n        expect input.map(fails) to be [1]\n        return void\n").expect("source");
+    let result = super::command::execute(&["--root".to_owned(), root.path().display().to_string()])
+        .expect("run");
+    assert_eq!(result.exit_code, 1_i32, "{}", result.text);
+    assert!(
+        result.text.contains("1 passed, 0 flaky, 1 failed"),
+        "{}",
+        result.text
+    );
+}
+
+#[test]
 fn built_worker_selects_independent_examples_from_one_native_executable() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/native-testing-basic");
     let project =

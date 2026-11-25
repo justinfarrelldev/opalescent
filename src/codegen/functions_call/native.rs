@@ -105,7 +105,7 @@ pub(super) fn lower_native_argument<'context>(
 
 /// Existing source ownership scopes exit on the abort edge. This is not an
 /// external-resource registry: only already-declared lexical cleanups execute.
-pub(super) fn lower_native_call<'context>(
+pub(in crate::codegen::functions_call) fn lower_native_call<'context>(
     codegen: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     function: FunctionValue<'context>,
