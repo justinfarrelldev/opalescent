@@ -1,0 +1,21 @@
+import empty_holder from ./holder
+import type ArrayHolder from ./minimal.types
+
+##
+  Description: Checks array ownership in an ordinary executable, without a native test build.
+##
+entry main = f(args: string[]): void =>
+    let holder: ArrayHolder = empty_holder()
+    let other: int64[] = [7]
+    let stored_length: int64 = holder.items.length
+    print('stored={stored_length}, other={other.length}')
+
+    let local_holder: ArrayHolder = new ArrayHolder:
+        items: []
+    if true:
+        let alias: int64[] = local_holder.items
+        print('alias before scope exit={alias.length}')
+    let independent: int64[] = [7]
+    let retained_length: int64 = local_holder.items.length
+    print('stored after alias scope exit={retained_length}, independent={independent.length}')
+    return void

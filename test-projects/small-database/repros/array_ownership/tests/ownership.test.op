@@ -1,0 +1,134 @@
+import type Store, Item, Outcome from ./store.types
+
+let append_in_store = f(mutable ref store: Store, value: string): void errors IndexOutOfBoundsError =>
+    let mutable items: Item[] = store.items
+    let mutable index: int64 = 0
+    while index < items.length:
+        let previous: Item = propagate items.at(index)
+        if previous.label is value:
+            return void
+        index = index + 1
+    let item: Item = new Item:
+        label: value
+        values: [7]
+    items.push(item)
+    store.items = items
+    return void
+
+let append_forwarded = f(mutable ref store: Store, value: string): void errors IndexOutOfBoundsError =>
+    propagate append_in_store(mutable ref store, value)
+    return void
+
+let appended = f(items: Item[], value: string): Item[] =>
+    let mutable updated = items
+    let item: Item = new Item:
+        label: value
+        values: [7]
+    updated.push(item)
+    return updated
+
+let updated_store = f(store: Store, value: string): updated: Store, created: Item errors IndexOutOfBoundsError =>
+    let mutable items: Item[] = store.items
+    let item: Item = new Item:
+        label: value
+        values: [7]
+    items.push(item)
+    let updated: Store = new Store:
+        items: items
+    return updated: updated, created: item
+
+let empty_store = f(): Store =>
+    let items: Item[] = []
+    return new Store:
+        items: items
+
+let updated_outcome = f(store: Store, value: string): Outcome errors IndexOutOfBoundsError =>
+    let mutable items: Item[] = store.items
+    let item: Item = new Item:
+        label: value
+        values: [7]
+    items.push(item)
+    let updated: Store = new Store:
+        items: items
+    let outcome: Outcome = new Outcome:
+        state: updated
+        created: item
+    return outcome
+
+world EmptyStore:
+    setup: f(): Store =>
+        return new Store:
+            items: []
+
+scenario storing rows across calls:
+    it should publish an array to state injected by a world:
+        worlds: EmptyStore
+        f(mutable ref store: EmptyStore): void errors inferred =>
+            propagate append_forwarded(mutable ref store.state, 'a')
+            propagate append_forwarded(mutable ref store.state, 'b')
+            let items: Item[] = store.state.items
+            let first: Item = propagate items.at(0)
+            let second: Item = propagate items.at(1)
+            expect first.label to be 'a'
+            expect second.label to be 'b'
+            return void
+
+    it should publish a new array through a product field:
+        f(): void errors inferred =>
+            let mutable store: Store = new Store:
+                items: []
+            propagate append_in_store(mutable ref store, 'a')
+            propagate append_in_store(mutable ref store, 'b')
+            let items: Item[] = store.items
+            let first: Item = propagate items.at(0)
+            let second: Item = propagate items.at(1)
+            expect first.label to be 'a'
+            expect second.label to be 'b'
+            return void
+
+    it should return two owned composite values with labeled returns:
+        f(): void errors inferred =>
+            let initial: Store = new Store:
+                items: []
+            let updated: first, created: first_item = propagate updated_store(initial, 'a')
+            let updated: second, created: second_item = propagate updated_store(first, 'b')
+            let items: Item[] = second.items
+            expect items.length to be 2
+            let first_stored: Item = propagate items.at(0)
+            let second_stored: Item = propagate items.at(1)
+            expect first_stored.label to be 'a'
+            expect second_stored.label to be 'b'
+            expect first_item.label to be 'a'
+            expect second_item.label to be 'b'
+            return void
+
+    it should retain a factory returned array after allocating another array:
+        f(): void =>
+            let store: Store = empty_store()
+            let other: int64[] = [7]
+            let items: Item[] = store.items
+            expect items.length to be 0
+            expect other.length to be 1
+            return void
+
+    it should return two owned composite values in one product:
+        f(): void errors inferred =>
+            let initial: Store = empty_store()
+            let first: Outcome = propagate updated_outcome(initial, 'a')
+            let first_state: Store = first.state
+            let second: Outcome = propagate updated_outcome(first_state, 'b')
+            let second_state: Store = second.state
+            let items: Item[] = second_state.items
+            expect items.length to be 2
+            return void
+
+    it should return an updated owned array:
+        f(): void errors inferred =>
+            let mutable items: Item[] = []
+            items = appended(items, 'a')
+            items = appended(items, 'b')
+            let first: Item = propagate items.at(0)
+            let second: Item = propagate items.at(1)
+            expect first.label to be 'a'
+            expect second.label to be 'b'
+            return void

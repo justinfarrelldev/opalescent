@@ -1,0 +1,73 @@
+import empty_database, execute_create from ../src/database
+import parse_query from ../src/parser
+import type Database, CreateResult, Table, Creation from ../src/database.types
+import type ParseResult, Statement from ../src/query.types
+import type Column from ../src/schema.types
+import type Value from ../src/value.types
+
+world EmptyDatabase:
+    setup: f(): Database =>
+        return empty_database()
+
+let apply_create = f(mutable ref db: Database, source: string): CreateResult errors IndexOutOfBoundsError, AllocationFailureError =>
+    let parsed_query = propagate parse_query(source)
+    expect parsed_query to be the Parsed variant of ParseResult
+    if parsed_query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        if statement is Statement.CreateTable into create:
+            let columns: Column[] = create.columns
+            let outcome: Creation = propagate execute_create(db, create.name, ref columns)
+            let state: Database = outcome.state
+            db.tables = state.tables
+            let result: CreateResult = outcome.result
+            return result
+    # The assertion above aborts the worker on this path.
+    let result: CreateResult = new CreateResult.EmptySchema:
+        table_name: 'unreachable'
+    return result
+
+scenario creating in-memory tables:
+    unit under test: execute_create
+    worlds: EmptyDatabase
+
+    it should create independent empty tables in creation order:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let first = propagate apply_create(mutable ref db.state, 'CREATE TABLE Tasks (id INT, title TEXT);')
+            let second = propagate apply_create(mutable ref db.state, 'CREATE TABLE users (active BOOL);')
+            expect first to be the Created variant of CreateResult
+            expect second to be the Created variant of CreateResult
+            let tables: Table[] = db.state.tables
+            expect tables.length to be 2
+            let first_table: Table = propagate tables.at(0)
+            let second_table: Table = propagate tables.at(1)
+            expect first_table.name to be 'tasks'
+            expect second_table.name to be 'users'
+            let first_columns: Column[] = first_table.columns
+            let second_columns: Column[] = second_table.columns
+            let first_rows: Value[][] = first_table.rows
+            let second_rows: Value[][] = second_table.rows
+            expect first_columns.length to be 2
+            expect second_columns.length to be 1
+            expect first_rows.length to be 0
+            expect second_rows.length to be 0
+            return void
+
+    it should reject duplicate names and leave the original schema intact:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            let table_result = propagate apply_create(mutable ref db.state, 'CREATE TABLE TASKS (active BOOL);')
+            let column_result = propagate apply_create(mutable ref db.state, 'CREATE TABLE users (id INT, ID TEXT);')
+            expect created to be the Created variant of CreateResult
+            expect table_result to be the DuplicateTable variant of CreateResult
+            expect column_result to be the DuplicateColumn variant of CreateResult
+            let tables: Table[] = db.state.tables
+            expect tables.length to be 1
+            let table: Table = propagate tables.at(0)
+            expect table.name to be 'tasks'
+            let columns: Column[] = table.columns
+            expect columns.length to be 2
+            let first_column: Column = propagate columns.at(0)
+            let second_column: Column = propagate columns.at(1)
+            expect first_column.name to be 'id'
+            expect second_column.name to be 'title'
+            return void

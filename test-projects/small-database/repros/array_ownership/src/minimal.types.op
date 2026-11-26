@@ -1,0 +1,2 @@
+public type ArrayHolder:
+    items: int64[]

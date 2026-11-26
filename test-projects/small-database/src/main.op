@@ -1,0 +1,32 @@
+import empty_database, execute_create from ./database
+import parse_query from ./parser
+import type Database, CreateResult, Table, Creation from ./database.types
+import type ParseResult, Statement from ./query.types
+import type Column from ./schema.types
+
+let apply = f(database: Database, source: string): Database errors IndexOutOfBoundsError, AllocationFailureError =>
+    let parsed_query: ParseResult = propagate parse_query(source)
+    if parsed_query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        if statement is Statement.CreateTable into create:
+            let columns: Column[] = create.columns
+            let outcome: Creation = propagate execute_create(database, create.name, ref columns)
+            let result: CreateResult = outcome.result
+            if result is CreateResult.Created into created:
+                print('created {created.name}')
+            else:
+                print('not created')
+            let state: Database = outcome.state
+            return state
+    return database
+
+##
+  Description: Reproduces the behavior of the database creation pipeline in a production build.
+##
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    let initial: Database = empty_database()
+    let first: Database = propagate apply(initial, 'CREATE TABLE Tasks (id INT, title TEXT);')
+    let second: Database = propagate apply(first, 'CREATE TABLE users (active BOOL);')
+    let tables: Table[] = second.tables
+    print('tables={tables.length}')
+    return void

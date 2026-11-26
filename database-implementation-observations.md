@@ -2,7 +2,7 @@
 
 Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verification uses the freshly built Linux host compiler (`cargo build --locked --offline --bin opalescent`, LLVM 14). The project treats the compiler, runtime, standard library, and test runner as fixed dependencies.
 
-## DB-OBS-001 — Native tests exercise the real executable and filesystem boundaries
+## COMPILER-OBS-001 — Native tests exercise the real executable and filesystem boundaries
 
 - **Feature / classification / severity:** native Worlds, terminal driver, and typed doubles; positive; informational.
 - **Expected:** isolated tests can exercise the real application and substitute just the failing filesystem operation when needed.
@@ -11,7 +11,7 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** reuse the editor's patterns rather than inventing a harness or changing the test runner; no compromise to correctness. Launch must always supply one argument, and unsupported hosts cannot use the PTY driver.
 - **Suggested improvement / status:** keep those constraints documented; supported on the tested Linux host.
 
-## DB-OBS-002 — Explicit bindings stabilize code generation for compound values
+## COMPILER-OBS-002 — Explicit bindings stabilize code generation for compound values
 
 - **Feature / classification / severity:** fallible functions, variant refinement, local inference, and native builds; compiler friction; moderate.
 - **Expected:** accepted inferred code and an equivalent explicitly typed local compile and behave alike. Native parse failures should identify the failing syntax.
@@ -20,7 +20,7 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** typed locals and separate refinement bindings preserve the data model and behavior without changing dependencies. Extra declarations add some boilerplate.
 - **Suggested improvement / status:** unify typed and inferred lowering for these shapes and surface test frontend spans. Non-blocking with the listed alternatives.
 
-## DB-OBS-003 — Native string module values fault, but literal-returning functions work
+## COMPILER-OBS-003 — Native string module values fault, but literal-returning functions work
 
 - **Feature / classification / severity:** managed module-level string values; confirmed native-build defect; moderate.
 - **Expected:** `let lowercase = 'abcdefghijklmnopqrstuvwxyz'` can be read repeatedly from functions in the same module, including in native tests.
@@ -28,7 +28,7 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** replace module-level alphabet values with small literal-returning functions (`lowercase`, `uppercase`, `digits` in `test-projects/small-database/src/lexer.op`). This preserves correctness and retains meaningful tests. No performance claim has been made about the extra function calls.
 - **Suggested improvement / status:** verify ownership handling of static string initializers in native module accessors; non-blocking with the above alternative.
 
-## DB-OBS-004 — String builder lifetime is process-wide
+## COMPILER-OBS-004 — String builder lifetime is process-wide
 
 - **Feature / classification / severity:** string builder resource management; runtime design observation; informational.
 - **Expected:** short-lived token assembly should not accumulate per-token resources in the REPL.
@@ -36,7 +36,7 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** use an owned per-token scalar array and `string_join` for identifiers. This avoids keeping completed builder objects alive across queries, at the price of a transient array of pieces. Native regression cases pass. Neither approach addresses repeated scalar `.at` scans, which should be measured on larger inputs; `runtime/opal_string.c` finds indexed scalars starting from the beginning of the string.
 - **Suggested improvement / status:** consider an explicit builder lifetime and a forward-only string cursor; non-blocking for this tokenizer increment.
 
-## DB-OBS-005 — Read-only parsing can borrow the token stream
+## COMPILER-OBS-005 — Read-only parsing can borrow the token stream
 
 - **Feature / classification / severity:** owned vs. `ref` array parameters in native code; compiler/runtime ownership defect observed; moderate in isolation.
 - **Expected:** lexical token data containing structured fields can be passed to a parser without invalidating live storage.
@@ -45,7 +45,7 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** the parser needs only read access, so the borrow is idiomatic and does not harm correctness or runtime cost. It does not solve ownership when the database must retain a value after its producer returns.
 - **Suggested improvement / status:** regression-test owned transfers as well as read-only borrows for arrays of products containing sum values. Non-blocking for the parser.
 
-## BLOCKER DB-001 — Returned records can lose ownership of their arrays
+## BLOCKER COMPILER-001 — Returned records can lose ownership of their arrays
 
 - **Discovered:** 2026-11-25, during the Milestone 1 `CREATE TABLE` state-integrity increment at starting compiler revision `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a` (Linux/LLVM 14).
 - **Affected requirement:** §§9.2–9.4, 10.4, 11.3–11.4. A database must hold independent schemas and rows across calls, publish only validated mutations, and preserve earlier values. Insertion, selection, mutation, and eventually snapshot loading depend on that guarantee.
@@ -75,13 +75,13 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 
 **Resolution:** The project owner explicitly approved this compiler investigation and fix, plus separate regression tests. Nominal product construction now gives the product its own reference to a borrowed array; an owned temporary is transferred rather than retained again. A provisional field scope releases array references if a later initializer propagates an error or aborts the native case. The production regression and native fixture in `test-projects/record-array-ownership/` pass; both reproduced the wrong length before the fix. A codegen check also verifies that constructing a record from a fresh array literal does not emit an extra retain.
 
-## BLOCKER DB-002 — Leaving scope after reading an array field can invalidate the record
+## BLOCKER COMPILER-002 — Leaving scope after reading an array field can invalidate the record
 
-- **Discovered:** 2026-11-25 while rechecking `CREATE TABLE` after the approved DB-001 fix, on `06bf49c` plus the DB-001 compiler patch (Linux/LLVM 14). The owner was notified immediately after the isolated production and native failures were confirmed. No change has been authorized for DB-002.
+- **Discovered:** 2026-11-25 while rechecking `CREATE TABLE` after the approved COMPILER-001 fix, on `06bf49c` plus the COMPILER-001 compiler patch (Linux/LLVM 14). The owner was notified immediately after the isolated production and native failures were confirmed. No change has been authorized for COMPILER-002.
 - **Affected requirement:** §§9.2–9.4, 10.4, 11.3–11.4. Core operations must be able to read and retain tables, schemas, and rows without destroying the existing state.
-- **Classification:** confirmed compiler ownership defect, blocking. This is on the field-read/binding side; the record can be constructed directly in the caller with a fresh literal, so the DB-001 factory bug is not involved.
-- **Expected and actual:** `let alias: int64[] = holder.items` should not make `holder.items` lose ownership when `alias` leaves scope. The native check instead reports `actual (int64) 1; expected (int64) 0` after an unrelated one-element array allocation. The ordinary probe prints `stored after alias scope exit=1, independent=1`; the expected stored length is `0`. The DB-001 probe in the same binary now correctly prints `stored=0, other=1`.
-- **Reproduction:** use the DB-001 commands above after applying the DB-001 patch, substituting `--filter 'extracted binding'` for the native command. The isolated case does this:
+- **Classification:** confirmed compiler ownership defect, blocking. This is on the field-read/binding side; the record can be constructed directly in the caller with a fresh literal, so the COMPILER-001 factory bug is not involved.
+- **Expected and actual:** `let alias: int64[] = holder.items` should not make `holder.items` lose ownership when `alias` leaves scope. The native check instead reports `actual (int64) 1; expected (int64) 0` after an unrelated one-element array allocation. The ordinary probe prints `stored after alias scope exit=1, independent=1`; the expected stored length is `0`. The COMPILER-001 probe in the same binary now correctly prints `stored=0, other=1`.
+- **Reproduction:** use the COMPILER-001 commands above after applying the COMPILER-001 patch, substituting `--filter 'extracted binding'` for the native command. The isolated case does this:
 
   ```opal
   let holder: ArrayHolder = new ArrayHolder:
@@ -95,14 +95,16 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
   ```
 
 - **Likely source:** `src/codegen/statements.rs` (`codegen_let_statement`) retains borrowed member initializers for `string` but retains only identifier initializers for other managed bindings. Member lowering itself loads the field without making an owned copy (`src/codegen/adts.rs`); lexical cleanup can therefore release the record's only array reference. This evidence does not yet establish that the same defect explains every failure in the larger prototype.
-- **Impact:** one native `CREATE TABLE` mutation case reports the wrong column count and the other crashes; the ordinary prototype still segfaults. Field reads are pervasive in the intended design. Direct length observation without making an owned binding works in the DB-001 regression but does not substitute for owning schema or row arrays across calls.
+- **Impact:** one native `CREATE TABLE` mutation case reports the wrong column count and the other crashes; the ordinary prototype still segfaults. Field reads are pervasive in the intended design. Direct length observation without making an owned binding works in the COMPILER-001 regression but does not substitute for owning schema or row arrays across calls.
 - **Options:** (1) approve a focused ownership fix for assigning an array field to a new `let` binding, with regressions proving correct alias lifetime and no extra retain for owned expressions (small to medium effort; shared lowering needs regression coverage; preserves requirements); (2) investigate a database-only design that avoids owned field reads (higher effort; not yet validated, and risks unmaintainable storage conventions); (3) defer nested state operations (low effort; does not meet the milestones).
-- **Recommendation / status:** approve option 1 as a separate patch and recheck the database slice after it lands. Blocking — awaiting decision. No DB-002 compiler change has been made.
+- **Recommendation / status:** approve option 1 as a separate patch and recheck the database slice after it lands.
 
-## Verification at the pause
+**Resolution:** The existing separate compiler commit `cbecb98` implements the field-binding fix and adds ownership regressions. At that revision, a fresh build passed all eight native reproduction cases. The ordinary reproduction printed `stored=0, other=1` and `stored after alias scope exit=0, independent=1`. Both database creation cases also passed, and the ordinary database probe created two independent tables. No further compiler changes were needed to resume application work.
 
-- Completed increments: `caaa6d0` (initial project and observations), `be9fe3f` (scalar values), `ba1b54a` (basic tokenizer), and `06bf49c` (`CREATE TABLE` parser). The blocker report, reproductions, and in-progress executor are left in the working tree; the failing executor tests were not committed.
-- The front-end native cases pass: 4 scalar-value cases, 3 lexer cases, and 4 parser cases. Running the full current worktree suite adds two `CREATE TABLE` mutation cases; both crash. The minimal reproduction is intentionally failing and is discovered only when its own project root is selected.
+## Verification when table creation resumed
+
+- Completed increments: `caaa6d0` (initial project and observations), `be9fe3f` (scalar values), `ba1b54a` (basic tokenizer), and `06bf49c` (`CREATE TABLE` parser). The executor and its formerly failing tests now pass with the compiler fixes above.
+- The front-end native cases pass: 4 scalar-value cases, 3 lexer cases, and 4 parser cases. The two `CREATE TABLE` mutation cases also pass (13 total). The ownership reproduction is discovered only when its own project root is selected.
 - The completed commits ran the unchanged pre-commit hook. The latest completed verification reported 1,841 passing library tests (8 ignored), 257 passing E2E regression tests (3 ignored), and 54 passing VS Code extension tests. The reference editor's separate native run passed all six cases, including its terminal test. No database REPL, persistence, performance, or cross-platform verification has been performed.
 
 ## Investigation notes

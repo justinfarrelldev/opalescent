@@ -1,0 +1,37 @@
+import type Column from ./schema.types
+import type Value from ./value.types
+
+##
+  Description: Named schema and rows in insertion order.
+##
+public type Table:
+    name: string
+    columns: Column[]
+    rows: Value[][]
+
+##
+  Description: In-memory database state with tables in creation order.
+##
+public type Database:
+    tables: Table[]
+
+##
+  Description: Result of validating and applying a create-table statement.
+##
+public type CreateResult:
+    Created:
+        name: string
+    DuplicateTable:
+        name: string
+    DuplicateColumn:
+        table_name: string
+        column_name: string
+    EmptySchema:
+        table_name: string
+
+##
+  Description: Transaction result and the complete published candidate state.
+##
+public type Creation:
+    state: Database
+    result: CreateResult

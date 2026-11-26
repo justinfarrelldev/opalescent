@@ -7,7 +7,9 @@ Contract: [`db-test-project.md`](../../db-test-project.md). This checklist track
 - [x] Commit the first native red/green/refactor increment for all three typed values.
 - [x] Verify basic tokens, ASCII name normalization, initial keywords, and source positions.
 - [ ] Complete tokenization, with literal and comparison-operator tests.
-- [ ] Deliver a tested `CREATE TABLE` / `INSERT` / wildcard `SELECT` vertical slice.
+- [x] Parse `CREATE TABLE` with ordered typed columns and enforce `;` then end of input.
+- [x] Execute `CREATE TABLE` and reject duplicate definitions without publishing a partial table. The separate COMPILER-001 and COMPILER-002 ownership fixes pass the database regressions.
+- [ ] Deliver a tested `INSERT` / wildcard `SELECT` vertical slice.
 - [ ] Add projections, resolved predicates, precedence, limits, `UPDATE`, and `DELETE`.
 - [ ] Add REPL, introspection, formatting, and native terminal integration.
 - [ ] Verify invalid mutations and independent ownership of results; complete the Milestone 1 gate.

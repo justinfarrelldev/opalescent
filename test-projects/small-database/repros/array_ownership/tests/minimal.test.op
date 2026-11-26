@@ -1,0 +1,24 @@
+import type ArrayHolder from ../src/minimal.types
+import empty_holder from ../src/holder
+
+scenario an owned array in a returned record:
+    it should stay empty after a separate allocation:
+        f(): void =>
+            let holder: ArrayHolder = empty_holder()
+            let other: int64[] = [7]
+            let stored: int64[] = holder.items
+            expect stored.length to be 0
+            expect other.length to be 1
+            return void
+
+    it should remain owned by the record after an extracted binding leaves scope:
+        f(): void =>
+            let holder: ArrayHolder = new ArrayHolder:
+                items: []
+            if true:
+                let alias: int64[] = holder.items
+                expect alias.length to be 0
+            let other: int64[] = [7]
+            expect holder.items.length to be 0
+            expect other.length to be 1
+            return void

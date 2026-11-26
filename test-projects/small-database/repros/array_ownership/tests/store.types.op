@@ -1,0 +1,10 @@
+public type Item:
+    label: string
+    values: int64[]
+
+public type Store:
+    items: Item[]
+
+public type Outcome:
+    state: Store
+    created: Item

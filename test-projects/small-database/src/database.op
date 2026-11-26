@@ -1,0 +1,71 @@
+import type Database, Table, CreateResult, Creation from ./database.types
+import type Column from ./schema.types
+import type Value from ./value.types
+import type IndexAccessErrors from standard.errors
+
+##
+  Description: Creates an empty database with no tables.
+##
+public let empty_database = f(): Database =>
+    let database: Database = new Database:
+        tables: []
+    return database
+
+let creation = f(state: Database, result: CreateResult): Creation =>
+    return new Creation:
+        state: state
+        result: result
+
+##
+  Description: Validates and adds a table with normalized names and ordered columns.
+##
+public let execute_create = f(
+    database: Database,
+    table_name: string,
+    ref columns: Column[]
+): Creation errors IndexAccessErrors =>
+    let mutable tables: Table[] = database.tables
+    let mutable table_index: int64 = 0
+    while table_index < tables.length:
+        let table: Table = propagate tables.at(table_index)
+        let existing_name: string = table.name
+        if existing_name is table_name:
+            let result: CreateResult = new CreateResult.DuplicateTable:
+                name: table_name
+            return creation(database, result)
+        table_index = table_index + 1
+    if columns.length is 0:
+        let result: CreateResult = new CreateResult.EmptySchema:
+            table_name: table_name
+        return creation(database, result)
+    let mutable index: int64 = 0
+    let mutable schema: Column[] = []
+    while index < columns.length:
+        let column: Column = propagate columns.at(index)
+        let column_name: string = column.name
+        let mutable previous_index: int64 = 0
+        while previous_index < index:
+            let earlier: Column = propagate schema.at(previous_index)
+            let earlier_name: string = earlier.name
+            if earlier_name is column_name:
+                let result: CreateResult = new CreateResult.DuplicateColumn:
+                    table_name: table_name
+                    column_name: column_name
+                return creation(database, result)
+            previous_index = previous_index + 1
+        schema.push(column)
+        index = index + 1
+    let rows: Value[][] = []
+    let table: Table = new Table:
+        name: table_name
+        columns: schema
+        rows: rows
+    tables.push(table)
+    let changed: Database = new Database:
+        tables: tables
+    let result: CreateResult = new CreateResult.Created:
+        name: table_name
+    let outcome: Creation = new Creation:
+        state: changed
+        result: result
+    return outcome
