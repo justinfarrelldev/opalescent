@@ -1,8 +1,14 @@
 import temporary_directory_create, temporary_directory_file, temporary_directory_remove from standard.testing
 import type TemporaryDirectory from standard.testing
-import path_from, path_exists_sync, read_text_sync, write_text_sync, write_contents_sync, bytes_from_hex from standard
-import save_snapshot, load_snapshot, serialize, deserialize from ../src/persistence
-import type SnapshotResult from ../src/persistence.types
+import path_from, path_exists_sync, read_text_sync, write_text_sync, write_contents_sync, bytes_from_hex, join_path_components, path_parent_directory from standard
+import save_snapshot, load_snapshot, serialize, deserialize, persist_database, restore_database from ../src/persistence
+import empty_database, execute_create, execute_insert, execute_update, execute_delete, execute_select_all from ../src/database
+import integer_value from ../src/value
+import type Value from ../src/value.types
+import type Column, ColumnType from ../src/schema.types
+import type Assignment, PredicateNode from ../src/query.types
+import type Creation, Insertion, Mutation, SelectResult from ../src/database.types
+import type SnapshotResult, SaveResult from ../src/persistence.types
 import type Database from ../src/database.types
 
 world StorageWorkspace:
@@ -12,6 +18,40 @@ world StorageWorkspace:
         f(mutable ref workspace: TemporaryDirectory): void errors inferred =>
             propagate temporary_directory_remove(mutable ref workspace)
             return void
+
+double AtomicWrite replaces write_text_atomic_sync from standard
+    as used by ../src/persistence
+
+double SnapshotRead replaces read_contents_sync from standard
+    as used by ../src/persistence
+
+world FailedWrites:
+    setup: f(): AtomicWrite =>
+        return new AtomicWrite
+    cleanup:
+        f(mutable ref writer: AtomicWrite): void =>
+            restore writer
+            return void
+
+world FailedReads:
+    setup: f(): SnapshotRead =>
+        return new SnapshotRead
+    cleanup:
+        f(mutable ref reader: SnapshotRead): void =>
+            restore reader
+            return void
+
+let edited_database = f(): Database errors IndexOutOfBoundsError, AllocationFailureError =>
+    let empty: Database = empty_database()
+    let column: Column = new Column:
+        name: 'id'
+        column_type: new ColumnType.Integer
+    let columns: Column[] = [column]
+    let created: Creation = propagate execute_create(empty, 'tasks', ref columns)
+    let values: Value[] = [integer_value(7)]
+    let inserted: Insertion = propagate execute_insert(created.state, 'tasks', ref values)
+    let state: Database = inserted.state
+    return state
 
 scenario saving and reading files:
     worlds: StorageWorkspace
@@ -75,4 +115,125 @@ scenario saving and reading files:
                     continue
                 loading = false
             expect saw_invalid_utf8 to be true
+            return void
+
+    it should surface an invalid destination and an unreadable input without losing changes:
+        f(ref workspace: StorageWorkspace): void errors inferred =>
+            let base: FilesystemPath = path_from(temporary_directory_file(ref workspace.state, 'missing'))
+            let path: FilesystemPath = join_path_components(base, ['snapshot.odb'])
+            let directory: FilesystemPath = path_parent_directory(base)
+            let state: Database = propagate edited_database()
+            let save: SaveResult = persist_database(path, ref state)
+            expect save to be the Failed variant of SaveResult
+            let load: SnapshotResult = restore_database(directory)
+            expect load to be the FilesystemFailure variant of SnapshotResult
+            if load is SnapshotResult.FilesystemFailure into error:
+                expect error.detail to contain 'IsADirectoryError'
+            expect state.dirty to be true
+            let selection: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            expect selection to be the Selected variant of SelectResult
+            if selection is SelectResult.Selected into selected:
+                expect selected.rows.length to be 1
+            return void
+
+scenario recovering from a refused atomic save:
+    kind: integration
+    worlds: StorageWorkspace, FailedWrites
+
+    it should preserve the prior snapshot and permit a second real save:
+        f(ref workspace: StorageWorkspace, mutable ref writes: FailedWrites): void errors inferred =>
+            let path: FilesystemPath = path_from(temporary_directory_file(ref workspace.state, 'tasks.odb'))
+            let previous: string = 'OPALDB 1\nEND 0 0\n'
+            propagate write_text_sync(path, previous)
+            let state: Database = propagate edited_database()
+            let text: string = propagate serialize(ref state)
+            stub writes.state(path, text)
+                fails with FilesystemFullError
+            let tried: SaveResult = persist_database(path, ref state)
+            expect tried to be the Failed variant of SaveResult
+            if tried is SaveResult.Failed into error:
+                expect error.detail to contain 'FilesystemFullError'
+            expect writes.state to have been called once
+            let saved: string = propagate read_text_sync(path)
+            expect saved to be previous
+            expect state.dirty to be true
+            let selection: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            expect selection to be the Selected variant of SelectResult
+            if selection is SelectResult.Selected into selected:
+                expect selected.rows.length to be 1
+            restore writes.state
+            let retry: SaveResult = persist_database(path, ref state)
+            expect retry to be the Saved variant of SaveResult
+            if retry is SaveResult.Saved into written:
+                expect written.database.dirty to be false
+            let actual: string = propagate read_text_sync(path)
+            expect actual to be text
+            return void
+
+scenario recovering from a refused snapshot read:
+    kind: integration
+    worlds: StorageWorkspace, FailedReads
+
+    it should surface permission denied without replacing the active database:
+        f(ref workspace: StorageWorkspace, mutable ref reads: FailedReads): void errors inferred =>
+            let path: FilesystemPath = path_from(temporary_directory_file(ref workspace.state, 'tasks.odb'))
+            let state: Database = propagate edited_database()
+            stub reads.state(path)
+                fails with PermissionDeniedError
+            let tried: SnapshotResult = restore_database(path)
+            expect tried to be the FilesystemFailure variant of SnapshotResult
+            if tried is SnapshotResult.FilesystemFailure into error:
+                expect error.detail to contain 'PermissionDeniedError'
+            expect reads.state to have been called once
+            expect state.dirty to be true
+            let selection: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            expect selection to be the Selected variant of SelectResult
+            if selection is SelectResult.Selected into selected:
+                expect selected.rows.length to be 1
+            return void
+
+scenario tracking unsaved database changes:
+    worlds: StorageWorkspace
+
+    it should track actual changes rather than matched rows or successful reads:
+        f(ref workspace: StorageWorkspace): void errors inferred =>
+            let path: FilesystemPath = path_from(temporary_directory_file(ref workspace.state, 'dirty.odb'))
+            let initial: Database = empty_database()
+            expect initial.dirty to be false
+            let column: Column = new Column:
+                name: 'id'
+                column_type: new ColumnType.Integer
+            let columns: Column[] = [column]
+            let created: Creation = propagate execute_create(initial, 'tasks', ref columns)
+            expect created.state.dirty to be true
+            let values: Value[] = [integer_value(1)]
+            let inserted: Insertion = propagate execute_insert(created.state, 'tasks', ref values)
+            expect inserted.state.dirty to be true
+            let state: Database = inserted.state
+            propagate save_snapshot(path, ref state)
+            let load: SnapshotResult = propagate load_snapshot(path)
+            expect load to be the Loaded variant of SnapshotResult
+            if load is SnapshotResult.Loaded into loaded:
+                let clean: Database = loaded.database
+                expect clean.dirty to be false
+                let read: SelectResult = propagate execute_select_all(ref clean, 'tasks')
+                expect read to be the Selected variant of SelectResult
+                expect clean.dirty to be false
+                let bad_insert: Insertion = propagate execute_insert(clean, 'missing', ref values)
+                expect bad_insert.state.dirty to be false
+                let no_predicate: PredicateNode[] = []
+                let same_value: Assignment = new Assignment:
+                    column: 'id'
+                    value: integer_value(1)
+                let same: Assignment[] = [same_value]
+                let unchanged: Mutation = propagate execute_update(clean, 'tasks', ref same, ref no_predicate)
+                expect unchanged.state.dirty to be false
+                let new_value: Assignment = new Assignment:
+                    column: 'id'
+                    value: integer_value(2)
+                let changes: Assignment[] = [new_value]
+                let changed: Mutation = propagate execute_update(clean, 'tasks', ref changes, ref no_predicate)
+                expect changed.state.dirty to be true
+                let deleted: Mutation = propagate execute_delete(clean, 'tasks', ref no_predicate)
+                expect deleted.state.dirty to be true
             return void

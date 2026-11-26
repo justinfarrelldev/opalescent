@@ -1,0 +1,85 @@
+import empty_database, execute_create, execute_insert, execute_select_where, execute_update, execute_delete from ../../src/database
+import serialize, save_snapshot, load_snapshot from ../../src/persistence
+import temporary_directory_create, temporary_directory_file, temporary_directory_remove from standard.testing
+import type TemporaryDirectory from standard.testing
+import path_from from standard
+import integer_value from ../../src/value
+import type Database, Creation, Insertion, SelectResult, Mutation, MutationResult from ../../src/database.types
+import type PredicateNode, ComparisonOperator, Assignment, RowLimit from ../../src/query.types
+import type Column, ColumnType from ../../src/schema.types
+import type Value from ../../src/value.types
+import type SnapshotResult from ../../src/persistence.types
+import type WorkloadExample from ./workload_example.types
+
+world WorkloadDirectory:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+    cleanup:
+        f(mutable ref workspace: TemporaryDirectory): void errors inferred =>
+            propagate temporary_directory_remove(mutable ref workspace)
+            return void
+
+scenario exercising representative database workloads:
+    worlds: WorkloadDirectory
+
+    it should insert, filter, snapshot, update, and delete in a deterministic sequence:
+        examples of WorkloadExample:
+            example one thousand rows:
+                count: 1000
+            example ten thousand rows:
+                count: 10000
+
+        f(ref workspace: WorkloadDirectory, ref example: WorkloadExample): void errors inferred =>
+            let initial: Database = empty_database()
+            let column: Column = new Column:
+                name: 'id'
+                column_type: new ColumnType.Integer
+            let columns: Column[] = [column]
+            let created: Creation = propagate execute_create(initial, 'tasks', ref columns)
+            let mutable state: Database = created.state
+            let mutable index: int64 = 0
+            while index < example.count:
+                let row: Value[] = [integer_value(index)]
+                let inserted: Insertion = propagate execute_insert(state, 'tasks', ref row)
+                let next: Database = inserted.state
+                state = next
+                index = index + 1
+            let projection: string[] = ['id']
+            let small: PredicateNode = new PredicateNode.Compare:
+                column: 'id'
+                operator: new ComparisonOperator.GreaterEqual
+                value: integer_value(example.count - 10)
+            let narrow: PredicateNode[] = [small]
+            let selected: SelectResult = propagate execute_select_where(ref state, 'tasks', ref projection, ref narrow, new RowLimit.Unlimited)
+            expect selected to be the Selected variant of SelectResult
+            if selected is SelectResult.Selected into result:
+                expect result.rows.length to be 10
+            let text: string = propagate serialize(ref state)
+            let path: FilesystemPath = path_from(temporary_directory_file(ref workspace.state, 'workload.odb'))
+            propagate save_snapshot(path, ref state)
+            let snapshot: SnapshotResult = propagate load_snapshot(path)
+            expect snapshot to be the Loaded variant of SnapshotResult
+            if snapshot is SnapshotResult.Loaded into loaded:
+                let recovered: Database = loaded.database
+                let repeat: string = propagate serialize(ref recovered)
+                expect repeat to be text
+                let half: PredicateNode = new PredicateNode.Compare:
+                    column: 'id'
+                    operator: new ComparisonOperator.Less
+                    value: integer_value(example.count / 2)
+                let broad: PredicateNode[] = [half]
+                let marker: Assignment = new Assignment:
+                    column: 'id'
+                    value: integer_value(-1)
+                let assignments: Assignment[] = [marker]
+                let changed: Mutation = propagate execute_update(recovered, 'tasks', ref assignments, ref broad)
+                let change: MutationResult = changed.result
+                expect change to be the Updated variant of MutationResult
+                if change is MutationResult.Updated into update:
+                    expect update.count to be example.count / 2
+                let deleted: Mutation = propagate execute_delete(changed.state, 'tasks', ref broad)
+                let deletion: MutationResult = deleted.result
+                expect deletion to be the Deleted variant of MutationResult
+                if deletion is MutationResult.Deleted into result:
+                    expect result.count to be example.count / 2
+            return void

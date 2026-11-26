@@ -1,9 +1,19 @@
 import run_repl from ./repl
-import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
+import exit_process from process
+import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors, FilesystemPathErrors from standard.errors
 
 ##
-  Description: Starts the interactive in-memory database.
+  Description: Starts the database with an optional snapshot filename.
 ##
-entry main = f(args: string[]): void errors IndexAccessErrors, AllocationErrors, StdoutWriterErrors =>
-    propagate run_repl()
+entry main = f(args: string[]): void errors IndexAccessErrors, AllocationErrors, StdoutWriterErrors, FilesystemPathErrors =>
+    if args.length > 2:
+        print('Usage: small-database [snapshot.odb]')
+        exit_process(2)
+        return void
+    let filename: string = guard args.at(1) into path: string else ''
+    if args.length is 2 and filename is '':
+        print('FilesystemFailure: snapshot filename cannot be empty.')
+        exit_process(2)
+        return void
+    propagate run_repl(filename)
     return void

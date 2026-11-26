@@ -15,6 +15,7 @@ public type Table:
 ##
 public type Database:
     tables: Table[]
+    dirty: boolean
 
 ##
   Description: Result of validating and applying a create-table statement.

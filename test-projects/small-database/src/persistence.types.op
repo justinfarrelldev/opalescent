@@ -11,3 +11,11 @@ public type SnapshotResult:
         detail: string
     UnsupportedVersion:
         version: string
+    FilesystemFailure:
+        detail: string
+
+public type SaveResult:
+    Saved:
+        database: Database
+    Failed:
+        detail: string

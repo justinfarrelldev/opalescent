@@ -138,6 +138,28 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** the precedence-climbing parser threads an owned postorder arena through its progress results. Its node and nesting limits bound both parsing and evaluation, including any copies of the arena. Validation still walks all nodes exactly once per statement before row evaluation.
 - **Suggested improvement / status:** document and test array writes through mutable-reference parameters. This is non-blocking with the bounded owned arena.
 
+## COMPILER-OBS-010 — Filesystem boundaries are testable without simulating a disk
+
+- **Feature / classification / severity:** atomic replacement, `Bytes`, UTF-8 input, and scoped native doubles; positive with some API friction.
+- **Expected:** test application-level save/load failure independently of the disk while retaining real integration tests.
+- **Actual:** the native tests inject `FilesystemFullError` at `write_text_atomic_sync` and `PermissionDeniedError` at `read_contents_sync`, scoped to the persistence module. The failed save leaves the actual previous file intact, and restoring the double permits a real successful retry. Separate tests exercise actual replacement, malformed snapshots, invalid UTF-8, a directory in place of a file, and a missing destination directory.
+- **Impact / alternative:** `Bytes` has hex access but no UTF-8-to-`string` conversion. The reader checks byte-aligned NUL in bounded hex slices, then uses the runtime's UTF-8 text reader. This requires two reads; concurrent changes to the snapshot path during loading are outside the supported single-process usage. No language or filesystem changes were needed.
+- **Limits / suggested improvement:** doubles replace the entire operation and cannot show a partial write or a late replacement failure. Real replacement semantics are verified by the existing runtime regression and source review, not a simulated crash. A UTF-8 byte decoder that explicitly rejects NUL would allow a single, validated read. The runtime makes no stable-storage guarantee.
+
+## COMPILER-OBS-011 — Copy-on-write makes repeated appends expensive
+
+- **Feature / classification / severity:** arrays, retained table snapshots and performance; measured, non-blocking at the required workload size.
+- **Expected:** a modest 1,000- and 10,000-row workload should run without a terminal or a specialized engine.
+- **Actual:** the native workload bodies took 371 ms and 67,236 ms respectively on Linux with the debug host compiler, while repository checks were also running. Each case inserts directly through the engine, selects ten rows, saves and reloads a real file, then updates and deletes half of its rows. These are combined workload timings, not timings for individual operations; memory was not measured.
+- **Likely contributor:** `execute_insert` reads the target row array from an owned table and appends while the prior table retains it. `src/codegen/functions_call/array/intrinsics.rs` checks uniqueness before reusing array storage. Repeated target-row-array copies can be quadratic; the database does not deep-copy unrelated tables or their cells. Indexed string access also scans from the beginning of a string. Neither mechanism was profiled in isolation.
+- **Impact / status:** both workloads passed. A final run after the readability refactor measured 549 ms and 124,841 ms while repository checks ran concurrently. The workloads have a separate native project and a documented 180-second timeout rather than relying on the 30-second application test default. An ownership-safe chunked representation or a supported uniquely owned mutation path would be useful follow-up work. No performance threshold or minimum supported latency is claimed.
+
+## COMPILER-OBS-012 — Project-wide formatting does not handle the native test DSL
+
+- **Feature / classification / severity:** formatter and native tests; tooling limitation, low.
+- **Expected / actual:** `opal fmt --project test-projects/small-database --check` cannot parse `scenario` and `expect` in the ownership fixture; the native test runner compiles these files correctly. A source-only formatter run successfully generated a preview.
+- **Impact / status:** native test formatting was reviewed manually. No formatter changes were made; using the test-mode parser for native test files would close the gap.
+
 ## Investigation notes
 
 - Reviewed the language specification, tutorial, standard-library reference, native testing docs, terminal editor, and Game of Life. Cross-file products, tag checks with `is … into`, string ownership, and fallible access have working fixture patterns. Typed payload assertions should check the tag and compare the extracted fields rather than require whole-payload equality.

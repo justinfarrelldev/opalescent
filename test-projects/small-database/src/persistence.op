@@ -1,10 +1,10 @@
 import string_join, string_split_lines, string_find_index_or, int64_to_string from standard
 import write_text_atomic_sync, read_contents_sync, read_text_sync, bytes_slice, bytes_to_hex from standard
-import empty_database, execute_create, execute_insert from ./database
+import empty_database, execute_create, execute_insert, mark_clean from ./database
 import parse_query from ./parser
 import type Database, Table, Creation, CreateResult, Insertion, InsertResult from ./database.types
 import type ParseResult, Statement from ./query.types
-import type SnapshotResult from ./persistence.types
+import type SnapshotResult, SaveResult from ./persistence.types
 import type Value from ./value.types
 import type Column from ./schema.types
 import type IndexAccessErrors, AllocationErrors, FilesystemTextReadErrors, FilesystemOverwriteErrors from standard.errors
@@ -128,8 +128,9 @@ public let deserialize = f(text: string): SnapshotResult errors IndexAccessError
                 return invalid_snapshot(number, 'invalid end marker or incorrect table or row counts')
             if number < lines.length:
                 return invalid_snapshot(number + 1, 'unexpected record after END')
+            let clean: Database = mark_clean(ref database)
             let result: SnapshotResult = new SnapshotResult.Loaded:
-                database: database
+                database: clean
             return result
         let parsed: ParseResult = propagate parse_query(line)
         if parsed is ParseResult.LexicalFailure into diagnostic:
@@ -202,3 +203,32 @@ public let load_snapshot = f(path: FilesystemPath): SnapshotResult errors IndexA
         return invalid_snapshot(1, 'snapshot contains a NUL byte')
     let text: string = propagate read_text_sync(path)
     return propagate deserialize(text)
+
+##
+  Description: Returns a clean state only after the atomic save succeeds.
+##
+public let persist_database = f(path: FilesystemPath, ref database: Database): SaveResult =>
+    let result =
+        loop =>
+            guard save_snapshot(path, ref database) else err =>
+                let failure: SaveResult = new SaveResult.Failed:
+                    detail: '{err}'
+                break result: failure
+            let state: Database = mark_clean(ref database)
+            let saved: SaveResult = new SaveResult.Saved:
+                database: state
+            break result: saved
+    return result
+
+##
+  Description: Converts read errors into a recoverable diagnostic, without publishing state.
+##
+public let restore_database = f(path: FilesystemPath): SnapshotResult =>
+    let result =
+        loop =>
+            guard load_snapshot(path) into loaded else err =>
+                let failure: SnapshotResult = new SnapshotResult.FilesystemFailure:
+                    detail: '{err}'
+                break result: failure
+            break result: loaded
+    return result

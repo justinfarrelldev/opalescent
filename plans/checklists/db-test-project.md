@@ -8,7 +8,7 @@ Contract: [`db-test-project.md`](../../db-test-project.md). This checklist track
 - [x] Verify basic tokens, ASCII name normalization, initial keywords, and source positions.
 - [x] Tokenize signed integers, escaped UTF-8 strings, booleans, keywords, and comparison operators; verify positions and lexical errors.
 - [x] Investigate interactive NUL handling and document that `take_input` does not expose NUL or following bytes.
-- [ ] Verify observable NUL rejection at the snapshot input boundary.
+- [x] Verify observable NUL rejection at the snapshot input boundary with a real malformed file.
 - [x] Parse `CREATE TABLE` with ordered typed columns and enforce `;` then end of input.
 - [x] Execute `CREATE TABLE` and reject duplicate definitions without publishing a partial table. The separate COMPILER-001 and COMPILER-002 ownership fixes pass the database regressions.
 - [x] Deliver a tested `INSERT` / wildcard `SELECT` vertical slice.
@@ -16,7 +16,9 @@ Contract: [`db-test-project.md`](../../db-test-project.md). This checklist track
 - [x] Add REPL, introspection, basic formatting, and native terminal tests for the vertical slice.
 - [x] Extend REPL help and native terminal coverage to the full query language.
 - [x] Verify invalid mutations and independent ownership of results; verify the Milestone 1 gate (45 native cases including two production PTY cases; 259 repository E2E cases passed, 3 ignored).
-- [ ] Implement and test deterministic, versioned snapshot encoding and validated candidate decoding.
-- [ ] Implement and test filesystem save/load, startup, dirty state, and failure recovery.
-- [ ] Verify native filesystem doubles, real filesystem fixtures, and cross-session terminal lifecycle.
-- [ ] Run the workloads, review all changes, verify regressions, and complete docs and acceptance review.
+- [x] Implement and test deterministic, versioned snapshot encoding and validated candidate decoding.
+- [x] Implement and test filesystem save/load, startup, dirty state, and failure recovery.
+- [x] Verify native filesystem doubles, real filesystem fixtures, and cross-session terminal lifecycle.
+- [x] Exercise the 1,000/10,000-row workloads; record timings and limits.
+- [x] Verify the full native suite: 60 application cases (including six production PTY cases) and two separate workload cases passed.
+- [x] Review the application, README command reference, ownership and persistence limitations, and the change scope. Keep compiler fixes separate from application commits.

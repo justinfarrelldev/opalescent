@@ -1,15 +1,29 @@
-import string_is_blank, string_join, take_input, print_text_sync, flush_standard_output_sync from standard
-import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
+import string_is_blank, string_join, take_input, print_text_sync, flush_standard_output_sync, path_from, path_exists_sync from standard
+import exit_process from process
+import restore_database, persist_database from ./persistence
+import type SnapshotResult, SaveResult from ./persistence.types
+import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors, FilesystemPathErrors from standard.errors
 import empty_database, execute_create, execute_insert, execute_select_all, execute_select_where, execute_delete, execute_update from ./database
 import tokenize from ./lexer
 import parse_tokens from ./parser
 import format_selection, format_schema, type_label from ./formatting
-import type LexResult, Token, TokenKind, SourcePosition from ./lexer.types
+import type LexResult, LexErrorKind, Token, TokenKind, SourcePosition from ./lexer.types
 import type ParseResult, Statement, PredicateNode, Assignment from ./query.types
 import type PredicateError from ./predicate.types
 import type Database, Creation, CreateResult, Insertion, InsertResult, SelectResult, Table, Mutation, MutationResult from ./database.types
 import type Column from ./schema.types
 import type Value from ./value.types
+
+let lex_error_label = f(kind: LexErrorKind): string =>
+    if kind is LexErrorKind.UnexpectedCharacter:
+        return 'UnexpectedCharacter'
+    if kind is LexErrorKind.InvalidIntegerLiteral:
+        return 'InvalidIntegerLiteral'
+    if kind is LexErrorKind.IntegerOverflow:
+        return 'IntegerOverflow'
+    if kind is LexErrorKind.UnterminatedString:
+        return 'UnterminatedString'
+    return 'InvalidEscape'
 
 let show_syntax_error = f(line: int64, column: int64, detail: string): void =>
     print('Query error at {line}:{column}: {detail}')
@@ -118,7 +132,9 @@ let handle_introspection = f(ref database: Database, ref tokens: Token[]): boole
         let first: Token = propagate tokens.at(0)
         let semicolon: Token = propagate tokens.at(1)
         if first.kind is TokenKind.Help and semicolon.kind is TokenKind.Semicolon:
-            print('Available commands: CREATE TABLE, INSERT INTO, SELECT, UPDATE, DELETE FROM, SHOW TABLES, DESCRIBE, HELP, QUIT.')
+            print('Available commands: CREATE TABLE, INSERT INTO, SELECT, UPDATE, DELETE FROM, SHOW TABLES, DESCRIBE, SAVE, LOAD, HELP, QUIT.')
+            print('SAVE replaces the configured snapshot. LOAD replaces the active database, discarding unsaved changes.')
+            print('QUIT and EOF never save automatically.')
             return true
     if tokens.length is 4:
         let first: Token = propagate tokens.at(0)
@@ -179,16 +195,72 @@ let is_quit = f(ref tokens: Token[]): boolean errors IndexAccessErrors =>
     let terminator: Token = propagate tokens.at(1)
     return command.kind is TokenKind.Quit and terminator.kind is TokenKind.Semicolon
 
+let report_load_failure = f(result: SnapshotResult): void =>
+    if result is SnapshotResult.InvalidSnapshot into invalid:
+        print('InvalidSnapshot at line {invalid.line}: {invalid.detail}')
+    if result is SnapshotResult.UnsupportedVersion into unsupported:
+        print('UnsupportedVersion: snapshot version {unsupported.version} is not supported.')
+    if result is SnapshotResult.FilesystemFailure into failure:
+        print('FilesystemFailure: {failure.detail}')
+    return void
+
+let save_active = f(database: Database, filename: string): Database =>
+    let result: SaveResult = persist_database(path_from(filename), ref database)
+    if result is SaveResult.Saved into saved:
+        print('Database saved.')
+        let state: Database = saved.database
+        return state
+    if result is SaveResult.Failed into failure:
+        print('FilesystemFailure: {failure.detail}')
+    return database
+
+let load_active = f(database: Database, filename: string): Database =>
+    let result: SnapshotResult = restore_database(path_from(filename))
+    if result is SnapshotResult.Loaded into loaded:
+        print('Database loaded.')
+        let state: Database = loaded.database
+        return state
+    report_load_failure(result)
+    return database
+
+let execute_line = f(database: Database, ref tokens: Token[], filename: string): Database errors IndexAccessErrors, AllocationErrors =>
+    if tokens.length is 3:
+        let first: Token = propagate tokens.at(0)
+        let semicolon: Token = propagate tokens.at(1)
+        if semicolon.kind is TokenKind.Semicolon and (first.kind is TokenKind.Save or first.kind is TokenKind.Load):
+            if filename is '':
+                print('FilesystemFailure: no snapshot filename configured.')
+                return database
+            if first.kind is TokenKind.Save:
+                return save_active(database, filename)
+            return load_active(database, filename)
+    return propagate execute_query(database, ref tokens)
+
 ##
-  Description: Prompts for, parses, and executes one statement per input line.
+  Description: Loads an existing snapshot, then prompts for one statement per input line.
 ##
-public let run_repl = f(): void errors IndexAccessErrors, AllocationErrors, StdoutWriterErrors =>
+public let run_repl = f(filename: string): void errors IndexAccessErrors, AllocationErrors, StdoutWriterErrors, FilesystemPathErrors =>
     let mutable database: Database = empty_database()
+    if filename is not '':
+        let path: FilesystemPath = path_from(filename)
+        let exists: boolean = propagate path_exists_sync(path)
+        if exists:
+            let result: SnapshotResult = restore_database(path)
+            if result is SnapshotResult.Loaded into loaded:
+                let state: Database = loaded.database
+                database = state
+            else:
+                report_load_failure(result)
+                exit_process(1)
+                return void
     print('Opalescent Database')
     print('Type HELP; for available commands.')
     let finished =
         loop =>
-            propagate print_text_sync('db> ')
+            if database.dirty:
+                propagate print_text_sync('db*> ')
+            else:
+                propagate print_text_sync('db> ')
             propagate flush_standard_output_sync()
             guard take_input() into line else err =>
                 break finished: true
@@ -197,14 +269,17 @@ public let run_repl = f(): void errors IndexAccessErrors, AllocationErrors, Stdo
             let lexical: LexResult = propagate tokenize(line)
             if lexical is LexResult.Failure into failure:
                 let position: SourcePosition = failure.position
-                show_syntax_error(position.line, position.column, failure.detail)
+                let label: string = lex_error_label(failure.kind)
+                print('{label} at {position.line}:{position.column}: {failure.detail}')
                 continue
             if lexical is LexResult.Success into success:
                 let tokens: Token[] = success.tokens
                 let quitting: boolean = propagate is_quit(ref tokens)
                 if quitting:
                     break finished: true
-                database = propagate execute_query(database, ref tokens)
+                database = propagate execute_line(database, ref tokens, filename)
     if finished:
+        if filename is not '' and database.dirty:
+            print('Discarding unsaved changes.')
         print('Goodbye.')
     return void

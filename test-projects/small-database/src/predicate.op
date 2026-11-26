@@ -2,6 +2,7 @@ import type IndexAccessErrors from standard.errors
 import column_index_of, value_matches from ./schema
 import type Column, ColumnType from ./schema.types
 import type Value from ./value.types
+import equal_values from ./value
 import type PredicateNode, ComparisonOperator from ./query.types
 import type ResolvedNode, PredicateValidation, PredicateError from ./predicate.types
 
@@ -74,13 +75,7 @@ let compare_values = f(left: Value, right: Value, operator: ComparisonOperator):
     if left is Value.Integer into number:
         if right is Value.Integer into other:
             return compare_integer(number.content, other.content, operator)
-    let mutable equal = false
-    if left is Value.Text into text:
-        if right is Value.Text into other:
-            equal = text.content is other.content
-    if left is Value.Boolean into flag:
-        if right is Value.Boolean into other:
-            equal = flag.content is other.content
+    let equal: boolean = equal_values(left, right)
     if operator is ComparisonOperator.NotEqual:
         return not equal
     return equal

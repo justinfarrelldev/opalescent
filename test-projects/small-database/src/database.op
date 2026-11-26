@@ -14,7 +14,18 @@ import type PredicateNode, RowLimit, Assignment from ./query.types
 public let empty_database = f(): Database =>
     let database: Database = new Database:
         tables: []
+        dirty: false
     return database
+
+##
+  Description: Marks a database clean after a successful save or load.
+##
+public let mark_clean = f(ref database: Database): Database =>
+    let tables: Table[] = database.tables
+    let state: Database = new Database:
+        tables: tables
+        dirty: false
+    return state
 
 # A negative index means the normalized name was not found.
 let table_index_of = f(ref tables: Table[], name: string): int64 errors IndexAccessErrors =>
@@ -74,6 +85,7 @@ public let execute_create = f(
     tables.push(table)
     let changed: Database = new Database:
         tables: tables
+        dirty: true
     let result: CreateResult = new CreateResult.Created:
         name: table_name
     let outcome: Creation = new Creation:
@@ -91,6 +103,7 @@ let replace_rows = f(database: Database, table_index: int64, table: Table, rows:
     tables[table_index] = replacement
     let state: Database = new Database:
         tables: tables
+        dirty: true
     return state
 
 let insertion = f(state: Database, result: InsertResult): Insertion =>
