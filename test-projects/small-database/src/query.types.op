@@ -12,6 +12,8 @@ public type Statement:
     Insert:
         name: string
         values: Value[]
+    SelectAll:
+        name: string
 
 public type LiteralParse:
     Literal:

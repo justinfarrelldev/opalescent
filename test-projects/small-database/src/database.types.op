@@ -52,3 +52,10 @@ public type InsertResult:
 public type Insertion:
     state: Database
     result: InsertResult
+
+public type SelectResult:
+    Selected:
+        columns: Column[]
+        rows: Value[][]
+    UnknownTable:
+        name: string

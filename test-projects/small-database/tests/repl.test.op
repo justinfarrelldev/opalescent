@@ -1,0 +1,73 @@
+import application_executable, terminal_process_launch, terminal_process_send_text, terminal_process_send_key, terminal_process_exited, terminal_process_exit_code, terminal_process_transcript, terminal_process_stop, attach_text from standard.testing
+import temporary_directory_create, temporary_directory_file, temporary_directory_remove from standard.testing
+import path_from, path_parent_directory, path_to_string from standard
+import type TemporaryDirectory, TerminalProcess from standard.testing
+
+world ReplWorkspace:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+    cleanup:
+        f(mutable ref workspace: TemporaryDirectory): void errors inferred =>
+            propagate temporary_directory_remove(mutable ref workspace)
+            return void
+
+world ReplProcess:
+    worlds: ReplWorkspace
+    setup: f(ref workspace: ReplWorkspace): TerminalProcess errors inferred =>
+        let filename = temporary_directory_file(ref workspace.state, 'database.odb')
+        let directory = path_to_string(path_parent_directory(path_from(filename)))
+        return propagate terminal_process_launch(application_executable(), filename, directory, 100, 32)
+    cleanup:
+        f(mutable ref process: TerminalProcess): void errors inferred =>
+            propagate terminal_process_stop(mutable ref process)
+            return void
+
+let send_line = f(mutable ref process: TerminalProcess, text: string): void errors WriteFailureError =>
+    propagate terminal_process_send_text(mutable ref process, text)
+    propagate terminal_process_send_key(mutable ref process, 'Enter')
+    return void
+
+scenario interacting with the database REPL:
+    kind: end_to_end
+    worlds: ReplProcess
+    after each test:
+        f(ref repl: ReplProcess, mutable ref context: TestContext): void =>
+            let transcript = terminal_process_transcript(ref repl.state)
+            attach_text(mutable ref context, 'terminal transcript', transcript)
+            return void
+
+    it should create and query tables and recover from invalid input:
+        f(mutable ref repl: ReplProcess): void errors inferred =>
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'db> ' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Table \'tasks\' created.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'INSERT INTO tasks VALUES (1, \'Café \\t|\');')
+            expect eventually terminal_process_transcript(ref repl.state) to contain '1 row inserted.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'SELECT * tasks;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'expected FROM' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'SELECT * FROM tasks;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain '1 | Café \\t\\|' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'QUIT;')
+            expect eventually terminal_process_exited(ref repl.state) to be true within 3 seconds
+            expect terminal_process_exit_code(ref repl.state) to be 0
+            return void
+
+    it should show tables and schemas in their declared order:
+        f(mutable ref repl: ReplProcess): void errors inferred =>
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'db> ' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'hElP;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Available commands:' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'CREATE TABLE tasks (id INT, title TEXT, done BOOL);')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Table \'tasks\' created.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'CREATE TABLE logs (message TEXT);')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Table \'logs\' created.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'sHoW Tables;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Tables: tasks, logs' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'DESCRIBE TASKS;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'id INT, title TEXT, done BOOL' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'DESCRIBE missing;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'UnknownTable: table \'missing\' does not exist.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'QUIT;')
+            expect eventually terminal_process_exited(ref repl.state) to be true within 3 seconds
+            expect terminal_process_exit_code(ref repl.state) to be 0
+            return void

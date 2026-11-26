@@ -1,49 +1,9 @@
-import empty_database, execute_create, execute_insert from ./database
-import parse_query from ./parser
-import type Database, CreateResult, Table, Creation, InsertResult, Insertion from ./database.types
-import type Value from ./value.types
-import type ParseResult, Statement from ./query.types
-import type Column from ./schema.types
-
-let apply = f(database: Database, source: string): Database errors IndexOutOfBoundsError, AllocationFailureError =>
-    let parsed_query: ParseResult = propagate parse_query(source)
-    if parsed_query is ParseResult.Parsed into parsed:
-        let statement: Statement = parsed.statement
-        if statement is Statement.CreateTable into create:
-            let columns: Column[] = create.columns
-            let outcome: Creation = propagate execute_create(database, create.name, ref columns)
-            let result: CreateResult = outcome.result
-            if result is CreateResult.Created into created:
-                print('created {created.name}')
-            else:
-                print('not created')
-            let state: Database = outcome.state
-            return state
-        if statement is Statement.Insert into insert:
-            let values: Value[] = insert.values
-            let outcome: Insertion = propagate execute_insert(database, insert.name, ref values)
-            let result: InsertResult = outcome.result
-            if result is InsertResult.Inserted into inserted:
-                print('inserted {inserted.count}')
-            let state: Database = outcome.state
-            return state
-    return database
+import run_repl from ./repl
+import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
 
 ##
-  Description: Exercises the table creation and insertion pipeline in a production build.
+  Description: Starts the interactive in-memory database.
 ##
-entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
-    let initial: Database = empty_database()
-    let first: Database = propagate apply(initial, 'CREATE TABLE Tasks (id INT, title TEXT);')
-    let second: Database = propagate apply(first, 'CREATE TABLE users (active BOOL);')
-    let third: Database = propagate apply(second, 'INSERT INTO tasks VALUES (1, \'Café\');')
-    let fourth: Database = propagate apply(third, 'INSERT INTO tasks VALUES (2, \'Next\');')
-    let tables: Table[] = fourth.tables
-    let tasks: Table = propagate tables.at(0)
-    let rows: Value[][] = tasks.rows
-    let first_row: Value[] = propagate rows.at(0)
-    let title_value: Value = propagate first_row.at(1)
-    if title_value is Value.Text into title:
-        print('first title={title.content}')
-    print('tables={tables.length}, task rows={rows.length}')
+entry main = f(args: string[]): void errors IndexAccessErrors, AllocationErrors, StdoutWriterErrors =>
+    propagate run_repl()
     return void

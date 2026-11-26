@@ -1,7 +1,7 @@
-import empty_database, execute_create, execute_insert from ../src/database
+import empty_database, execute_create, execute_insert, execute_select_all from ../src/database
 import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
-import type Database, CreateResult, Table, Creation, Insertion, InsertResult from ../src/database.types
+import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult from ../src/database.types
 import type ParseResult, Statement from ../src/query.types
 import type Column from ../src/schema.types
 import type Value from ../src/value.types
@@ -157,4 +157,55 @@ scenario inserting typed rows:
             expect title to be the Text variant of Value
             if title is Value.Text into text:
                 expect text.content to be 'Original'
+            return void
+
+scenario selecting all columns:
+    unit under test: execute_select_all
+    worlds: EmptyDatabase
+
+    it should return schema metadata for an empty table and distinguish missing tables:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect created to be the Created variant of CreateResult
+            let state: Database = db.state
+            let empty: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            let missing: SelectResult = propagate execute_select_all(ref state, 'missing')
+            expect empty to be the Selected variant of SelectResult
+            expect missing to be the UnknownTable variant of SelectResult
+            if empty is SelectResult.Selected into selection:
+                let columns: Column[] = selection.columns
+                let rows: Value[][] = selection.rows
+                expect columns.length to be 2
+                expect rows.length to be 0
+                let first: Column = propagate columns.at(0)
+                let second: Column = propagate columns.at(1)
+                expect first.name to be 'id'
+                expect second.name to be 'title'
+            return void
+
+    it should keep an earlier owned result stable across later statements:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (title TEXT);')
+            expect created to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (\'before\');')
+            expect first.result to be the Inserted variant of InsertResult
+            let state: Database = first.state
+            let saved: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            let second: Insertion = propagate insert_query(state, 'INSERT INTO tasks VALUES (\'after\');')
+            expect second.result to be the Inserted variant of InsertResult
+            let changed: Database = second.state
+            let current: SelectResult = propagate execute_select_all(ref changed, 'tasks')
+            expect saved to be the Selected variant of SelectResult
+            expect current to be the Selected variant of SelectResult
+            if current is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 2
+            if saved is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 1
+                let row: Value[] = propagate rows.at(0)
+                let cell: Value = propagate row.at(0)
+                expect cell to be the Text variant of Value
+                if cell is Value.Text into text:
+                    expect text.content to be 'before'
             return void

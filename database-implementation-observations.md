@@ -115,6 +115,21 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** accumulate the decimal negatively with a per-digit bound check, so the signed minimum is representable and no overflow can occur before its diagnostic. This also avoids allocating a second copy of the integer's text. Native tests cover both signed bounds, positive and negative overflow, and malformed tokens.
 - **Suggested improvement / status:** document how to translate native failures into non-error sum results and improve the diagnostic if the handler intentionally cannot consume its error. Non-blocking; the checked scanner meets the requirement.
 
+## COMPILER-OBS-007 — Boolean string conversion can fail LLVM verification
+
+- **Feature / classification / severity:** documented `bool_to_string`; compiler ABI defect, non-blocking.
+- **Expected:** `bool_to_string(flag.content)` accepts a boolean field and renders its spelling.
+- **Actual:** the ordinary database build failed verification: `call i8* @bool_to_string(i1 ...)` does not match its declared `i8` parameter. See `src/codegen/functions_stdlib.rs` and `src/type_system/module_resolver/standard_symbols_core_io_and_bytes.rs`.
+- **Impact / alternative:** branch on the boolean and return the two canonical literals. This is a small, faithful rendering alternative with no compiler changes.
+- **Suggested improvement / status:** reconcile the boolean argument ABI and add a production regression for this call shape. Both database terminal cases pass with the local rendering alternative.
+
+## COMPILER-OBS-008 — Line input loses bytes after an embedded NUL
+
+- **Feature / classification / severity:** `take_input` and C-string representation; input-boundary limitation; moderate.
+- **Expected and actual:** the application cannot inspect an embedded NUL (or subsequent bytes) in a line returned by `take_input`. In `runtime/opal_io.c`, `opal_getline` reads the byte count, but `duplicate_without_trailing_newline` uses `strlen` instead. Piping `CREATE TABLE visible (n INT);` followed by NUL, `ignored`, and a newline created `visible`; the app was only given the prefix, not a malformed token. This does not permit byte-level validation of redirected standard input.
+- **Impact / alternative:** the query API accepts Opalescent text, not raw input bytes. The specification requires rejecting NUL where observable; snapshot loading must inspect raw file bytes before decoding. A production terminal session exposes more input events for a TTY, but is not a general line reader for redirected standard input. `read_contents_sync` is a whole-file reader rather than an interactive input substitute.
+- **Suggested improvement / status:** provide a line reader that rejects NUL and invalid UTF-8 before turning a byte buffer into a `string`, or expose a raw line-reading API. Documented limitation of line input; do not infer from a successful query that all original bytes were inspected.
+
 ## Investigation notes
 
 - Reviewed the language specification, tutorial, standard-library reference, native testing docs, terminal editor, and Game of Life. Cross-file products, tag checks with `is … into`, string ownership, and fallible access have working fixture patterns. Typed payload assertions should check the tag and compare the extracted fields rather than require whole-payload equality.

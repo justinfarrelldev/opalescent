@@ -10,9 +10,10 @@ Contract: [`db-test-project.md`](../../db-test-project.md). This checklist track
 - [ ] Verify observable NUL rejection at interactive and snapshot input boundaries.
 - [x] Parse `CREATE TABLE` with ordered typed columns and enforce `;` then end of input.
 - [x] Execute `CREATE TABLE` and reject duplicate definitions without publishing a partial table. The separate COMPILER-001 and COMPILER-002 ownership fixes pass the database regressions.
-- [ ] Deliver a tested `INSERT` / wildcard `SELECT` vertical slice.
+- [x] Deliver a tested `INSERT` / wildcard `SELECT` vertical slice.
 - [ ] Add projections, resolved predicates, precedence, limits, `UPDATE`, and `DELETE`.
-- [ ] Add REPL, introspection, formatting, and native terminal integration.
+- [x] Add REPL, introspection, basic formatting, and native terminal tests for the vertical slice.
+- [ ] Extend REPL help, formatting, and native terminal coverage to the full query language.
 - [ ] Verify invalid mutations and independent ownership of results; complete the Milestone 1 gate.
 - [ ] Implement and test deterministic, versioned snapshot encoding and validated candidate decoding.
 - [ ] Implement and test filesystem save/load, startup, dirty state, and failure recovery.

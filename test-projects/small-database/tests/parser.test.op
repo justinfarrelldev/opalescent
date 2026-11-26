@@ -101,3 +101,30 @@ scenario parsing row insertion:
             if truncated is ParseResult.SyntaxFailure into failure:
                 expect failure.kind to be new ParseErrorKind.UnexpectedEndOfInput
             return void
+
+scenario parsing wildcard selections:
+    unit under test: parse_query
+
+    it should parse a wildcard projection and normalize the source table:
+        f(): void errors inferred =>
+            let result = propagate parse_query('SeLeCt *\n FROM Tasks;')
+            expect result to be the Parsed variant of ParseResult
+            if result is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the SelectAll variant of Statement
+                if statement is Statement.SelectAll into selection:
+                    expect selection.name to be 'tasks'
+            return void
+
+    it should require FROM and a nonreserved table name:
+        f(): void errors inferred =>
+            let missing = propagate parse_query('SELECT * tasks;')
+            let reserved = propagate parse_query('SELECT * FROM where;')
+            expect missing to be the SyntaxFailure variant of ParseResult
+            expect reserved to be the SyntaxFailure variant of ParseResult
+            if missing is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedToken
+                expect failure.detail to contain 'FROM'
+            if reserved is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.InvalidIdentifier
+            return void

@@ -1,0 +1,87 @@
+import string_join, int64_to_string from standard
+import type IndexAccessErrors, AllocationErrors from standard.errors
+import type Column, ColumnType from ./schema.types
+import type Value from ./value.types
+
+let escape_scalar = f(scalar: string): string =>
+    if scalar is '\\':
+        return '\\\\'
+    if scalar is '|':
+        return '\\|'
+    if scalar is '\n':
+        return '\\n'
+    if scalar is '\r':
+        return '\\r'
+    if scalar is '\t':
+        return '\\t'
+    return scalar
+
+let escape_text = f(text: string): string errors IndexAccessErrors, AllocationErrors =>
+    let mutable pieces: string[] = []
+    let mutable index: int64 = 0
+    let length: int64 = text.length
+    while index < length:
+        let scalar: string = propagate text.at(index)
+        pieces.push(escape_scalar(scalar))
+        index = index + 1
+    return propagate string_join(pieces, '')
+
+let render_value = f(value: Value): string errors IndexAccessErrors, AllocationErrors =>
+    if value is Value.Integer into number:
+        return int64_to_string(number.content)
+    if value is Value.Boolean into flag:
+        if flag.content:
+            return 'true'
+        return 'false'
+    if value is Value.Text into text:
+        return propagate escape_text(text.content)
+
+let type_label = f(column_type: ColumnType): string =>
+    if column_type is ColumnType.Integer:
+        return 'INT'
+    if column_type is ColumnType.Text:
+        return 'TEXT'
+    return 'BOOL'
+
+##
+  Description: Renders the ordered column names and declared types of one table.
+##
+public let format_schema = f(ref columns: Column[]): string errors IndexAccessErrors, AllocationErrors =>
+    let mutable descriptions: string[] = []
+    let mutable index: int64 = 0
+    while index < columns.length:
+        let column: Column = propagate columns.at(index)
+        let label: string = type_label(column.column_type)
+        descriptions.push('{column.name} {label}')
+        index = index + 1
+    return propagate string_join(descriptions, ', ')
+
+##
+  Description: Renders column headings and selected rows as separate display lines.
+##
+public let format_selection = f(ref columns: Column[], ref rows: Value[][]): string[] errors IndexAccessErrors, AllocationErrors =>
+    let mutable headings: string[] = []
+    let mutable index: int64 = 0
+    while index < columns.length:
+        let column: Column = propagate columns.at(index)
+        headings.push(column.name)
+        index = index + 1
+    let mutable lines: string[] = []
+    let header: string = propagate string_join(headings, ' | ')
+    lines.push(header)
+    let mutable row_index: int64 = 0
+    while row_index < rows.length:
+        let row: Value[] = propagate rows.at(row_index)
+        let mutable cells: string[] = []
+        let mutable cell_index: int64 = 0
+        while cell_index < row.length:
+            let value: Value = propagate row.at(cell_index)
+            let rendered: string = propagate render_value(value)
+            cells.push(rendered)
+            cell_index = cell_index + 1
+        let line: string = propagate string_join(cells, ' | ')
+        lines.push(line)
+        row_index = row_index + 1
+    let count: int64 = rows.length
+    lines.push('{count} rows returned.')
+    return lines

@@ -139,6 +139,34 @@ let parse_insert = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors 
             return expected(separator, new ParseErrorKind.UnexpectedToken, ', or )')
         index = index + 2
 
+let parse_select = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
+    let star: Token = propagate tokens.at(1)
+    if star.kind is not TokenKind.Asterisk:
+        return expected(star, new ParseErrorKind.UnexpectedToken, '*')
+    let source: Token = propagate tokens.at(2)
+    if source.kind is not TokenKind.From:
+        return expected(source, new ParseErrorKind.UnexpectedToken, 'FROM')
+    let table: Token = propagate tokens.at(3)
+    let kind: TokenKind = table.kind
+    if kind is TokenKind.Identifier into identifier:
+        let statement: Statement = new Statement.SelectAll:
+            name: identifier.name
+        return propagate finish_statement(ref tokens, 4, statement)
+    return expected(table, new ParseErrorKind.InvalidIdentifier, 'table name')
+
+##
+  Description: Parses a complete token stream returned by the tokenizer.
+##
+public let parse_tokens = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
+    let first: Token = propagate tokens.at(0)
+    if first.kind is TokenKind.Create:
+        return propagate parse_create(ref tokens)
+    if first.kind is TokenKind.Insert:
+        return propagate parse_insert(ref tokens)
+    if first.kind is TokenKind.Select:
+        return propagate parse_select(ref tokens)
+    return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE, INSERT, or SELECT')
+
 ##
   Description: Parses one terminated query without inspecting database state.
 ##
@@ -146,12 +174,7 @@ public let parse_query = f(text: string): ParseResult errors IndexAccessErrors, 
     let lexical: LexResult = propagate tokenize(text)
     if lexical is LexResult.Success into success:
         let tokens: Token[] = success.tokens
-        let first: Token = propagate tokens.at(0)
-        if first.kind is TokenKind.Create:
-            return propagate parse_create(ref tokens)
-        if first.kind is TokenKind.Insert:
-            return propagate parse_insert(ref tokens)
-        return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE or INSERT')
+        return propagate parse_tokens(ref tokens)
     if lexical is LexResult.Failure into failure:
         let result: ParseResult = new ParseResult.LexicalFailure:
             kind: failure.kind
