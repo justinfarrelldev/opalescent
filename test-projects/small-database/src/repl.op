@@ -136,19 +136,22 @@ let handle_introspection = f(ref database: Database, ref tokens: Token[]): boole
             print('SAVE replaces the configured snapshot. LOAD replaces the active database, discarding unsaved changes.')
             print('QUIT and EOF never save automatically.')
             return true
-    if tokens.length is 4:
-        let first: Token = propagate tokens.at(0)
-        let argument: Token = propagate tokens.at(1)
-        let semicolon: Token = propagate tokens.at(2)
-        if semicolon.kind is TokenKind.Semicolon:
-            if first.kind is TokenKind.Show and argument.kind is TokenKind.Tables:
-                propagate show_tables(ref database)
-                return true
-            if first.kind is TokenKind.Describe:
-                let kind: TokenKind = argument.kind
-                if kind is TokenKind.Identifier into identifier:
-                    propagate describe_table(ref database, identifier.name)
-                    return true
+    if tokens.length is not 4:
+        return false
+    let semicolon: Token = propagate tokens.at(2)
+    if semicolon.kind is not TokenKind.Semicolon:
+        return false
+    let first: Token = propagate tokens.at(0)
+    let argument: Token = propagate tokens.at(1)
+    if first.kind is TokenKind.Show and argument.kind is TokenKind.Tables:
+        propagate show_tables(ref database)
+        return true
+    if first.kind is not TokenKind.Describe:
+        return false
+    let kind: TokenKind = argument.kind
+    if kind is TokenKind.Identifier into identifier:
+        propagate describe_table(ref database, identifier.name)
+        return true
     return false
 
 let execute_query = f(database: Database, ref tokens: Token[]): Database errors IndexAccessErrors, AllocationErrors =>

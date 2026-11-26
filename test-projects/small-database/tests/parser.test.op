@@ -180,6 +180,34 @@ scenario parsing explicit projections:
                 expect failure.detail to contain 'column name'
             return void
 
+let expect_comparison = f(node: PredicateNode, column: string, operator: ComparisonOperator): void =>
+    expect node to be the Compare variant of PredicateNode
+    if node is PredicateNode.Compare into comparison:
+        expect comparison.column to be column
+        let same_operator: boolean = comparison.operator is operator
+        expect same_operator to be true
+    return void
+
+let expect_and_comparisons = f(ref nodes: PredicateNode[], node: PredicateNode): void errors IndexOutOfBoundsError =>
+    expect node to be the And variant of PredicateNode
+    if node is PredicateNode.And into both:
+        let numeric: PredicateNode = propagate nodes.at(both.left)
+        let text: PredicateNode = propagate nodes.at(both.right)
+        expect_comparison(numeric, 'id', new ComparisonOperator.GreaterEqual)
+        expect_comparison(text, 'title', new ComparisonOperator.NotEqual)
+    return void
+
+let expect_precedence_shape = f(ref nodes: PredicateNode[]): void errors IndexOutOfBoundsError =>
+    expect nodes.length to be 5
+    let root: PredicateNode = propagate nodes.at(4)
+    expect root to be the Or variant of PredicateNode
+    if root is PredicateNode.Or into either:
+        let left: PredicateNode = propagate nodes.at(either.left)
+        let right: PredicateNode = propagate nodes.at(either.right)
+        expect_comparison(left, 'done', new ComparisonOperator.Equal)
+        propagate expect_and_comparisons(ref nodes, right)
+    return void
+
 scenario parsing predicates:
     unit under test: parse_query
 
@@ -192,26 +220,7 @@ scenario parsing predicates:
                 expect statement to be the SelectAll variant of Statement
                 if statement is Statement.SelectAll into query:
                     let nodes: PredicateNode[] = query.predicate
-                    expect nodes.length to be 5
-                    let root: PredicateNode = propagate nodes.at(4)
-                    expect root to be the Or variant of PredicateNode
-                    if root is PredicateNode.Or into either:
-                        let left: PredicateNode = propagate nodes.at(either.left)
-                        let right: PredicateNode = propagate nodes.at(either.right)
-                        expect left to be the Compare variant of PredicateNode
-                        expect right to be the And variant of PredicateNode
-                        if left is PredicateNode.Compare into comparison:
-                            expect comparison.column to be 'done'
-                            expect comparison.operator to be new ComparisonOperator.Equal
-                        if right is PredicateNode.And into both:
-                            let numeric: PredicateNode = propagate nodes.at(both.left)
-                            let text: PredicateNode = propagate nodes.at(both.right)
-                            if numeric is PredicateNode.Compare into comparison:
-                                expect comparison.column to be 'id'
-                                expect comparison.operator to be new ComparisonOperator.GreaterEqual
-                            if text is PredicateNode.Compare into comparison:
-                                expect comparison.column to be 'title'
-                                expect comparison.operator to be new ComparisonOperator.NotEqual
+                    propagate expect_precedence_shape(ref nodes)
             return void
 
     it should use parentheses and reject a missing closing delimiter:

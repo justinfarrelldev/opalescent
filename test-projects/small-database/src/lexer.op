@@ -111,6 +111,18 @@ let decode_escape = f(escape: string): string =>
         return '\\'
     return ''
 
+# Only called after the character has been recognized as a delimiter.
+let delimiter_kind = f(scalar: string): TokenKind =>
+    if scalar is '(':
+        return new TokenKind.OpenParen
+    if scalar is ')':
+        return new TokenKind.CloseParen
+    if scalar is ',':
+        return new TokenKind.Comma
+    if scalar is ';':
+        return new TokenKind.Semicolon
+    return new TokenKind.Asterisk
+
 let token_at = f(kind: TokenKind, line: int64, column: int64): Token =>
     let position: SourcePosition = new SourcePosition:
         line: line
@@ -226,15 +238,15 @@ public let tokenize = f(source: string): LexResult errors IndexAccessErrors, All
             while index < length and scanning:
                 let next: string = propagate source.at(index)
                 let digit = string_find_index_or(decimal, next, -1)
-                if digit >= 0:
-                    if value < minimum_prefix or (value is minimum_prefix and digit > final_digit):
-                        return lex_failure(new LexErrorKind.IntegerOverflow, 'integer outside signed 64-bit range', line, column)
-                    value = value * 10 - digit
-                    index = index + 1
-                else:
+                if digit < 0:
                     if is_identifier_start(next):
                         return lex_failure(new LexErrorKind.InvalidIntegerLiteral, 'unexpected identifier after integer', line, column)
                     scanning = false
+                    continue
+                if value < minimum_prefix or (value is minimum_prefix and digit > final_digit):
+                    return lex_failure(new LexErrorKind.IntegerOverflow, 'integer outside signed 64-bit range', line, column)
+                value = value * 10 - digit
+                index = index + 1
             if index is first_digit:
                 return lex_failure(new LexErrorKind.InvalidIntegerLiteral, 'expected a decimal digit after minus', line, column)
             if not negative:
@@ -272,22 +284,9 @@ public let tokenize = f(source: string): LexResult errors IndexAccessErrors, All
             index = index + width
             column = column + width
             continue
-        if scalar is '(':
-            tokens.push(token_at(new TokenKind.OpenParen, line, column))
-        else:
-            if scalar is ')':
-                tokens.push(token_at(new TokenKind.CloseParen, line, column))
-            else:
-                if scalar is ',':
-                    tokens.push(token_at(new TokenKind.Comma, line, column))
-                else:
-                    if scalar is ';':
-                        tokens.push(token_at(new TokenKind.Semicolon, line, column))
-                    else:
-                        if scalar is '*':
-                            tokens.push(token_at(new TokenKind.Asterisk, line, column))
-                        else:
-                            return lex_failure(new LexErrorKind.UnexpectedCharacter, scalar, line, column)
+        if not contains_scalar('(),;*', scalar):
+            return lex_failure(new LexErrorKind.UnexpectedCharacter, scalar, line, column)
+        tokens.push(token_at(delimiter_kind(scalar), line, column))
         index = index + 1
         column = column + 1
     tokens.push(token_at(new TokenKind.EndOfInput, line, column))
