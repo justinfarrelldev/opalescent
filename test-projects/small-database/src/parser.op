@@ -1,7 +1,9 @@
 import tokenize from ./lexer
+import integer_value, text_value, boolean_value from ./value
+import type Value from ./value.types
 import type IndexAccessErrors, AllocationErrors from standard.errors
 import type LexResult, Token, TokenKind from ./lexer.types
-import type ParseResult, ParseErrorKind, Statement from ./query.types
+import type ParseResult, ParseErrorKind, Statement, LiteralParse from ./query.types
 import type Column, ColumnType from ./schema.types
 
 let syntax_failure = f(token: Token, kind: ParseErrorKind, detail: string): ParseResult =>
@@ -88,6 +90,55 @@ let parse_create = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors 
             return expected(separator, new ParseErrorKind.UnexpectedToken, ', or )')
         index = index + 3
 
+let parse_literal = f(kind: TokenKind): LiteralParse =>
+    if kind is TokenKind.IntegerLiteral into literal:
+        return new LiteralParse.Literal:
+            value: integer_value(literal.value)
+    if kind is TokenKind.StringLiteral into literal:
+        return new LiteralParse.Literal:
+            value: text_value(literal.value)
+    if kind is TokenKind.BooleanLiteral into literal:
+        return new LiteralParse.Literal:
+            value: boolean_value(literal.value)
+    return new LiteralParse.NotLiteral
+
+let parse_insert = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
+    let into_keyword: Token = propagate tokens.at(1)
+    if into_keyword.kind is not TokenKind.Into:
+        return expected(into_keyword, new ParseErrorKind.UnexpectedToken, 'INTO')
+    let table_token: Token = propagate tokens.at(2)
+    let table_kind: TokenKind = table_token.kind
+    let mutable table_name: string = ''
+    if table_kind is TokenKind.Identifier into identifier:
+        table_name = identifier.name
+    else:
+        return expected(table_token, new ParseErrorKind.InvalidIdentifier, 'table name')
+    let values_keyword: Token = propagate tokens.at(3)
+    if values_keyword.kind is not TokenKind.Values:
+        return expected(values_keyword, new ParseErrorKind.UnexpectedToken, 'VALUES')
+    let open_token: Token = propagate tokens.at(4)
+    if open_token.kind is not TokenKind.OpenParen:
+        return expected(open_token, new ParseErrorKind.UnexpectedToken, '(')
+    let mutable index: int64 = 5
+    let mutable values: Value[] = []
+    while true:
+        let token: Token = propagate tokens.at(index)
+        let parsed: LiteralParse = parse_literal(token.kind)
+        if parsed is LiteralParse.Literal into literal:
+            let value: Value = literal.value
+            values.push(value)
+        else:
+            return expected(token, new ParseErrorKind.UnexpectedToken, 'literal')
+        let separator: Token = propagate tokens.at(index + 1)
+        if separator.kind is TokenKind.CloseParen:
+            let statement: Statement = new Statement.Insert:
+                name: table_name
+                values: values
+            return propagate finish_statement(ref tokens, index + 2, statement)
+        if separator.kind is not TokenKind.Comma:
+            return expected(separator, new ParseErrorKind.UnexpectedToken, ', or )')
+        index = index + 2
+
 ##
   Description: Parses one terminated query without inspecting database state.
 ##
@@ -98,7 +149,9 @@ public let parse_query = f(text: string): ParseResult errors IndexAccessErrors, 
         let first: Token = propagate tokens.at(0)
         if first.kind is TokenKind.Create:
             return propagate parse_create(ref tokens)
-        return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE')
+        if first.kind is TokenKind.Insert:
+            return propagate parse_insert(ref tokens)
+        return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE or INSERT')
     if lexical is LexResult.Failure into failure:
         let result: ParseResult = new ParseResult.LexicalFailure:
             kind: failure.kind

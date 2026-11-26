@@ -1,6 +1,7 @@
-import empty_database, execute_create from ../src/database
+import empty_database, execute_create, execute_insert from ../src/database
+import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
-import type Database, CreateResult, Table, Creation from ../src/database.types
+import type Database, CreateResult, Table, Creation, Insertion, InsertResult from ../src/database.types
 import type ParseResult, Statement from ../src/query.types
 import type Column from ../src/schema.types
 import type Value from ../src/value.types
@@ -70,4 +71,90 @@ scenario creating in-memory tables:
             let second_column: Column = propagate columns.at(1)
             expect first_column.name to be 'id'
             expect second_column.name to be 'title'
+            return void
+
+let insert_query = f(database: Database, source: string): Insertion errors IndexOutOfBoundsError, AllocationFailureError =>
+    let parsed_query: ParseResult = propagate parse_query(source)
+    expect parsed_query to be the Parsed variant of ParseResult
+    if parsed_query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        expect statement to be the Insert variant of Statement
+        if statement is Statement.Insert into insert:
+            let values: Value[] = insert.values
+            return propagate execute_insert(database, insert.name, ref values)
+    # These assertions abort the worker on the invalid paths.
+    let result: InsertResult = new InsertResult.UnknownTable:
+        name: 'unreachable'
+    let outcome: Insertion = new Insertion:
+        state: database
+        result: result
+    return outcome
+
+scenario inserting typed rows:
+    unit under test: execute_insert
+    worlds: EmptyDatabase
+
+    it should append complete rows in order and preserve other tables:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let tasks = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect tasks to be the Created variant of CreateResult
+            let other = propagate apply_create(mutable ref db.state, 'CREATE TABLE other (id INT);')
+            expect other to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO Tasks VALUES (1, \'First\');')
+            expect first.result to be the Inserted variant of InsertResult
+            let first_state: Database = first.state
+            let second: Insertion = propagate insert_query(first_state, 'INSERT INTO tasks VALUES (2, \'Café\');')
+            let result: InsertResult = second.result
+            expect result to be the Inserted variant of InsertResult
+            if result is InsertResult.Inserted into inserted:
+                expect inserted.count to be 1
+            let state: Database = second.state
+            let tables: Table[] = state.tables
+            expect tables.length to be 2
+            let table: Table = propagate tables.at(0)
+            let untouched: Table = propagate tables.at(1)
+            expect untouched.rows.length to be 0
+            let rows: Value[][] = table.rows
+            expect rows.length to be 2
+            let row_one: Value[] = propagate rows.at(0)
+            let row_two: Value[] = propagate rows.at(1)
+            let first_id: Value = propagate row_one.at(0)
+            let second_id: Value = propagate row_two.at(0)
+            let title: Value = propagate row_two.at(1)
+            expect first_id to be the Integer variant of Value
+            expect second_id to be the Integer variant of Value
+            expect title to be the Text variant of Value
+            if first_id is Value.Integer into number:
+                expect number.content to be 1
+            if second_id is Value.Integer into number:
+                expect number.content to be 2
+            if title is Value.Text into text:
+                expect text.content to be 'Café'
+            return void
+
+    it should reject missing tables, incorrect widths, and mismatched types before appending:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect created to be the Created variant of CreateResult
+            let valid: Value[] = [integer_value(1), text_value('Original')]
+            let short: Value[] = [integer_value(2)]
+            let invalid: Value[] = [integer_value(2), integer_value(3)]
+            let original: Insertion = propagate execute_insert(db.state, 'tasks', ref valid)
+            expect original.result to be the Inserted variant of InsertResult
+            let missing: Insertion = propagate execute_insert(original.state, 'missing', ref valid)
+            let incorrect: Insertion = propagate execute_insert(missing.state, 'tasks', ref short)
+            let mismatched: Insertion = propagate execute_insert(incorrect.state, 'tasks', ref invalid)
+            expect missing.result to be the UnknownTable variant of InsertResult
+            expect incorrect.result to be the IncorrectValueCount variant of InsertResult
+            expect mismatched.result to be the TypeMismatch variant of InsertResult
+            let state: Database = mismatched.state
+            let tables: Table[] = state.tables
+            let table: Table = propagate tables.at(0)
+            let rows: Value[][] = table.rows
+            expect rows.length to be 1
+            let row: Value[] = propagate rows.at(0)
+            let title: Value = propagate row.at(1)
+            expect title to be the Text variant of Value
+            if title is Value.Text into text:
+                expect text.content to be 'Original'
             return void

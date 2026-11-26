@@ -1,6 +1,7 @@
 import parse_query from ../src/parser
 import type ParseResult, ParseErrorKind, Statement from ../src/query.types
 import type Column, ColumnType from ../src/schema.types
+import type Value from ../src/value.types
 
 scenario parsing table definitions:
     unit under test: parse_query
@@ -53,4 +54,50 @@ scenario parsing table definitions:
             if result is ParseResult.SyntaxFailure into failure:
                 expect failure.kind to be new ParseErrorKind.UnsupportedDataType
                 expect failure.position.column to be 24
+            return void
+
+scenario parsing row insertion:
+    unit under test: parse_query
+
+    it should produce typed literal values in order:
+        f(): void errors inferred =>
+            let result = propagate parse_query('iNsErT INTO Tasks VALUES (-8, \'Café\', true);')
+            expect result to be the Parsed variant of ParseResult
+            if result is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the Insert variant of Statement
+                if statement is Statement.Insert into insert:
+                    expect insert.name to be 'tasks'
+                    let values: Value[] = insert.values
+                    expect values.length to be 3
+                    let first: Value = propagate values.at(0)
+                    let second: Value = propagate values.at(1)
+                    let third: Value = propagate values.at(2)
+                    expect first to be the Integer variant of Value
+                    expect second to be the Text variant of Value
+                    expect third to be the Boolean variant of Value
+                    if first is Value.Integer into number:
+                        expect number.content to be -8
+                    if second is Value.Text into text:
+                        expect text.content to be 'Café'
+                    if third is Value.Boolean into flag:
+                        expect flag.content to be true
+            return void
+
+    it should reject empty rows, missing separators, and truncated rows:
+        f(): void errors inferred =>
+            let empty = propagate parse_query('INSERT INTO tasks VALUES ();')
+            let separator = propagate parse_query('INSERT INTO tasks VALUES (1 true);')
+            let truncated = propagate parse_query('INSERT INTO tasks VALUES (1,')
+            expect empty to be the SyntaxFailure variant of ParseResult
+            expect separator to be the SyntaxFailure variant of ParseResult
+            expect truncated to be the SyntaxFailure variant of ParseResult
+            if empty is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedToken
+                expect failure.detail to contain 'literal'
+            if separator is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedToken
+                expect failure.detail to contain ', or )'
+            if truncated is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedEndOfInput
             return void

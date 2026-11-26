@@ -35,3 +35,20 @@ public type CreateResult:
 public type Creation:
     state: Database
     result: CreateResult
+
+public type InsertResult:
+    Inserted:
+        count: int64
+    UnknownTable:
+        name: string
+    IncorrectValueCount:
+        table_name: string
+        expected: int64
+        actual: int64
+    TypeMismatch:
+        table_name: string
+        column_name: string
+
+public type Insertion:
+    state: Database
+    result: InsertResult

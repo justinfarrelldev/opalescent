@@ -1,5 +1,6 @@
 import type SourcePosition, LexErrorKind from ./lexer.types
 import type Column from ./schema.types
+import type Value from ./value.types
 
 ##
   Description: A parsed database statement, independent of engine state.
@@ -8,6 +9,14 @@ public type Statement:
     CreateTable:
         name: string
         columns: Column[]
+    Insert:
+        name: string
+        values: Value[]
+
+public type LiteralParse:
+    Literal:
+        value: Value
+    NotLiteral
 
 ##
   Description: Categories of invalid query syntax detected by the parser.

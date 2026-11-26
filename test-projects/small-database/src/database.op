@@ -1,5 +1,5 @@
-import type Database, Table, CreateResult, Creation from ./database.types
-import type Column from ./schema.types
+import type Database, Table, CreateResult, Creation, InsertResult, Insertion from ./database.types
+import type Column, ColumnType from ./schema.types
 import type Value from ./value.types
 import type IndexAccessErrors from standard.errors
 
@@ -69,3 +69,60 @@ public let execute_create = f(
         state: changed
         result: result
     return outcome
+
+let insertion = f(state: Database, result: InsertResult): Insertion =>
+    return new Insertion:
+        state: state
+        result: result
+
+let value_matches = f(column_type: ColumnType, value: Value): boolean =>
+    if column_type is ColumnType.Integer:
+        return value is Value.Integer
+    if column_type is ColumnType.Text:
+        return value is Value.Text
+    return value is Value.Boolean
+
+##
+  Description: Validates row width and types before appending a single row.
+##
+public let execute_insert = f(database: Database, name: string, ref values: Value[]): Insertion errors IndexAccessErrors =>
+    let mutable tables: Table[] = database.tables
+    let mutable table_index: int64 = 0
+    while table_index < tables.length:
+        let table: Table = propagate tables.at(table_index)
+        if table.name is name:
+            let columns: Column[] = table.columns
+            if columns.length is not values.length:
+                let mismatch: InsertResult = new InsertResult.IncorrectValueCount:
+                    table_name: name
+                    expected: columns.length
+                    actual: values.length
+                return insertion(database, mismatch)
+            let mutable row: Value[] = []
+            let mutable index: int64 = 0
+            while index < columns.length:
+                let column: Column = propagate columns.at(index)
+                let value: Value = propagate values.at(index)
+                if not value_matches(column.column_type, value):
+                    let mismatch: InsertResult = new InsertResult.TypeMismatch:
+                        table_name: name
+                        column_name: column.name
+                    return insertion(database, mismatch)
+                row.push(value)
+                index = index + 1
+            let mutable rows: Value[][] = table.rows
+            rows.push(row)
+            let changed_table: Table = new Table:
+                name: name
+                columns: columns
+                rows: rows
+            tables[table_index] = changed_table
+            let state: Database = new Database:
+                tables: tables
+            let result: InsertResult = new InsertResult.Inserted:
+                count: 1
+            return insertion(state, result)
+        table_index = table_index + 1
+    let missing: InsertResult = new InsertResult.UnknownTable:
+        name: name
+    return insertion(database, missing)
