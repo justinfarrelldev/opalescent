@@ -7,10 +7,10 @@ extern crate alloc;
 use crate::ast::{Expr, Pattern};
 #[path = "adts_borrow.rs"]
 pub(crate) mod adts_borrow;
+#[path = "adts_fields.rs"]
+mod adts_fields;
 #[path = "adts_manifest.rs"]
 mod adts_manifest;
-#[path = "adts_product_fields.rs"]
-mod adts_product_fields;
 #[path = "adts_record_update.rs"]
 pub(crate) mod adts_record_update;
 #[path = "adts_sum.rs"]
@@ -754,8 +754,12 @@ pub(crate) fn codegen_product_constructor<'context>(
             )? {
                 return Ok(aggregate);
             }
-            let lowered_fields = adts_product_fields::lower_product_fields(
-                codegen_context, env, name, fields, &field_layout,
+            let lowered_fields = adts_fields::lower_product_fields(
+                codegen_context,
+                env,
+                name,
+                fields,
+                &field_layout,
             )?;
             let field_types = field_layout
                 .iter()

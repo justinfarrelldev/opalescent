@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use super::adts_fields::own_array_field;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression};
@@ -7,6 +8,7 @@ use crate::codegen::expressions_array::{
     declare_or_get_opal_rc_drop_child, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::statements::unwind_scope_without_cleanup;
 use crate::codegen::string_ownership::{
     declare_or_get_opal_string_release, retain_string_for_expr_boundary,
 };
@@ -117,6 +119,7 @@ pub fn codegen_sum_variant_constructor<'context>(
             .const_int(u64::try_from(variant_tag).unwrap_or_default(), true),
     )?;
 
+    let owns_payload = matches!(expected_type, Some(&CoreType::Generic { .. }));
     let mut variant_field_layout: Option<alloc::vec::Vec<(String, CoreType)>> = None;
     if let Some(layout_name) = variant_layout_name {
         if let Some(field_layout) = env.adt_field_layout(layout_name).cloned() {
@@ -147,6 +150,10 @@ pub fn codegen_sum_variant_constructor<'context>(
                 payload_struct_type.ptr_type(AddressSpace::default()),
                 &env.next_name("sum.payload.struct.cast"),
             )?;
+            // Keep provisional array owners live until all payload initializers succeed.
+            if owns_payload {
+                env.scope_stack.push(Vec::new());
+            }
             for (field_index, &(ref field_name, ref field_type)) in field_layout.iter().enumerate()
             {
                 let Some(constructor_field) = fields.iter().find(|field| field.name == *field_name)
@@ -163,6 +170,14 @@ pub fn codegen_sum_variant_constructor<'context>(
                     retain_string_for_expr_boundary(
                         codegen_context,
                         env,
+                        &constructor_field.value,
+                        lowered_value,
+                    )?;
+                } else if owns_payload && matches!(*field_type, CoreType::Array(_)) {
+                    own_array_field(
+                        codegen_context,
+                        env,
+                        field_type,
                         &constructor_field.value,
                         lowered_value,
                     )?;
@@ -188,6 +203,9 @@ pub fn codegen_sum_variant_constructor<'context>(
                     .builder
                     .build_store(field_ptr, lowered_value)?;
             }
+            if owns_payload {
+                unwind_scope_without_cleanup(env);
+            }
         } else {
             for field in fields {
                 let _payload_value = codegen_expression(codegen_context, env, &field.value, None)?;
@@ -199,7 +217,7 @@ pub fn codegen_sum_variant_constructor<'context>(
         }
     }
 
-    if let Some(&CoreType::Generic { .. }) = expected_type {
+    if owns_payload {
         let drop_children_fn = match (variant_layout_name, variant_field_layout.as_deref()) {
             (Some(layout_name), Some(field_layout))
                 if field_layout.iter().any(|&(_, ref field_type)| {

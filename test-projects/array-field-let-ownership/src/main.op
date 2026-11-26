@@ -1,0 +1,28 @@
+import type ArrayHolder, ArrayResult from ./holder.types
+
+##
+  Description: Returns a variant that must keep ownership of its array payload.
+##
+let empty_result = f(): ArrayResult =>
+    let items: int64[] = []
+    let result: ArrayResult = new ArrayResult.Present:
+        items: items
+    return result
+
+##
+  Description: Reading an array field into a local must not consume the record's array.
+##
+entry main = f(args: string[]): void =>
+    let holder: ArrayHolder = new ArrayHolder:
+        items: []
+    if true:
+        let alias: int64[] = holder.items
+        print('alias={alias.length}')
+    let other: int64[] = [7]
+    print('stored={holder.items.length}, other={other.length}')
+    let result: ArrayResult = empty_result()
+    let independent: int64[] = [8]
+    if result is ArrayResult.Present into present:
+        let items: int64[] = present.items
+        print('payload={items.length}, independent={independent.length}')
+    return void

@@ -260,10 +260,13 @@ fn codegen_let_statement<'context>(
         mark_binding_malloc_string_cleanup(env, binding.name.as_str());
     }
     if let (Some(initializer_expr), Some(initializer_value)) = (initializer, lowered_initializer) {
-        let retain_new_value = if declared_type == CoreType::String {
-            string_expr_needs_retain_at_ownership_boundary(initializer_expr)
-        } else {
-            matches!(*initializer_expr, Expr::Identifier { .. })
+        let retain_new_value = match (&declared_type, initializer_expr) {
+            (CoreType::String, _) => {
+                string_expr_needs_retain_at_ownership_boundary(initializer_expr)
+            }
+            // A field load borrows the array; the local will release its own reference.
+            (CoreType::Array(_), Expr::Member { .. }) | (_, Expr::Identifier { .. }) => true,
+            _ => false,
         };
         initialize_binding_value(
             codegen_context,

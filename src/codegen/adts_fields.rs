@@ -1,4 +1,4 @@
-//! Field evaluation and ownership at nominal product construction boundaries.
+//! Field evaluation and ownership at nominal ADT construction boundaries.
 
 extern crate alloc;
 
@@ -52,14 +52,14 @@ pub(super) fn lower_product_fields<'context>(
 
 /// Retain a borrowed array once; take over an owned expression's reference.
 /// Register either form for release if construction does not complete.
-fn own_array_field<'context>(
+pub(super) fn own_array_field<'context>(
     context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     field_type: &CoreType,
     expr: &Expr,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
-    let name = env.next_name("product.array.field");
+    let name = env.next_name("adt.array.field");
     let alloca = context.builder.build_alloca(value.get_type(), &name)?;
     env.variables.insert(
         name.clone(),
@@ -79,7 +79,7 @@ fn own_array_field<'context>(
         env,
         &name,
         value,
-        "product.array.field.init",
+        "adt.array.field.init",
         string_expr_needs_retain_at_ownership_boundary(expr),
     )
 }

@@ -376,11 +376,20 @@ let make_message = f(): string errors AllocationFailureError =>
     return message
 
 ##
+  Description: Returns a fresh array whose ownership is transferred to the caller.
+##
+let make_numbers = f(): int64[] =>
+    let numbers: int64[] = [7]
+    return numbers
+
+##
   Description: Exercises returned ownership in caller scope.
 ##
 entry main = f(args: string[]): void errors AllocationFailureError =>
     let returned = propagate make_message()
+    let numbers = make_numbers()
     print(returned)
+    print(numbers.length)
     return void
 ";
 

@@ -1,0 +1,13 @@
+##
+  Description: Holds an array for the field read ownership regression.
+##
+public type ArrayHolder:
+    items: int64[]
+
+##
+  Description: Holds an array in a sum variant for the field read ownership regression.
+##
+public type ArrayResult:
+    Present:
+        items: int64[]
+    Absent
