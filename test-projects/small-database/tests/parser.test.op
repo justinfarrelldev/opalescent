@@ -57,6 +57,22 @@ scenario parsing table definitions:
                 expect failure.position.column to be 24
             return void
 
+    it should reject empty schemas, reserved names, and unsupported statements:
+        f(): void errors inferred =>
+            let empty: ParseResult = propagate parse_query('CREATE TABLE tasks ();')
+            let reserved: ParseResult = propagate parse_query('CREATE TABLE select (id INT);')
+            let unknown: ParseResult = propagate parse_query('DROP TABLE tasks;')
+            expect empty to be the SyntaxFailure variant of ParseResult
+            expect reserved to be the SyntaxFailure variant of ParseResult
+            expect unknown to be the SyntaxFailure variant of ParseResult
+            if empty is ParseResult.SyntaxFailure into failure:
+                expect failure.detail to contain 'column name'
+            if reserved is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.InvalidIdentifier
+            if unknown is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.UnexpectedToken
+            return void
+
 scenario parsing row insertion:
     unit under test: parse_query
 

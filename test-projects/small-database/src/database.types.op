@@ -68,8 +68,20 @@ public type SelectResult:
         problem: PredicateError
 
 public type MutationResult:
+    Updated:
+        count: int64
+        changed: boolean
     Deleted:
         count: int64
+    UnknownColumn:
+        table_name: string
+        column_name: string
+    AssignmentTypeMismatch:
+        table_name: string
+        column_name: string
+    DuplicateAssignment:
+        table_name: string
+        column_name: string
     UnknownTable:
         name: string
     InvalidPredicate:
@@ -79,3 +91,11 @@ public type MutationResult:
 public type Mutation:
     state: Database
     result: MutationResult
+
+public type ResolvedAssignment:
+    index: int64
+    value: Value
+
+public type RowReplacement:
+    row: Value[]
+    changed: boolean

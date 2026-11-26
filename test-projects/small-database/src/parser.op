@@ -3,7 +3,7 @@ import integer_value, text_value, boolean_value from ./value
 import type Value from ./value.types
 import type IndexAccessErrors, AllocationErrors from standard.errors
 import type LexResult, Token, TokenKind from ./lexer.types
-import type ParseResult, ParseErrorKind, Statement, LiteralParse, ComparisonOperator, PredicateNode, PredicateProgress, RowLimit from ./query.types
+import type ParseResult, ParseErrorKind, Statement, LiteralParse, ComparisonOperator, PredicateNode, PredicateProgress, RowLimit, Assignment from ./query.types
 import type Column, ColumnType from ./schema.types
 
 let syntax_failure = f(token: Token, kind: ParseErrorKind, detail: string): ParseResult =>
@@ -335,6 +335,57 @@ let parse_delete = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors 
             return failure
     return expected(table, new ParseErrorKind.InvalidIdentifier, 'table name')
 
+let parse_update = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
+    let table: Token = propagate tokens.at(1)
+    let kind: TokenKind = table.kind
+    let mutable name: string = ''
+    if kind is TokenKind.Identifier into identifier:
+        name = identifier.name
+    else:
+        return expected(table, new ParseErrorKind.InvalidIdentifier, 'table name')
+    let set_keyword: Token = propagate tokens.at(2)
+    if set_keyword.kind is not TokenKind.Set:
+        return expected(set_keyword, new ParseErrorKind.UnexpectedToken, 'SET')
+    let mutable assignments: Assignment[] = []
+    let mutable index: int64 = 3
+    let mutable scanning = true
+    while scanning:
+        let column: Token = propagate tokens.at(index)
+        let column_kind: TokenKind = column.kind
+        let mutable column_name: string = ''
+        if column_kind is TokenKind.Identifier into identifier:
+            column_name = identifier.name
+        else:
+            return expected(column, new ParseErrorKind.InvalidIdentifier, 'assignment column name')
+        let equal: Token = propagate tokens.at(index + 1)
+        if equal.kind is not TokenKind.Equal:
+            return expected(equal, new ParseErrorKind.UnexpectedToken, '=')
+        let literal: Token = propagate tokens.at(index + 2)
+        let value: LiteralParse = parse_literal(literal.kind)
+        if value is LiteralParse.Literal into parsed:
+            let assignment: Assignment = new Assignment:
+                column: column_name
+                value: parsed.value
+            assignments.push(assignment)
+        else:
+            return expected(literal, new ParseErrorKind.UnexpectedToken, 'literal')
+        index = index + 3
+        let separator: Token = propagate tokens.at(index)
+        scanning = separator.kind is TokenKind.Comma
+        if scanning:
+            index = index + 1
+    let expression: PredicateProgress = propagate parse_optional_predicate(ref tokens, index)
+    if expression is PredicateProgress.Failed into failed:
+        let failure: ParseResult = failed.result
+        return failure
+    if expression is PredicateProgress.Done into parsed:
+        let predicate: PredicateNode[] = parsed.nodes
+        let statement: Statement = new Statement.Update:
+            name: name
+            assignments: assignments
+            predicate: predicate
+        return propagate finish_statement(ref tokens, parsed.next, statement)
+
 ##
   Description: Parses a complete token stream returned by the tokenizer.
 ##
@@ -348,7 +399,9 @@ public let parse_tokens = f(ref tokens: Token[]): ParseResult errors IndexAccess
         return propagate parse_select(ref tokens)
     if first.kind is TokenKind.Delete:
         return propagate parse_delete(ref tokens)
-    return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE, INSERT, SELECT, or DELETE')
+    if first.kind is TokenKind.Update:
+        return propagate parse_update(ref tokens)
+    return expected(first, new ParseErrorKind.UnexpectedToken, 'CREATE TABLE, INSERT, SELECT, UPDATE, or DELETE')
 
 ##
   Description: Parses one terminated query without inspecting database state.

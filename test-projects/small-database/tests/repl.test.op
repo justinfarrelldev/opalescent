@@ -47,6 +47,10 @@ scenario interacting with the database REPL:
             expect eventually terminal_process_transcript(ref repl.state) to contain 'expected FROM' within 3 seconds
             propagate send_line(mutable ref repl.state, 'SELECT * FROM tasks;')
             expect eventually terminal_process_transcript(ref repl.state) to contain '1 | Café \\t\\|' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'UPDATE tasks SET title = \'Renamed\' WHERE id >= 1;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain '1 rows updated.' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'SELECT title, id FROM tasks WHERE id <> 0 LIMIT 1;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain 'Renamed | 1' within 3 seconds
             propagate send_line(mutable ref repl.state, 'DELETE FROM tasks WHERE id = 1;')
             expect eventually terminal_process_transcript(ref repl.state) to contain '1 rows deleted.' within 3 seconds
             propagate send_line(mutable ref repl.state, 'QUIT;')

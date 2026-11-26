@@ -1,11 +1,11 @@
 import string_is_blank, string_join, take_input, print_text_sync, flush_standard_output_sync from standard
 import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
-import empty_database, execute_create, execute_insert, execute_select_all, execute_select_where, execute_delete from ./database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_where, execute_delete, execute_update from ./database
 import tokenize from ./lexer
 import parse_tokens from ./parser
 import format_selection, format_schema, type_label from ./formatting
 import type LexResult, Token, TokenKind, SourcePosition from ./lexer.types
-import type ParseResult, Statement, PredicateNode from ./query.types
+import type ParseResult, Statement, PredicateNode, Assignment from ./query.types
 import type PredicateError from ./predicate.types
 import type Database, Creation, CreateResult, Insertion, InsertResult, SelectResult, Table, Mutation, MutationResult from ./database.types
 import type Column from ./schema.types
@@ -56,8 +56,16 @@ let show_predicate_error = f(table: string, problem: PredicateError): void =>
 
 let show_mutation = f(outcome: Mutation): Database =>
     let result: MutationResult = outcome.result
+    if result is MutationResult.Updated into updated:
+        print('{updated.count} rows updated.')
     if result is MutationResult.Deleted into deleted:
         print('{deleted.count} rows deleted.')
+    if result is MutationResult.UnknownColumn into missing:
+        print('UnknownColumn: column \'{missing.column_name}\' does not exist in table \'{missing.table_name}\'.')
+    if result is MutationResult.AssignmentTypeMismatch into mismatch:
+        print('TypeMismatch: assignment to \'{mismatch.table_name}.{mismatch.column_name}\' must match its declared type.')
+    if result is MutationResult.DuplicateAssignment into duplicate:
+        print('DuplicateAssignment: \'{duplicate.table_name}.{duplicate.column_name}\' is assigned more than once.')
     if result is MutationResult.UnknownTable into missing:
         print('UnknownTable: table \'{missing.name}\' does not exist.')
     if result is MutationResult.InvalidPredicate into invalid:
@@ -110,7 +118,7 @@ let handle_introspection = f(ref database: Database, ref tokens: Token[]): boole
         let first: Token = propagate tokens.at(0)
         let semicolon: Token = propagate tokens.at(1)
         if first.kind is TokenKind.Help and semicolon.kind is TokenKind.Semicolon:
-            print('Available commands: CREATE TABLE, INSERT INTO, SELECT, DELETE FROM, SHOW TABLES, DESCRIBE, HELP, QUIT.')
+            print('Available commands: CREATE TABLE, INSERT INTO, SELECT, UPDATE, DELETE FROM, SHOW TABLES, DESCRIBE, HELP, QUIT.')
             return true
     if tokens.length is 4:
         let first: Token = propagate tokens.at(0)
@@ -140,6 +148,11 @@ let execute_query = f(database: Database, ref tokens: Token[]): Database errors 
         if statement is Statement.Insert into insert:
             let values: Value[] = insert.values
             return propagate insert_row(database, insert.name, ref values)
+        if statement is Statement.Update into update:
+            let assignments: Assignment[] = update.assignments
+            let predicate: PredicateNode[] = update.predicate
+            let outcome: Mutation = propagate execute_update(database, update.name, ref assignments, ref predicate)
+            return show_mutation(outcome)
         if statement is Statement.Delete into delete:
             let predicate: PredicateNode[] = delete.predicate
             let outcome: Mutation = propagate execute_delete(database, delete.name, ref predicate)

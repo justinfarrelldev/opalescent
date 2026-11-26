@@ -24,6 +24,14 @@ public type Statement:
     Delete:
         name: string
         predicate: PredicateNode[]
+    Update:
+        name: string
+        assignments: Assignment[]
+        predicate: PredicateNode[]
+
+public type Assignment:
+    column: string
+    value: Value
 
 public type RowLimit:
     Unlimited

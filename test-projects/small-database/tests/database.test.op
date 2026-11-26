@@ -1,8 +1,8 @@
-import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns, execute_select_where, execute_delete from ../src/database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns, execute_select_where, execute_delete, execute_update from ../src/database
 import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
 import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult, Mutation, MutationResult from ../src/database.types
-import type ParseResult, Statement, PredicateNode from ../src/query.types
+import type ParseResult, Statement, PredicateNode, Assignment from ../src/query.types
 import type PredicateError from ../src/predicate.types
 import type Column from ../src/schema.types
 import type Value from ../src/value.types
@@ -445,4 +445,94 @@ scenario deleting rows:
                 let rows: Value[][] = selection.rows
                 expect rows.length to be 1
                 propagate expect_id(ref rows, 0, 1)
+            return void
+
+let update_query = f(database: Database, source: string): Mutation errors IndexOutOfBoundsError, AllocationFailureError =>
+    let query: ParseResult = propagate parse_query(source)
+    expect query to be the Parsed variant of ParseResult
+    if query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        expect statement to be the Update variant of Statement
+        if statement is Statement.Update into update:
+            let assignments: Assignment[] = update.assignments
+            let predicate: PredicateNode[] = update.predicate
+            return propagate execute_update(database, update.name, ref assignments, ref predicate)
+    let result: MutationResult = new MutationResult.UnknownTable:
+        name: 'unreachable'
+    let outcome: Mutation = new Mutation:
+        state: database
+        result: result
+    return outcome
+
+let expect_updated = f(result: MutationResult, count: int64, changed: boolean): void =>
+    expect result to be the Updated variant of MutationResult
+    if result is MutationResult.Updated into updated:
+        expect updated.count to be count
+        expect updated.changed to be changed
+    return void
+
+let expect_title = f(selection: SelectResult, index: int64, expected: string): void errors IndexOutOfBoundsError =>
+    expect selection to be the Selected variant of SelectResult
+    if selection is SelectResult.Selected into selected:
+        let rows: Value[][] = selected.rows
+        let row: Value[] = propagate rows.at(index)
+        let title: Value = propagate row.at(1)
+        expect title to be the Text variant of Value
+        if title is Value.Text into text:
+            expect text.content to be expected
+    return void
+
+scenario updating rows:
+    unit under test: execute_update
+    worlds: EmptyDatabase
+
+    it should update matching rows, preserve old results, and distinguish no-op assignments:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT, done BOOL);')
+            expect created to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1, \'First\', false);')
+            let second: Insertion = propagate insert_query(first.state, 'INSERT INTO tasks VALUES (2, \'Second\', false);')
+            let state: Database = second.state
+            let previous: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            let one: Mutation = propagate update_query(state, 'UPDATE tasks SET title = \'Changed\', done = true WHERE id = 1;')
+            expect_updated(one.result, 1, true)
+            let after: Database = one.state
+            let selection: SelectResult = propagate execute_select_all(ref after, 'tasks')
+            propagate expect_title(selection, 0, 'Changed')
+            propagate expect_title(selection, 1, 'Second')
+            propagate expect_title(previous, 0, 'First')
+            let unchanged: Mutation = propagate update_query(after, 'UPDATE tasks SET title = \'Changed\' WHERE id = 1;')
+            expect_updated(unchanged.result, 1, false)
+            let none: Mutation = propagate update_query(unchanged.state, 'UPDATE tasks SET done = false WHERE id > 3;')
+            expect_updated(none.result, 0, false)
+            let all_matching: Mutation = propagate update_query(none.state, 'UPDATE tasks SET title = \'All\' WHERE id < 3;')
+            expect_updated(all_matching.result, 2, true)
+            let all: Mutation = propagate update_query(all_matching.state, 'UPDATE tasks SET done = true;')
+            expect_updated(all.result, 2, true)
+            let final_state: Database = all.state
+            let final: SelectResult = propagate select_query(ref final_state, 'SELECT id FROM tasks WHERE title = \'All\' AND done = true;')
+            expect final to be the Selected variant of SelectResult
+            if final is SelectResult.Selected into selected:
+                let rows: Value[][] = selected.rows
+                expect rows.length to be 2
+                propagate expect_id(ref rows, 0, 1)
+                propagate expect_id(ref rows, 1, 2)
+            return void
+
+    it should reject duplicate, unknown, mistyped and invalid predicate assignments without changing rows:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect created to be the Created variant of CreateResult
+            let inserted: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1, \'Original\');')
+            let mistyped: Mutation = propagate update_query(inserted.state, 'UPDATE tasks SET title = \'new\', id = \'1\';')
+            let duplicate: Mutation = propagate update_query(mistyped.state, 'UPDATE tasks SET title = \'new\', TITLE = \'other\';')
+            let unknown: Mutation = propagate update_query(duplicate.state, 'UPDATE tasks SET title = \'new\', missing = 2;')
+            let bad_predicate: Mutation = propagate update_query(unknown.state, 'UPDATE tasks SET title = \'new\' WHERE id = \'1\';')
+            expect mistyped.result to be the AssignmentTypeMismatch variant of MutationResult
+            expect duplicate.result to be the DuplicateAssignment variant of MutationResult
+            expect unknown.result to be the UnknownColumn variant of MutationResult
+            expect bad_predicate.result to be the InvalidPredicate variant of MutationResult
+            let state: Database = bad_predicate.state
+            let after: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            propagate expect_title(after, 0, 'Original')
             return void

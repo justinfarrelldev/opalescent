@@ -20,3 +20,18 @@ public let integer_value = f(content: int64): Value =>
 public let boolean_value = f(content: boolean): Value =>
     return new Value.Boolean:
         content: content
+
+##
+  Description: Tests typed equality without coercion or text normalization.
+##
+public let equal_values = f(left: Value, right: Value): boolean =>
+    if left is Value.Integer into number:
+        if right is Value.Integer into other:
+            return number.content is other.content
+    if left is Value.Text into text:
+        if right is Value.Text into other:
+            return text.content is other.content
+    if left is Value.Boolean into flag:
+        if right is Value.Boolean into other:
+            return flag.content is other.content
+    return false

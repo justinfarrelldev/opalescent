@@ -1,11 +1,12 @@
-import type Database, Table, CreateResult, Creation, InsertResult, Insertion, SelectResult, Mutation, MutationResult from ./database.types
+import type Database, Table, CreateResult, Creation, InsertResult, Insertion, SelectResult, Mutation, MutationResult, ResolvedAssignment, RowReplacement from ./database.types
 import type Column from ./schema.types
 import column_index_of, value_matches from ./schema
 import validate_predicate, row_matches from ./predicate
 import type ResolvedNode, PredicateValidation from ./predicate.types
 import type Value from ./value.types
+import equal_values from ./value
 import type IndexAccessErrors from standard.errors
-import type PredicateNode, RowLimit from ./query.types
+import type PredicateNode, RowLimit, Assignment from ./query.types
 
 ##
   Description: Creates an empty database with no tables.
@@ -268,3 +269,96 @@ public let execute_delete = f(database: Database, name: string, ref predicate: P
     if removed is 0:
         return mutation(database, result)
     return mutation(replace_rows(database, table_index, table, survivors), result)
+
+let assign_row = f(original: Value[], ref assignments: ResolvedAssignment[]): RowReplacement errors IndexAccessErrors =>
+    let mutable row: Value[] = original
+    let mutable changed = false
+    let mutable index: int64 = 0
+    while index < assignments.length:
+        let assignment: ResolvedAssignment = propagate assignments.at(index)
+        let old: Value = propagate row.at(assignment.index)
+        let replacement: Value = assignment.value
+        if not equal_values(old, replacement):
+            let position: int64 = assignment.index
+            row[position] = replacement
+            changed = true
+        index = index + 1
+    let result: RowReplacement = new RowReplacement:
+        row: row
+        changed: changed
+    return result
+
+##
+  Description: Prevalidates every assignment and predicate before updating matching rows.
+##
+public let execute_update = f(database: Database, name: string, ref assignments: Assignment[], ref predicate: PredicateNode[]): Mutation errors IndexAccessErrors =>
+    let tables: Table[] = database.tables
+    let table_index: int64 = propagate table_index_of(ref tables, name)
+    if table_index < 0:
+        let missing: MutationResult = new MutationResult.UnknownTable:
+            name: name
+        return mutation(database, missing)
+    let table: Table = propagate tables.at(table_index)
+    let columns: Column[] = table.columns
+    let mutable resolved: ResolvedAssignment[] = []
+    let mutable index: int64 = 0
+    while index < assignments.length:
+        let assignment: Assignment = propagate assignments.at(index)
+        let column_index: int64 = propagate column_index_of(ref columns, assignment.column)
+        if column_index < 0:
+            let result: MutationResult = new MutationResult.UnknownColumn:
+                table_name: name
+                column_name: assignment.column
+            return mutation(database, result)
+        let mutable previous: int64 = 0
+        while previous < resolved.length:
+            let other: ResolvedAssignment = propagate resolved.at(previous)
+            if other.index is column_index:
+                let result: MutationResult = new MutationResult.DuplicateAssignment:
+                    table_name: name
+                    column_name: assignment.column
+                return mutation(database, result)
+            previous = previous + 1
+        let column: Column = propagate columns.at(column_index)
+        let value: Value = assignment.value
+        if not value_matches(column.column_type, value):
+            let result: MutationResult = new MutationResult.AssignmentTypeMismatch:
+                table_name: name
+                column_name: assignment.column
+            return mutation(database, result)
+        let target: ResolvedAssignment = new ResolvedAssignment:
+            index: column_index
+            value: value
+        resolved.push(target)
+        index = index + 1
+    let validation: PredicateValidation = propagate validate_predicate(ref columns, ref predicate)
+    if validation is PredicateValidation.Invalid into failure:
+        let result: MutationResult = new MutationResult.InvalidPredicate:
+            table_name: name
+            problem: failure.problem
+        return mutation(database, result)
+    let mutable candidate: Value[][] = []
+    let mutable count: int64 = 0
+    let mutable changed = false
+    if validation is PredicateValidation.Valid into valid:
+        let nodes: ResolvedNode[] = valid.nodes
+        let rows: Value[][] = table.rows
+        let mutable row_index: int64 = 0
+        while row_index < rows.length:
+            let row: Value[] = propagate rows.at(row_index)
+            let matches: boolean = propagate row_matches(ref nodes, ref row)
+            if matches:
+                let updated: RowReplacement = propagate assign_row(row, ref resolved)
+                let replacement: Value[] = updated.row
+                candidate.push(replacement)
+                changed = changed or updated.changed
+                count = count + 1
+            else:
+                candidate.push(row)
+            row_index = row_index + 1
+    let result: MutationResult = new MutationResult.Updated:
+        count: count
+        changed: changed
+    if not changed:
+        return mutation(database, result)
+    return mutation(replace_rows(database, table_index, table, candidate), result)
