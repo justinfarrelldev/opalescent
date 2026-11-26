@@ -11,8 +11,39 @@ public type SourcePosition:
 public type TokenKind:
     Identifier:
         name: string
+    IntegerLiteral:
+        value: int64
+    StringLiteral:
+        value: string
     Create
     Table
+    Insert
+    Into
+    Values
+    Select
+    From
+    Where
+    Limit
+    Update
+    Set
+    Delete
+    And
+    Or
+    Help
+    Show
+    Tables
+    Describe
+    Quit
+    Save
+    Load
+    BooleanLiteral:
+        value: boolean
+    Equal
+    NotEqual
+    Less
+    LessEqual
+    Greater
+    GreaterEqual
     IntType
     TextType
     BoolType
@@ -35,6 +66,10 @@ public type Token:
 ##
 public type LexErrorKind:
     UnexpectedCharacter
+    InvalidIntegerLiteral
+    IntegerOverflow
+    UnterminatedString
+    InvalidEscape
 
 ##
   Description: Tokenization yields either a complete token stream or a diagnostic.

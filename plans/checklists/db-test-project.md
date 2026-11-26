@@ -6,7 +6,8 @@ Contract: [`db-test-project.md`](../../db-test-project.md). This checklist track
 - [x] Start the application README and root observations log.
 - [x] Commit the first native red/green/refactor increment for all three typed values.
 - [x] Verify basic tokens, ASCII name normalization, initial keywords, and source positions.
-- [ ] Complete tokenization, with literal and comparison-operator tests.
+- [x] Tokenize signed integers, escaped UTF-8 strings, booleans, keywords, and comparison operators; verify positions and lexical errors.
+- [ ] Verify observable NUL rejection at interactive and snapshot input boundaries.
 - [x] Parse `CREATE TABLE` with ordered typed columns and enforce `;` then end of input.
 - [x] Execute `CREATE TABLE` and reject duplicate definitions without publishing a partial table. The separate COMPILER-001 and COMPILER-002 ownership fixes pass the database regressions.
 - [ ] Deliver a tested `INSERT` / wildcard `SELECT` vertical slice.

@@ -107,6 +107,14 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - The front-end native cases pass: 4 scalar-value cases, 3 lexer cases, and 4 parser cases. The two `CREATE TABLE` mutation cases also pass (13 total). The ownership reproduction is discovered only when its own project root is selected.
 - The completed commits ran the unchanged pre-commit hook. The latest completed verification reported 1,841 passing library tests (8 ignored), 257 passing E2E regression tests (3 ignored), and 54 passing VS Code extension tests. The reference editor's separate native run passed all six cases, including its terminal test. No database REPL, persistence, performance, or cross-platform verification has been performed.
 
+## COMPILER-OBS-006 — Statement guards restrict translating errors to domain results
+
+- **Feature / classification / severity:** statement `guard` on standard numeric conversion; intentional restriction and diagnostic friction; low.
+- **Expected:** after recognizing a signed decimal token, catch `string_to_int64` failure and return the database's positioned overflow diagnostic.
+- **Actual:** `guard string_to_int64(raw) into value else err =>` with a handler returning `lex_failure(...)` was rejected with `GuardErrorClauseMissingTerminal`, despite its explicit return. The strict handler checks live in `src/type_system/checker/expressions_guard.rs`.
+- **Impact / alternative:** accumulate the decimal negatively with a per-digit bound check, so the signed minimum is representable and no overflow can occur before its diagnostic. This also avoids allocating a second copy of the integer's text. Native tests cover both signed bounds, positive and negative overflow, and malformed tokens.
+- **Suggested improvement / status:** document how to translate native failures into non-error sum results and improve the diagnostic if the handler intentionally cannot consume its error. Non-blocking; the checked scanner meets the requirement.
+
 ## Investigation notes
 
 - Reviewed the language specification, tutorial, standard-library reference, native testing docs, terminal editor, and Game of Life. Cross-file products, tag checks with `is … into`, string ownership, and fallible access have working fixture patterns. Typed payload assertions should check the tag and compare the extracted fields rather than require whole-payload equality.

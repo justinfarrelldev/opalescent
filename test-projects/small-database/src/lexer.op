@@ -22,6 +22,47 @@ let classify_word = f(name: string): TokenKind =>
         return new TokenKind.Create
     if name is 'table':
         return new TokenKind.Table
+    if name is 'insert':
+        return new TokenKind.Insert
+    if name is 'into':
+        return new TokenKind.Into
+    if name is 'values':
+        return new TokenKind.Values
+    if name is 'select':
+        return new TokenKind.Select
+    if name is 'from':
+        return new TokenKind.From
+    if name is 'where':
+        return new TokenKind.Where
+    if name is 'limit':
+        return new TokenKind.Limit
+    if name is 'update':
+        return new TokenKind.Update
+    if name is 'set':
+        return new TokenKind.Set
+    if name is 'delete':
+        return new TokenKind.Delete
+    if name is 'and':
+        return new TokenKind.And
+    if name is 'or':
+        return new TokenKind.Or
+    if name is 'help':
+        return new TokenKind.Help
+    if name is 'show':
+        return new TokenKind.Show
+    if name is 'tables':
+        return new TokenKind.Tables
+    if name is 'describe':
+        return new TokenKind.Describe
+    if name is 'quit':
+        return new TokenKind.Quit
+    if name is 'save':
+        return new TokenKind.Save
+    if name is 'load':
+        return new TokenKind.Load
+    if name is 'true' or name is 'false':
+        return new TokenKind.BooleanLiteral:
+            value: name is 'true'
     if name is 'int':
         return new TokenKind.IntType
     if name is 'text':
@@ -58,6 +99,18 @@ let word_at = f(
     let name: string = propagate string_join(parts, '')
     return kind: classify_word(name), next_index: index
 
+# No valid escape decodes to the empty string.
+let decode_escape = f(escape: string): string =>
+    if escape is 'n':
+        return '\n'
+    if escape is 'r':
+        return '\r'
+    if escape is 't':
+        return '\t'
+    if escape is '\\':
+        return '\\'
+    return ''
+
 let token_at = f(kind: TokenKind, line: int64, column: int64): Token =>
     let position: SourcePosition = new SourcePosition:
         line: line
@@ -66,14 +119,14 @@ let token_at = f(kind: TokenKind, line: int64, column: int64): Token =>
         kind: kind
         position: position
 
-let unexpected_character = f(scalar: string, line: int64, column: int64): LexResult =>
+let lex_failure = f(kind: LexErrorKind, detail: string, line: int64, column: int64): LexResult =>
     let position: SourcePosition = new SourcePosition:
         line: line
         column: column
     return new LexResult.Failure:
-        kind: new LexErrorKind.UnexpectedCharacter
+        kind: kind
         position: position
-        detail: scalar
+        detail: detail
 
 ##
   Description: Tokenizes one query without executing it or requiring a terminal.
@@ -105,6 +158,120 @@ public let tokenize = f(source: string): LexResult errors IndexAccessErrors, All
             column = column + next_index - index
             index = next_index
             continue
+        if scalar is '\'':
+            let start_line: int64 = line
+            let start_column: int64 = column
+            let mutable parts: string[] = []
+            let mutable closed = false
+            index = index + 1
+            column = column + 1
+            while index < length and not closed:
+                let piece: string = propagate source.at(index)
+                if piece is '\'':
+                    let mutable doubled = false
+                    if index + 1 < length:
+                        let following: string = propagate source.at(index + 1)
+                        doubled = following is '\''
+                    if doubled:
+                        parts.push(piece)
+                        index = index + 2
+                        column = column + 2
+                    else:
+                        closed = true
+                        index = index + 1
+                        column = column + 1
+                    previous_cr = false
+                    continue
+                if piece is '\\':
+                    if index + 1 >= length:
+                        return lex_failure(new LexErrorKind.UnterminatedString, 'missing closing quote', start_line, start_column)
+                    let escape: string = propagate source.at(index + 1)
+                    let decoded: string = decode_escape(escape)
+                    if decoded is '':
+                        return lex_failure(new LexErrorKind.InvalidEscape, escape, line, column)
+                    parts.push(decoded)
+                    index = index + 2
+                    column = column + 2
+                    previous_cr = false
+                    continue
+                parts.push(piece)
+                index = index + 1
+                if piece is '\r' or piece is '\n':
+                    if piece is '\r' or not previous_cr:
+                        line = line + 1
+                    column = 1
+                else:
+                    column = column + 1
+                previous_cr = piece is '\r'
+            if not closed:
+                return lex_failure(new LexErrorKind.UnterminatedString, 'missing closing quote', start_line, start_column)
+            let value: string = propagate string_join(parts, '')
+            let kind: TokenKind = new TokenKind.StringLiteral:
+                value: value
+            tokens.push(token_at(kind, start_line, start_column))
+            continue
+        if scalar is '-' or contains_scalar(digits(), scalar):
+            let start: int64 = index
+            let decimal = digits()
+            let negative = scalar is '-'
+            let mutable final_digit: int64 = 7
+            if negative:
+                final_digit = 8
+                index = index + 1
+            # Accumulate negatively so the magnitude of INT64_MIN is representable.
+            let mutable value: int64 = 0
+            let minimum_prefix: int64 = -922337203685477580
+            let first_digit: int64 = index
+            let mutable scanning = true
+            while index < length and scanning:
+                let next: string = propagate source.at(index)
+                let digit = string_find_index_or(decimal, next, -1)
+                if digit >= 0:
+                    if value < minimum_prefix or (value is minimum_prefix and digit > final_digit):
+                        return lex_failure(new LexErrorKind.IntegerOverflow, 'integer outside signed 64-bit range', line, column)
+                    value = value * 10 - digit
+                    index = index + 1
+                else:
+                    if is_identifier_start(next):
+                        return lex_failure(new LexErrorKind.InvalidIntegerLiteral, 'unexpected identifier after integer', line, column)
+                    scanning = false
+            if index is first_digit:
+                return lex_failure(new LexErrorKind.InvalidIntegerLiteral, 'expected a decimal digit after minus', line, column)
+            if not negative:
+                value = 0 - value
+            let kind: TokenKind = new TokenKind.IntegerLiteral:
+                value: value
+            tokens.push(token_at(kind, line, column))
+            column = column + index - start
+            continue
+        if scalar is '=' or scalar is '!' or scalar is '<' or scalar is '>':
+            let mutable following: string = ''
+            if index + 1 < length:
+                following = propagate source.at(index + 1)
+            let mutable kind: TokenKind = new TokenKind.Equal
+            let mutable width: int64 = 1
+            if scalar is '!':
+                if following is not '=':
+                    return lex_failure(new LexErrorKind.UnexpectedCharacter, scalar, line, column)
+                kind = new TokenKind.NotEqual
+                width = 2
+            if scalar is '<':
+                kind = new TokenKind.Less
+                if following is '=':
+                    kind = new TokenKind.LessEqual
+                    width = 2
+                if following is '>':
+                    kind = new TokenKind.NotEqual
+                    width = 2
+            if scalar is '>':
+                kind = new TokenKind.Greater
+                if following is '=':
+                    kind = new TokenKind.GreaterEqual
+                    width = 2
+            tokens.push(token_at(kind, line, column))
+            index = index + width
+            column = column + width
+            continue
         if scalar is '(':
             tokens.push(token_at(new TokenKind.OpenParen, line, column))
         else:
@@ -120,7 +287,7 @@ public let tokenize = f(source: string): LexResult errors IndexAccessErrors, All
                         if scalar is '*':
                             tokens.push(token_at(new TokenKind.Asterisk, line, column))
                         else:
-                            return unexpected_character(scalar, line, column)
+                            return lex_failure(new LexErrorKind.UnexpectedCharacter, scalar, line, column)
         index = index + 1
         column = column + 1
     tokens.push(token_at(new TokenKind.EndOfInput, line, column))

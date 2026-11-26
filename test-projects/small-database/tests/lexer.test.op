@@ -64,6 +64,156 @@ scenario query tokenization:
                 expect underscored_word.kind to be the Identifier variant of TokenKind
             return void
 
+    it should preserve signed integer values including both boundaries:
+        f(): void errors inferred =>
+            let result = propagate tokenize('9223372036854775807 0 -42 -9223372036854775808;')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 6
+                let expected: int64[] = [9223372036854775807, 0, -42, -9223372036854775807 - 1]
+                let mutable index: int64 = 0
+                while index < expected.length:
+                    let token: Token = propagate tokens.at(index)
+                    let kind: TokenKind = token.kind
+                    expect kind to be the IntegerLiteral variant of TokenKind
+                    if kind is TokenKind.IntegerLiteral into literal:
+                        let value: int64 = propagate expected.at(index)
+                        expect literal.value to be value
+                    index = index + 1
+                let delimiter: Token = propagate tokens.at(4)
+                expect delimiter.position.column to be 47
+            return void
+
+    it should distinguish overflow from malformed integers:
+        f(): void errors inferred =>
+            let positive = propagate tokenize(' 9223372036854775808')
+            let negative = propagate tokenize('-9223372036854775809')
+            let detached_sign = propagate tokenize('- 1')
+            let suffix = propagate tokenize('123abc')
+            expect positive to be the Failure variant of LexResult
+            expect negative to be the Failure variant of LexResult
+            expect detached_sign to be the Failure variant of LexResult
+            expect suffix to be the Failure variant of LexResult
+            if positive is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.IntegerOverflow
+                expect failure.position.column to be 2
+            if negative is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.IntegerOverflow
+            if detached_sign is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.InvalidIntegerLiteral
+            if suffix is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.InvalidIntegerLiteral
+            return void
+
+    it should decode quoted text without normalizing UTF-8 or escapes:
+        f(): void errors inferred =>
+            let result = propagate tokenize('\'\' \'Café🙂 it\'\'s \\n\\r\\t\\\\\';')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 4
+                let empty: Token = propagate tokens.at(0)
+                let empty_kind: TokenKind = empty.kind
+                expect empty_kind to be the StringLiteral variant of TokenKind
+                if empty_kind is TokenKind.StringLiteral into literal:
+                    expect literal.value to be ''
+                let text: Token = propagate tokens.at(1)
+                let text_kind: TokenKind = text.kind
+                expect text_kind to be the StringLiteral variant of TokenKind
+                if text_kind is TokenKind.StringLiteral into literal:
+                    expect literal.value to be 'Café🙂 it\'s \n\r\t\\'
+                let delimiter: Token = propagate tokens.at(2)
+                expect delimiter.position.line to be 1
+                expect delimiter.position.column to be 26
+            return void
+
+    it should report unterminated quotes and unknown string escapes:
+        f(): void errors inferred =>
+            let unterminated = propagate tokenize('x\n \'abc')
+            let invalid_escape = propagate tokenize('\'é\\q\'')
+            expect unterminated to be the Failure variant of LexResult
+            expect invalid_escape to be the Failure variant of LexResult
+            if unterminated is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.UnterminatedString
+                expect failure.position.line to be 2
+                expect failure.position.column to be 2
+            if invalid_escape is LexResult.Failure into failure:
+                expect failure.kind to be new LexErrorKind.InvalidEscape
+                expect failure.position.column to be 3
+            return void
+
+    it should recognize comparison operators before their single character prefixes:
+        f(): void errors inferred =>
+            let result = propagate tokenize('= != <> < <= > >=')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 8
+                let equal: Token = propagate tokens.at(0)
+                let not_equal: Token = propagate tokens.at(1)
+                let alternate: Token = propagate tokens.at(2)
+                let less: Token = propagate tokens.at(3)
+                let less_equal: Token = propagate tokens.at(4)
+                let greater: Token = propagate tokens.at(5)
+                let greater_equal: Token = propagate tokens.at(6)
+                expect equal.kind to be the Equal variant of TokenKind
+                expect not_equal.kind to be the NotEqual variant of TokenKind
+                expect alternate.kind to be the NotEqual variant of TokenKind
+                expect less.kind to be the Less variant of TokenKind
+                expect less_equal.kind to be the LessEqual variant of TokenKind
+                expect greater.kind to be the Greater variant of TokenKind
+                expect greater_equal.kind to be the GreaterEqual variant of TokenKind
+                expect greater_equal.position.column to be 16
+            let invalid = propagate tokenize('!')
+            expect invalid to be the Failure variant of LexResult
+            return void
+
+    it should recognize case insensitive query keywords and boolean literals:
+        f(): void errors inferred =>
+            let result = propagate tokenize('iNsErT INTO Values SELECT FROM WHERE LIMIT UPDATE SET DELETE AND OR TRUE FaLsE falsehood')
+            expect result to be the Success variant of LexResult
+            if result is LexResult.Success into success:
+                let tokens: Token[] = success.tokens
+                expect tokens.length to be 16
+                let keyword_insert: Token = propagate tokens.at(0)
+                expect keyword_insert.kind to be the Insert variant of TokenKind
+                let keyword_into: Token = propagate tokens.at(1)
+                expect keyword_into.kind to be the Into variant of TokenKind
+                let keyword_values: Token = propagate tokens.at(2)
+                expect keyword_values.kind to be the Values variant of TokenKind
+                let keyword_select: Token = propagate tokens.at(3)
+                expect keyword_select.kind to be the Select variant of TokenKind
+                let keyword_from: Token = propagate tokens.at(4)
+                expect keyword_from.kind to be the From variant of TokenKind
+                let keyword_where: Token = propagate tokens.at(5)
+                expect keyword_where.kind to be the Where variant of TokenKind
+                let keyword_limit: Token = propagate tokens.at(6)
+                expect keyword_limit.kind to be the Limit variant of TokenKind
+                let keyword_update: Token = propagate tokens.at(7)
+                expect keyword_update.kind to be the Update variant of TokenKind
+                let keyword_set: Token = propagate tokens.at(8)
+                expect keyword_set.kind to be the Set variant of TokenKind
+                let keyword_delete: Token = propagate tokens.at(9)
+                expect keyword_delete.kind to be the Delete variant of TokenKind
+                let keyword_and: Token = propagate tokens.at(10)
+                expect keyword_and.kind to be the And variant of TokenKind
+                let keyword_or: Token = propagate tokens.at(11)
+                expect keyword_or.kind to be the Or variant of TokenKind
+                let true_token: Token = propagate tokens.at(12)
+                let false_token: Token = propagate tokens.at(13)
+                let name_token: Token = propagate tokens.at(14)
+                let true_kind: TokenKind = true_token.kind
+                let false_kind: TokenKind = false_token.kind
+                expect true_kind to be the BooleanLiteral variant of TokenKind
+                expect false_kind to be the BooleanLiteral variant of TokenKind
+                expect name_token.kind to be the Identifier variant of TokenKind
+                if true_kind is TokenKind.BooleanLiteral into literal:
+                    expect literal.value to be true
+                if false_kind is TokenKind.BooleanLiteral into literal:
+                    expect literal.value to be false
+            return void
+
     it should reject an unexpected character with its source position:
         f(): void errors inferred =>
             let result = propagate tokenize('\tname @')
