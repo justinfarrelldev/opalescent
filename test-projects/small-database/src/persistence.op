@@ -1,4 +1,5 @@
 import string_join, string_split_lines, string_find_index_or, int64_to_string from standard
+import write_text_atomic_sync, read_contents_sync, read_text_sync, bytes_slice, bytes_to_hex from standard
 import empty_database, execute_create, execute_insert from ./database
 import parse_query from ./parser
 import type Database, Table, Creation, CreateResult, Insertion, InsertResult from ./database.types
@@ -6,7 +7,7 @@ import type ParseResult, Statement from ./query.types
 import type SnapshotResult from ./persistence.types
 import type Value from ./value.types
 import type Column from ./schema.types
-import type IndexAccessErrors, AllocationErrors from standard.errors
+import type IndexAccessErrors, AllocationErrors, FilesystemTextReadErrors, FilesystemOverwriteErrors from standard.errors
 import format_schema from ./formatting
 
 let snapshot_header = f(): string =>
@@ -158,3 +159,46 @@ public let deserialize = f(text: string): SnapshotResult errors IndexAccessError
                     return invalid_snapshot(number, 'only CREATE TABLE and INSERT records are allowed')
         index = index + 1
     return invalid_snapshot(index + 1, 'missing END record')
+
+##
+  Description: Serializes first, then atomically replaces the destination using the standard library.
+##
+public let save_snapshot = f(path: FilesystemPath, ref database: Database): void errors IndexAccessErrors, AllocationErrors, FilesystemOverwriteErrors =>
+    let text: string = propagate serialize(ref database)
+    propagate write_text_atomic_sync(path, text)
+    return void
+
+# Use bounded byte slices so scalar indexing of hex text cannot make the scan quadratic.
+let has_nul = f(contents: Bytes): boolean errors SliceRangeError, IndexAccessErrors =>
+    let length: int32 = contents.length
+    let mutable offset: int32 = 0
+    while offset < length:
+        let mutable end: int32 = length
+        if length - offset > 256:
+            end = offset + 256
+        let chunk: Bytes = propagate bytes_slice(contents, offset, end)
+        let hex: string = bytes_to_hex(chunk)
+        let first: int64 = string_find_index_or(hex, '00', -1)
+        if first >= 0:
+            let mutable index: int64 = first - first % 2
+            let hex_length: int64 = hex.length
+            while index < hex_length:
+                let high: string = propagate hex.at(index)
+                if high is '0':
+                    let low: string = propagate hex.at(index + 1)
+                    if low is '0':
+                        return true
+                index = index + 2
+        offset = end
+    return false
+
+##
+  Description: Rejects NUL in the raw file before using the UTF-8 text reader and validating a candidate.
+##
+public let load_snapshot = f(path: FilesystemPath): SnapshotResult errors IndexAccessErrors, AllocationErrors, FilesystemTextReadErrors, SliceRangeError =>
+    let raw: Bytes = propagate read_contents_sync(path)
+    let contains_nul: boolean = propagate has_nul(raw)
+    if contains_nul:
+        return invalid_snapshot(1, 'snapshot contains a NUL byte')
+    let text: string = propagate read_text_sync(path)
+    return propagate deserialize(text)

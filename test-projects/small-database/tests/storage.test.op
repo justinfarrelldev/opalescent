@@ -1,0 +1,78 @@
+import temporary_directory_create, temporary_directory_file, temporary_directory_remove from standard.testing
+import type TemporaryDirectory from standard.testing
+import path_from, path_exists_sync, read_text_sync, write_text_sync, write_contents_sync, bytes_from_hex from standard
+import save_snapshot, load_snapshot, serialize, deserialize from ../src/persistence
+import type SnapshotResult from ../src/persistence.types
+import type Database from ../src/database.types
+
+world StorageWorkspace:
+    setup: f(): TemporaryDirectory errors inferred =>
+        return propagate temporary_directory_create()
+    cleanup:
+        f(mutable ref workspace: TemporaryDirectory): void errors inferred =>
+            propagate temporary_directory_remove(mutable ref workspace)
+            return void
+
+scenario saving and reading files:
+    worlds: StorageWorkspace
+
+    it should create and replace a snapshot without affecting another file:
+        f(ref workspace: StorageWorkspace): void errors inferred =>
+            let name: string = temporary_directory_file(ref workspace.state, 'tasks.odb')
+            let other_name: string = temporary_directory_file(ref workspace.state, 'other.odb')
+            let path: FilesystemPath = path_from(name)
+            let other: FilesystemPath = path_from(other_name)
+            let absent: boolean = propagate path_exists_sync(path)
+            expect absent to be false
+            let old_text: string = 'OPALDB 1\nEND 0 0\n'
+            let new_text: string = 'OPALDB 1\nCREATE TABLE tasks (id INT);\nINSERT INTO tasks VALUES (7);\nEND 1 1\n'
+            let old: SnapshotResult = propagate deserialize(old_text)
+            let newer: SnapshotResult = propagate deserialize(new_text)
+            expect old to be the Loaded variant of SnapshotResult
+            expect newer to be the Loaded variant of SnapshotResult
+            if old is SnapshotResult.Loaded into loaded:
+                let state: Database = loaded.database
+                propagate save_snapshot(path, ref state)
+                propagate save_snapshot(other, ref state)
+            let first_contents: string = propagate read_text_sync(path)
+            expect first_contents to be old_text
+            if newer is SnapshotResult.Loaded into loaded:
+                let state: Database = loaded.database
+                propagate save_snapshot(path, ref state)
+            let result: SnapshotResult = propagate load_snapshot(path)
+            expect result to be the Loaded variant of SnapshotResult
+            if result is SnapshotResult.Loaded into loaded:
+                let state: Database = loaded.database
+                let recovered: string = propagate serialize(ref state)
+                expect recovered to be new_text
+            let untouched: string = propagate read_text_sync(other)
+            expect untouched to be old_text
+            return void
+
+    it should reject corrupt, invalid UTF-8 and NUL-bearing input files:
+        f(ref workspace: StorageWorkspace): void errors inferred =>
+            let name: string = temporary_directory_file(ref workspace.state, 'corrupt.odb')
+            let path: FilesystemPath = path_from(name)
+            propagate write_text_sync(path, 'OPALDB 1\n')
+            let corrupt: SnapshotResult = propagate load_snapshot(path)
+            expect corrupt to be the InvalidSnapshot variant of SnapshotResult
+            let nul: Bytes = propagate bytes_from_hex('4f50414c444220310a454e44203020300a006a756e6b')
+            propagate write_contents_sync(path, nul)
+            let truncated: SnapshotResult = propagate load_snapshot(path)
+            expect truncated to be the InvalidSnapshot variant of SnapshotResult
+            if truncated is SnapshotResult.InvalidSnapshot into invalid:
+                expect invalid.detail to contain 'NUL'
+            let invalid_utf8: Bytes = propagate bytes_from_hex('4f50414c444220310a454e44203020300aff')
+            propagate write_contents_sync(path, invalid_utf8)
+            let mutable saw_invalid_utf8 = false
+            let mutable loading = true
+            while loading:
+                guard load_snapshot(path) into unexpected else err =>
+                    let message: string = '{err}'
+                    expect message to contain 'InvalidUtf8Error'
+                    saw_invalid_utf8 = true
+                    loading = false
+                    continue
+                loading = false
+            expect saw_invalid_utf8 to be true
+            return void
