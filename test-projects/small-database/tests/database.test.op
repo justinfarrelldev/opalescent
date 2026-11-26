@@ -1,7 +1,7 @@
-import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns, execute_select_where from ../src/database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns, execute_select_where, execute_delete from ../src/database
 import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
-import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult from ../src/database.types
+import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult, Mutation, MutationResult from ../src/database.types
 import type ParseResult, Statement, PredicateNode from ../src/query.types
 import type PredicateError from ../src/predicate.types
 import type Column from ../src/schema.types
@@ -363,4 +363,86 @@ scenario evaluating validated predicates:
                 propagate expect_id(ref rows, 1, 2)
             if zero is SelectResult.Selected into selection:
                 expect selection.rows.length to be 0
+            return void
+
+let delete_query = f(database: Database, source: string): Mutation errors IndexOutOfBoundsError, AllocationFailureError =>
+    let query: ParseResult = propagate parse_query(source)
+    expect query to be the Parsed variant of ParseResult
+    if query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        expect statement to be the Delete variant of Statement
+        if statement is Statement.Delete into deletion:
+            let predicate: PredicateNode[] = deletion.predicate
+            return propagate execute_delete(database, deletion.name, ref predicate)
+    let result: MutationResult = new MutationResult.UnknownTable:
+        name: 'unreachable'
+    let outcome: Mutation = new Mutation:
+        state: database
+        result: result
+    return outcome
+
+let expect_deleted = f(result: MutationResult, count: int64): void =>
+    expect result to be the Deleted variant of MutationResult
+    if result is MutationResult.Deleted into deleted:
+        expect deleted.count to be count
+    return void
+
+scenario deleting rows:
+    unit under test: execute_delete
+    worlds: EmptyDatabase
+
+    it should delete one, several, or all while preserving survivor order and previous results:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT);')
+            expect created to be the Created variant of CreateResult
+            let mutable state: Database = db.state
+            let mutable id: int64 = 1
+            while id <= 5:
+                let inserted: Insertion = propagate insert_query(state, 'INSERT INTO tasks VALUES ({id});')
+                let next: Database = inserted.state
+                state = next
+                id = id + 1
+            let before: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            let one: Mutation = propagate delete_query(state, 'DELETE FROM tasks WHERE id = 2;')
+            expect_deleted(one.result, 1)
+            let several: Mutation = propagate delete_query(one.state, 'DELETE FROM tasks WHERE id = 3 OR id = 5;')
+            expect_deleted(several.result, 2)
+            let rest: Database = several.state
+            let selected: SelectResult = propagate execute_select_all(ref rest, 'tasks')
+            if selected is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 2
+                propagate expect_id(ref rows, 0, 1)
+                propagate expect_id(ref rows, 1, 4)
+            let all: Mutation = propagate delete_query(rest, 'DELETE FROM tasks;')
+            expect_deleted(all.result, 2)
+            let empty: Database = all.state
+            let none: Mutation = propagate delete_query(empty, 'DELETE FROM tasks WHERE id = 1;')
+            expect_deleted(none.result, 0)
+            let after: SelectResult = propagate execute_select_all(ref empty, 'tasks')
+            expect after to be the Selected variant of SelectResult
+            if after is SelectResult.Selected into selection:
+                expect selection.columns.length to be 1
+                expect selection.rows.length to be 0
+            expect before to be the Selected variant of SelectResult
+            if before is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 5
+                propagate expect_id(ref rows, 1, 2)
+            return void
+
+    it should leave the rows unchanged after predicate validation fails:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT);')
+            expect created to be the Created variant of CreateResult
+            let inserted: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1);')
+            let invalid: Mutation = propagate delete_query(inserted.state, 'DELETE FROM tasks WHERE id = 1 OR missing = 3;')
+            expect invalid.result to be the InvalidPredicate variant of MutationResult
+            let state: Database = invalid.state
+            let selected: SelectResult = propagate execute_select_all(ref state, 'tasks')
+            expect selected to be the Selected variant of SelectResult
+            if selected is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 1
+                propagate expect_id(ref rows, 0, 1)
             return void

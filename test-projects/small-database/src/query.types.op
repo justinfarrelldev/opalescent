@@ -21,6 +21,9 @@ public type Statement:
         columns: string[]
         predicate: PredicateNode[]
         limit: RowLimit
+    Delete:
+        name: string
+        predicate: PredicateNode[]
 
 public type RowLimit:
     Unlimited

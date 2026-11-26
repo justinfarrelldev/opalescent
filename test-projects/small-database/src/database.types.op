@@ -66,3 +66,16 @@ public type SelectResult:
     InvalidPredicate:
         table_name: string
         problem: PredicateError
+
+public type MutationResult:
+    Deleted:
+        count: int64
+    UnknownTable:
+        name: string
+    InvalidPredicate:
+        table_name: string
+        problem: PredicateError
+
+public type Mutation:
+    state: Database
+    result: MutationResult

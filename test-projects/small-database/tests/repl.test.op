@@ -47,6 +47,8 @@ scenario interacting with the database REPL:
             expect eventually terminal_process_transcript(ref repl.state) to contain 'expected FROM' within 3 seconds
             propagate send_line(mutable ref repl.state, 'SELECT * FROM tasks;')
             expect eventually terminal_process_transcript(ref repl.state) to contain '1 | Café \\t\\|' within 3 seconds
+            propagate send_line(mutable ref repl.state, 'DELETE FROM tasks WHERE id = 1;')
+            expect eventually terminal_process_transcript(ref repl.state) to contain '1 rows deleted.' within 3 seconds
             propagate send_line(mutable ref repl.state, 'QUIT;')
             expect eventually terminal_process_exited(ref repl.state) to be true within 3 seconds
             expect terminal_process_exit_code(ref repl.state) to be 0

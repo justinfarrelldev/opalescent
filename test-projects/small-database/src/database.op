@@ -1,4 +1,4 @@
-import type Database, Table, CreateResult, Creation, InsertResult, Insertion, SelectResult from ./database.types
+import type Database, Table, CreateResult, Creation, InsertResult, Insertion, SelectResult, Mutation, MutationResult from ./database.types
 import type Column from ./schema.types
 import column_index_of, value_matches from ./schema
 import validate_predicate, row_matches from ./predicate
@@ -80,6 +80,18 @@ public let execute_create = f(
         result: result
     return outcome
 
+let replace_rows = f(database: Database, table_index: int64, table: Table, rows: Value[][]): Database =>
+    let columns: Column[] = table.columns
+    let replacement: Table = new Table:
+        name: table.name
+        columns: columns
+        rows: rows
+    let mutable tables: Table[] = database.tables
+    tables[table_index] = replacement
+    let state: Database = new Database:
+        tables: tables
+    return state
+
 let insertion = f(state: Database, result: InsertResult): Insertion =>
     return new Insertion:
         state: state
@@ -89,7 +101,7 @@ let insertion = f(state: Database, result: InsertResult): Insertion =>
   Description: Validates row width and types before appending a single row.
 ##
 public let execute_insert = f(database: Database, name: string, ref values: Value[]): Insertion errors IndexAccessErrors =>
-    let mutable tables: Table[] = database.tables
+    let tables: Table[] = database.tables
     let table_index: int64 = propagate table_index_of(ref tables, name)
     if table_index < 0:
         let missing: InsertResult = new InsertResult.UnknownTable:
@@ -117,13 +129,7 @@ public let execute_insert = f(database: Database, name: string, ref values: Valu
         index = index + 1
     let mutable rows: Value[][] = table.rows
     rows.push(row)
-    let changed_table: Table = new Table:
-        name: name
-        columns: columns
-        rows: rows
-    tables[table_index] = changed_table
-    let state: Database = new Database:
-        tables: tables
+    let state: Database = replace_rows(database, table_index, table, rows)
     let result: InsertResult = new InsertResult.Inserted:
         count: 1
     return insertion(state, result)
@@ -220,3 +226,45 @@ public let execute_select_where = f(ref database: Database, name: string, ref na
 public let execute_select_columns = f(ref database: Database, name: string, ref names: string[]): SelectResult errors IndexAccessErrors =>
     let predicate: PredicateNode[] = []
     return propagate execute_select_where(ref database, name, ref names, ref predicate, new RowLimit.Unlimited)
+
+let mutation = f(state: Database, result: MutationResult): Mutation =>
+    return new Mutation:
+        state: state
+        result: result
+
+##
+  Description: Removes matching rows only after predicate validation succeeds.
+##
+public let execute_delete = f(database: Database, name: string, ref predicate: PredicateNode[]): Mutation errors IndexAccessErrors =>
+    let tables: Table[] = database.tables
+    let table_index: int64 = propagate table_index_of(ref tables, name)
+    if table_index < 0:
+        let missing: MutationResult = new MutationResult.UnknownTable:
+            name: name
+        return mutation(database, missing)
+    let table: Table = propagate tables.at(table_index)
+    let columns: Column[] = table.columns
+    let validation: PredicateValidation = propagate validate_predicate(ref columns, ref predicate)
+    if validation is PredicateValidation.Invalid into failure:
+        let result: MutationResult = new MutationResult.InvalidPredicate:
+            table_name: name
+            problem: failure.problem
+        return mutation(database, result)
+    let mutable survivors: Value[][] = []
+    let rows: Value[][] = table.rows
+    if validation is PredicateValidation.Valid into valid:
+        let nodes: ResolvedNode[] = valid.nodes
+        if nodes.length > 0:
+            let mutable index: int64 = 0
+            while index < rows.length:
+                let row: Value[] = propagate rows.at(index)
+                let matches: boolean = propagate row_matches(ref nodes, ref row)
+                if not matches:
+                    survivors.push(row)
+                index = index + 1
+    let removed: int64 = rows.length - survivors.length
+    let result: MutationResult = new MutationResult.Deleted:
+        count: removed
+    if removed is 0:
+        return mutation(database, result)
+    return mutation(replace_rows(database, table_index, table, survivors), result)
