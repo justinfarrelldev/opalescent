@@ -1,0 +1,13 @@
+import type Database from ./database.types
+
+##
+  Description: Decoding either yields a fully validated database or a positioned snapshot diagnostic.
+##
+public type SnapshotResult:
+    Loaded:
+        database: Database
+    InvalidSnapshot:
+        line: int64
+        detail: string
+    UnsupportedVersion:
+        version: string

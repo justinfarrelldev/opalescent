@@ -1,0 +1,160 @@
+import string_join, string_split_lines, string_find_index_or, int64_to_string from standard
+import empty_database, execute_create, execute_insert from ./database
+import parse_query from ./parser
+import type Database, Table, Creation, CreateResult, Insertion, InsertResult from ./database.types
+import type ParseResult, Statement from ./query.types
+import type SnapshotResult from ./persistence.types
+import type Value from ./value.types
+import type Column from ./schema.types
+import type IndexAccessErrors, AllocationErrors from standard.errors
+import format_schema from ./formatting
+
+let snapshot_header = f(): string =>
+    return 'OPALDB 1'
+
+let end_record = f(tables: int64, rows: int64): string =>
+    return 'END {tables} {rows}'
+
+let escape_literal_scalar = f(scalar: string): string =>
+    if scalar is '\'':
+        return '\'\''
+    if scalar is '\\':
+        return '\\\\'
+    if scalar is '\n':
+        return '\\n'
+    if scalar is '\r':
+        return '\\r'
+    if scalar is '\t':
+        return '\\t'
+    return scalar
+
+let encode_literal = f(value: Value): string errors IndexAccessErrors, AllocationErrors =>
+    if value is Value.Integer into number:
+        return int64_to_string(number.content)
+    if value is Value.Boolean into flag:
+        if flag.content:
+            return 'true'
+        return 'false'
+    if value is Value.Text into text:
+        let content: string = text.content
+        let mutable parts: string[] = ['\'']
+        let length: int64 = content.length
+        let mutable index: int64 = 0
+        while index < length:
+            let scalar: string = propagate content.at(index)
+            parts.push(escape_literal_scalar(scalar))
+            index = index + 1
+        parts.push('\'')
+        return propagate string_join(parts, '')
+
+let encode_row = f(name: string, ref row: Value[]): string errors IndexAccessErrors, AllocationErrors =>
+    let mutable values: string[] = []
+    let mutable index: int64 = 0
+    while index < row.length:
+        let value: Value = propagate row.at(index)
+        let encoded: string = propagate encode_literal(value)
+        values.push(encoded)
+        index = index + 1
+    let literals: string = propagate string_join(values, ', ')
+    return 'INSERT INTO {name} VALUES ({literals});'
+
+##
+  Description: Encodes a canonical, ordered snapshot without changing database state.
+##
+public let serialize = f(ref database: Database): string errors IndexAccessErrors, AllocationErrors =>
+    let tables: Table[] = database.tables
+    let mutable lines: string[] = [snapshot_header()]
+    let mutable table_index: int64 = 0
+    let mutable row_count: int64 = 0
+    while table_index < tables.length:
+        let table: Table = propagate tables.at(table_index)
+        let name: string = table.name
+        let columns: Column[] = table.columns
+        let schema: string = propagate format_schema(ref columns)
+        lines.push('CREATE TABLE {name} ({schema});')
+        let rows: Value[][] = table.rows
+        let mutable row_index: int64 = 0
+        while row_index < rows.length:
+            let row: Value[] = propagate rows.at(row_index)
+            let record: string = propagate encode_row(name, ref row)
+            lines.push(record)
+            row_index = row_index + 1
+        row_count = row_count + rows.length
+        table_index = table_index + 1
+    lines.push(end_record(tables.length, row_count))
+    lines.push('')
+    return propagate string_join(lines, '\n')
+
+let invalid_snapshot = f(line: int64, detail: string): SnapshotResult =>
+    return new SnapshotResult.InvalidSnapshot:
+        line: line
+        detail: detail
+
+let invalid_header = f(header: string): SnapshotResult errors IndexAccessErrors =>
+    if string_find_index_or(header, 'OPALDB ', -1) is not 0 or header.length <= 7:
+        return invalid_snapshot(1, 'expected OPALDB version header')
+    let mutable index: int64 = 7
+    let mutable version: string = ''
+    while index < header.length:
+        let digit: string = propagate header.at(index)
+        if string_find_index_or('0123456789', digit, -1) < 0:
+            return invalid_snapshot(1, 'version must be decimal')
+        version = '{version}{digit}'
+        index = index + 1
+    let result: SnapshotResult = new SnapshotResult.UnsupportedVersion:
+        version: version
+    return result
+
+##
+  Description: Parses only schema and row records into a fresh candidate, publishing it after framing validation.
+##
+public let deserialize = f(text: string): SnapshotResult errors IndexAccessErrors, AllocationErrors =>
+    let lines: string[] = propagate string_split_lines(text)
+    if lines.length is 0:
+        return invalid_snapshot(1, 'missing OPALDB version header')
+    let header: string = propagate lines.at(0)
+    if header is not snapshot_header():
+        return propagate invalid_header(header)
+    let mutable database: Database = empty_database()
+    let mutable index: int64 = 1
+    let mutable table_count: int64 = 0
+    let mutable row_count: int64 = 0
+    while index < lines.length:
+        let line: string = propagate lines.at(index)
+        let number: int64 = index + 1
+        if string_find_index_or(line, 'END ', -1) is 0:
+            if line is not end_record(table_count, row_count):
+                return invalid_snapshot(number, 'invalid end marker or incorrect table or row counts')
+            if number < lines.length:
+                return invalid_snapshot(number + 1, 'unexpected record after END')
+            let result: SnapshotResult = new SnapshotResult.Loaded:
+                database: database
+            return result
+        let parsed: ParseResult = propagate parse_query(line)
+        if parsed is ParseResult.LexicalFailure into diagnostic:
+            return invalid_snapshot(number, diagnostic.detail)
+        if parsed is ParseResult.SyntaxFailure into diagnostic:
+            return invalid_snapshot(number, diagnostic.detail)
+        if parsed is ParseResult.Parsed into query:
+            let statement: Statement = query.statement
+            if statement is Statement.CreateTable into create:
+                let columns: Column[] = create.columns
+                let outcome: Creation = propagate execute_create(database, create.name, ref columns)
+                if outcome.result is not CreateResult.Created:
+                    return invalid_snapshot(number, 'schema for \'{create.name}\' is invalid or duplicated')
+                let state: Database = outcome.state
+                database = state
+                table_count = table_count + 1
+            else:
+                if statement is Statement.Insert into insert:
+                    let values: Value[] = insert.values
+                    let outcome: Insertion = propagate execute_insert(database, insert.name, ref values)
+                    if outcome.result is not InsertResult.Inserted:
+                        return invalid_snapshot(number, 'invalid row for table \'{insert.name}\'')
+                    let state: Database = outcome.state
+                    database = state
+                    row_count = row_count + 1
+                else:
+                    return invalid_snapshot(number, 'only CREATE TABLE and INSERT records are allowed')
+        index = index + 1
+    return invalid_snapshot(index + 1, 'missing END record')

@@ -1,0 +1,112 @@
+import serialize, deserialize from ../src/persistence
+import type SnapshotResult from ../src/persistence.types
+import empty_database, execute_create, execute_insert from ../src/database
+import parse_query from ../src/parser
+import type Database, Creation, Insertion from ../src/database.types
+import type ParseResult, Statement from ../src/query.types
+import type Column from ../src/schema.types
+import type Value from ../src/value.types
+
+let with_record = f(database: Database, source: string): Database errors IndexOutOfBoundsError, AllocationFailureError =>
+    let query: ParseResult = propagate parse_query(source)
+    expect query to be the Parsed variant of ParseResult
+    if query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        if statement is Statement.CreateTable into create:
+            let columns: Column[] = create.columns
+            let outcome: Creation = propagate execute_create(database, create.name, ref columns)
+            let state: Database = outcome.state
+            return state
+        if statement is Statement.Insert into insert:
+            let values: Value[] = insert.values
+            let outcome: Insertion = propagate execute_insert(database, insert.name, ref values)
+            let state: Database = outcome.state
+            return state
+    return database
+
+scenario encoding canonical snapshots:
+    unit under test: serialize
+
+    it should encode empty databases and ordered empty tables:
+        f(): void errors inferred =>
+            let empty: Database = empty_database()
+            let no_tables: string = propagate serialize(ref empty)
+            expect no_tables to be 'OPALDB 1\nEND 0 0\n'
+            let first: Database = propagate with_record(empty, 'CREATE TABLE B (flag BOOL);')
+            let single: string = propagate serialize(ref first)
+            expect single to be 'OPALDB 1\nCREATE TABLE b (flag BOOL);\nEND 1 0\n'
+            let second: Database = propagate with_record(first, 'CREATE TABLE A (id INT, title TEXT);')
+            let two_tables: string = propagate serialize(ref second)
+            expect two_tables to be 'OPALDB 1\nCREATE TABLE b (flag BOOL);\nCREATE TABLE a (id INT, title TEXT);\nEND 2 0\n'
+            return void
+
+    it should encode every value losslessly in deterministic record order:
+        f(): void errors inferred =>
+            let empty: Database = empty_database()
+            let schema: Database = propagate with_record(empty, 'CREATE TABLE Tasks (id INT, title TEXT, done BOOL);')
+            let first: Database = propagate with_record(schema, 'INSERT INTO tasks VALUES (-9223372036854775808, \'Café it\'\'s \\\\ \\n\\r\\t\', true);')
+            let second: Database = propagate with_record(first, 'INSERT INTO tasks VALUES (9223372036854775807, \'\', false);')
+            let other: Database = propagate with_record(second, 'CREATE TABLE Other (id INT);')
+            let state: Database = propagate with_record(other, 'INSERT INTO other VALUES (0);')
+            let first_encoding: string = propagate serialize(ref state)
+            let second_encoding: string = propagate serialize(ref state)
+            let expected: string = 'OPALDB 1\nCREATE TABLE tasks (id INT, title TEXT, done BOOL);\nINSERT INTO tasks VALUES (-9223372036854775808, \'Café it\'\'s \\\\ \\n\\r\\t\', true);\nINSERT INTO tasks VALUES (9223372036854775807, \'\', false);\nCREATE TABLE other (id INT);\nINSERT INTO other VALUES (0);\nEND 2 3\n'
+            expect first_encoding to be expected
+            expect second_encoding to be expected
+            let decoded: SnapshotResult = propagate deserialize(first_encoding)
+            expect decoded to be the Loaded variant of SnapshotResult
+            if decoded is SnapshotResult.Loaded into loaded:
+                let roundtrip: Database = loaded.database
+                let encoded: string = propagate serialize(ref roundtrip)
+                expect encoded to be expected
+            return void
+
+let verify_invalid = f(text: string, line: int64): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    let result: SnapshotResult = propagate deserialize(text)
+    expect result to be the InvalidSnapshot variant of SnapshotResult
+    if result is SnapshotResult.InvalidSnapshot into diagnostic:
+        expect diagnostic.line to be line
+    return void
+
+scenario decoding snapshots into validated databases:
+    unit under test: deserialize
+
+    it should accept an empty database and diagnose unsupported versions:
+        f(): void errors inferred =>
+            let empty: SnapshotResult = propagate deserialize('OPALDB 1\nEND 0 0\n')
+            let unsupported: SnapshotResult = propagate deserialize('OPALDB 2\nEND 0 0\n')
+            expect empty to be the Loaded variant of SnapshotResult
+            if empty is SnapshotResult.Loaded into loaded:
+                expect loaded.database.tables.length to be 0
+            expect unsupported to be the UnsupportedVersion variant of SnapshotResult
+            if unsupported is SnapshotResult.UnsupportedVersion into version:
+                expect version.version to be '2'
+            return void
+
+    it should reject malformed framing and trailing or truncated records:
+        f(): void errors inferred =>
+            propagate verify_invalid('', 1)
+            propagate verify_invalid('END 0 0\n', 1)
+            propagate verify_invalid('OPALDB one\nEND 0 0\n', 1)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\nEND 0 0\n', 3)
+            propagate verify_invalid('OPALDB 1\nEND 0 1\n', 2)
+            propagate verify_invalid('OPALDB 1\nEND 0 0\nINSERT INTO a VALUES (1);\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT\nEND 1 0\n', 2)
+            return void
+
+    it should reject invalid schemas, invalid rows, and non-snapshot statements:
+        f(): void errors inferred =>
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT, ID TEXT);\nEND 1 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\nCREATE TABLE A (id TEXT);\nEND 2 0\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\nINSERT INTO a VALUES (1, 2);\nEND 1 1\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\nINSERT INTO a VALUES (\'one\');\nEND 1 1\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (id INT);\nINSERT INTO a VALUES (9223372036854775808);\nEND 1 1\n', 3)
+            propagate verify_invalid('OPALDB 1\nCREATE TABLE a (s TEXT);\nINSERT INTO a VALUES (\'bad);\nEND 1 1\n', 3)
+            propagate verify_invalid('OPALDB 1\nSAVE;\nEND 0 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nLOAD;\nEND 0 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nSELECT * FROM a;\nEND 0 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nUPDATE a SET id = 2;\nEND 0 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nDELETE FROM a;\nEND 0 0\n', 2)
+            propagate verify_invalid('OPALDB 1\nQUIT;\nEND 0 0\n', 2)
+            return void
