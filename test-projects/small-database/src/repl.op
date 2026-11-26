@@ -132,12 +132,12 @@ let execute_query = f(database: Database, ref tokens: Token[]): Database errors 
         if statement is Statement.SelectAll into select:
             let columns: string[] = []
             let predicate: PredicateNode[] = select.predicate
-            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
+            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate, select.limit)
             propagate show_selection(result)
         if statement is Statement.SelectColumns into select:
             let columns: string[] = select.columns
             let predicate: PredicateNode[] = select.predicate
-            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
+            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate, select.limit)
             propagate show_selection(result)
     if query is ParseResult.SyntaxFailure into failure:
         let position: SourcePosition = failure.position

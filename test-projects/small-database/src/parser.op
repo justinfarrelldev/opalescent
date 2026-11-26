@@ -3,7 +3,7 @@ import integer_value, text_value, boolean_value from ./value
 import type Value from ./value.types
 import type IndexAccessErrors, AllocationErrors from standard.errors
 import type LexResult, Token, TokenKind from ./lexer.types
-import type ParseResult, ParseErrorKind, Statement, LiteralParse, ComparisonOperator, PredicateNode, PredicateProgress from ./query.types
+import type ParseResult, ParseErrorKind, Statement, LiteralParse, ComparisonOperator, PredicateNode, PredicateProgress, RowLimit from ./query.types
 import type Column, ColumnType from ./schema.types
 
 let syntax_failure = f(token: Token, kind: ParseErrorKind, detail: string): ParseResult =>
@@ -288,16 +288,32 @@ let parse_select = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors 
             return failure
         if expression is PredicateProgress.Done into parsed:
             let predicate: PredicateNode[] = parsed.nodes
+            let mutable next: int64 = parsed.next
+            let mutable limit: RowLimit = new RowLimit.Unlimited
+            let after_predicate: Token = propagate tokens.at(next)
+            if after_predicate.kind is TokenKind.Limit:
+                let count_token: Token = propagate tokens.at(next + 1)
+                let count_kind: TokenKind = count_token.kind
+                if count_kind is TokenKind.IntegerLiteral into count:
+                    if count.value < 0:
+                        return expected(count_token, new ParseErrorKind.InvalidLimit, 'nonnegative row limit')
+                    limit = new RowLimit.AtMost:
+                        rows: count.value
+                    next = next + 2
+                else:
+                    return expected(count_token, new ParseErrorKind.InvalidLimit, 'nonnegative row limit')
             if wildcard:
                 let statement: Statement = new Statement.SelectAll:
                     name: identifier.name
                     predicate: predicate
-                return propagate finish_statement(ref tokens, parsed.next, statement)
+                    limit: limit
+                return propagate finish_statement(ref tokens, next, statement)
             let statement: Statement = new Statement.SelectColumns:
                 name: identifier.name
                 columns: requested
                 predicate: predicate
-            return propagate finish_statement(ref tokens, parsed.next, statement)
+                limit: limit
+            return propagate finish_statement(ref tokens, next, statement)
     return expected(table, new ParseErrorKind.InvalidIdentifier, 'table name')
 
 ##

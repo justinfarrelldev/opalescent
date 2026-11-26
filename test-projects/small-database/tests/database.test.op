@@ -273,7 +273,7 @@ let select_query = f(ref database: Database, source: string): SelectResult error
         if statement is Statement.SelectColumns into select:
             let columns: string[] = select.columns
             let predicate: PredicateNode[] = select.predicate
-            return propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
+            return propagate execute_select_where(ref database, select.name, ref columns, ref predicate, select.limit)
     let unreachable: SelectResult = new SelectResult.UnknownTable:
         name: 'unreachable'
     return unreachable
@@ -332,4 +332,35 @@ scenario evaluating validated predicates:
                 expect failure.problem to be the TypeMismatch variant of PredicateError
             if unsupported is SelectResult.InvalidPredicate into failure:
                 expect failure.problem to be the UnsupportedOperator variant of PredicateError
+            return void
+
+    it should apply limits after filtering and validate a zero limit query:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT);')
+            expect created to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1);')
+            let first_state: Database = first.state
+            let second: Insertion = propagate insert_query(first_state, 'INSERT INTO tasks VALUES (2);')
+            let second_state: Database = second.state
+            let third: Insertion = propagate insert_query(second_state, 'INSERT INTO tasks VALUES (3);')
+            let state: Database = third.state
+            let capped: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE id > 1 LIMIT 1;')
+            let uncapped: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE id <= 2 LIMIT 9223372036854775807;')
+            let zero: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks LIMIT 0;')
+            let invalid: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE id > 0 OR missing = 1 LIMIT 0;')
+            expect capped to be the Selected variant of SelectResult
+            expect uncapped to be the Selected variant of SelectResult
+            expect zero to be the Selected variant of SelectResult
+            expect invalid to be the InvalidPredicate variant of SelectResult
+            if capped is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 1
+                propagate expect_id(ref rows, 0, 2)
+            if uncapped is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 2
+                propagate expect_id(ref rows, 0, 1)
+                propagate expect_id(ref rows, 1, 2)
+            if zero is SelectResult.Selected into selection:
+                expect selection.rows.length to be 0
             return void

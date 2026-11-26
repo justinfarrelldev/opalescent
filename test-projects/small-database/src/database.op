@@ -5,7 +5,7 @@ import validate_predicate, row_matches from ./predicate
 import type ResolvedNode, PredicateValidation from ./predicate.types
 import type Value from ./value.types
 import type IndexAccessErrors from standard.errors
-import type PredicateNode from ./query.types
+import type PredicateNode, RowLimit from ./query.types
 
 ##
   Description: Creates an empty database with no tables.
@@ -159,9 +159,9 @@ let project_row = f(ref row: Value[], ref indices: int64[]): Value[] errors Inde
 ##
   Description: Resolves projections and predicates before scanning rows. Empty names mean wildcard.
 ##
-public let execute_select_where = f(ref database: Database, name: string, ref names: string[], ref predicate: PredicateNode[]): SelectResult errors IndexAccessErrors =>
+public let execute_select_where = f(ref database: Database, name: string, ref names: string[], ref predicate: PredicateNode[], limit: RowLimit): SelectResult errors IndexAccessErrors =>
     let all: SelectResult = propagate execute_select_all(ref database, name)
-    if names.length is 0 and predicate.length is 0:
+    if names.length is 0 and predicate.length is 0 and limit is RowLimit.Unlimited:
         return all
     if all is SelectResult.Selected into table:
         let schema: Column[] = table.columns
@@ -193,7 +193,11 @@ public let execute_select_where = f(ref database: Database, name: string, ref na
             let nodes: ResolvedNode[] = valid.nodes
             let mutable output: Value[][] = []
             let mutable row_index: int64 = 0
-            while row_index < rows.length:
+            # Only matching rows count toward the limit, after validation above.
+            let mutable remaining: int64 = rows.length
+            if limit is RowLimit.AtMost into bound:
+                remaining = bound.rows
+            while row_index < rows.length and remaining > 0:
                 let row: Value[] = propagate rows.at(row_index)
                 let matches: boolean = propagate row_matches(ref nodes, ref row)
                 if matches:
@@ -202,6 +206,7 @@ public let execute_select_where = f(ref database: Database, name: string, ref na
                     else:
                         let cells: Value[] = propagate project_row(ref row, ref indices)
                         output.push(cells)
+                    remaining = remaining - 1
                 row_index = row_index + 1
             let result: SelectResult = new SelectResult.Selected:
                 columns: columns
@@ -214,4 +219,4 @@ public let execute_select_where = f(ref database: Database, name: string, ref na
 ##
 public let execute_select_columns = f(ref database: Database, name: string, ref names: string[]): SelectResult errors IndexAccessErrors =>
     let predicate: PredicateNode[] = []
-    return propagate execute_select_where(ref database, name, ref names, ref predicate)
+    return propagate execute_select_where(ref database, name, ref names, ref predicate, new RowLimit.Unlimited)

@@ -15,10 +15,17 @@ public type Statement:
     SelectAll:
         name: string
         predicate: PredicateNode[]
+        limit: RowLimit
     SelectColumns:
         name: string
         columns: string[]
         predicate: PredicateNode[]
+        limit: RowLimit
+
+public type RowLimit:
+    Unlimited
+    AtMost:
+        rows: int64
 
 public type ComparisonOperator:
     Equal
@@ -57,6 +64,7 @@ public type ParseErrorKind:
     InvalidIdentifier
     UnsupportedDataType
     PredicateTooComplex
+    InvalidLimit
 
 ##
   Description: Structured statement or positioned diagnostic for a single query.

@@ -1,6 +1,6 @@
 import parse_query from ../src/parser
 import string_join from standard
-import type ParseResult, ParseErrorKind, Statement, PredicateNode, ComparisonOperator from ../src/query.types
+import type ParseResult, ParseErrorKind, Statement, PredicateNode, ComparisonOperator, RowLimit from ../src/query.types
 import type Column, ColumnType from ../src/schema.types
 import type Value from ../src/value.types
 
@@ -231,4 +231,27 @@ scenario parsing predicates:
             expect result to be the SyntaxFailure variant of ParseResult
             if result is ParseResult.SyntaxFailure into failure:
                 expect failure.kind to be new ParseErrorKind.PredicateTooComplex
+            return void
+
+scenario parsing row limits:
+    unit under test: parse_query
+
+    it should parse nonnegative limits and reject negative or overflowing ones:
+        f(): void errors inferred =>
+            let good: ParseResult = propagate parse_query('SELECT * FROM tasks LIMIT 0;')
+            let negative: ParseResult = propagate parse_query('SELECT * FROM tasks LIMIT -1;')
+            let overflow: ParseResult = propagate parse_query('SELECT * FROM tasks LIMIT 9223372036854775808;')
+            expect good to be the Parsed variant of ParseResult
+            expect negative to be the SyntaxFailure variant of ParseResult
+            expect overflow to be the LexicalFailure variant of ParseResult
+            if good is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the SelectAll variant of Statement
+                if statement is Statement.SelectAll into query:
+                    let limit: RowLimit = query.limit
+                    expect limit to be the AtMost variant of RowLimit
+                    if limit is RowLimit.AtMost into bound:
+                        expect bound.rows to be 0
+            if negative is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.InvalidLimit
             return void
