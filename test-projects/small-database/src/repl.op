@@ -1,11 +1,12 @@
 import string_is_blank, string_join, take_input, print_text_sync, flush_standard_output_sync from standard
 import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
-import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns from ./database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_where from ./database
 import tokenize from ./lexer
 import parse_tokens from ./parser
-import format_selection, format_schema from ./formatting
+import format_selection, format_schema, type_label from ./formatting
 import type LexResult, Token, TokenKind, SourcePosition from ./lexer.types
-import type ParseResult, Statement from ./query.types
+import type ParseResult, Statement, PredicateNode from ./query.types
+import type PredicateError from ./predicate.types
 import type Database, Creation, CreateResult, Insertion, InsertResult, SelectResult, Table from ./database.types
 import type Column from ./schema.types
 import type Value from ./value.types
@@ -42,11 +43,24 @@ let insert_row = f(database: Database, name: string, ref values: Value[]): Datab
     let state: Database = outcome.state
     return state
 
+let show_predicate_error = f(table: string, problem: PredicateError): void =>
+    if problem is PredicateError.UnknownColumn into missing:
+        print('UnknownColumn: column \'{missing.name}\' does not exist in table \'{table}\'.')
+    if problem is PredicateError.TypeMismatch into mismatch:
+        let label: string = type_label(mismatch.expected)
+        print('TypeMismatch: comparison with \'{table}.{mismatch.name}\' expects {label}.')
+    if problem is PredicateError.UnsupportedOperator into unsupported:
+        let label: string = type_label(unsupported.column_type)
+        print('UnsupportedOperator: column \'{table}.{unsupported.name}\' of type {label} supports only equality and inequality.')
+    return void
+
 let show_selection = f(result: SelectResult): void errors IndexAccessErrors, AllocationErrors =>
     if result is SelectResult.UnknownTable into missing:
         print('UnknownTable: table \'{missing.name}\' does not exist.')
     if result is SelectResult.UnknownColumn into missing:
         print('UnknownColumn: column \'{missing.column_name}\' does not exist in table \'{missing.table_name}\'.')
+    if result is SelectResult.InvalidPredicate into invalid:
+        show_predicate_error(invalid.table_name, invalid.problem)
     if result is SelectResult.Selected into selected:
         let columns: Column[] = selected.columns
         let rows: Value[][] = selected.rows
@@ -116,11 +130,14 @@ let execute_query = f(database: Database, ref tokens: Token[]): Database errors 
             let values: Value[] = insert.values
             return propagate insert_row(database, insert.name, ref values)
         if statement is Statement.SelectAll into select:
-            let result: SelectResult = propagate execute_select_all(ref database, select.name)
+            let columns: string[] = []
+            let predicate: PredicateNode[] = select.predicate
+            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
             propagate show_selection(result)
         if statement is Statement.SelectColumns into select:
             let columns: string[] = select.columns
-            let result: SelectResult = propagate execute_select_columns(ref database, select.name, ref columns)
+            let predicate: PredicateNode[] = select.predicate
+            let result: SelectResult = propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
             propagate show_selection(result)
     if query is ParseResult.SyntaxFailure into failure:
         let position: SourcePosition = failure.position

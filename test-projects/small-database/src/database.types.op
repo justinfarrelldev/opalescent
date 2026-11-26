@@ -1,5 +1,6 @@
 import type Column from ./schema.types
 import type Value from ./value.types
+import type PredicateError from ./predicate.types
 
 ##
   Description: Named schema and rows in insertion order.
@@ -62,3 +63,6 @@ public type SelectResult:
     UnknownColumn:
         table_name: string
         column_name: string
+    InvalidPredicate:
+        table_name: string
+        problem: PredicateError

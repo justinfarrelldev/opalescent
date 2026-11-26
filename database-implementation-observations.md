@@ -130,6 +130,14 @@ Starting revision: `9e7ee13822d0d3de1afcb5398f9fb10f2d1af37a`. Initial verificat
 - **Impact / alternative:** the query API accepts Opalescent text, not raw input bytes. The specification requires rejecting NUL where observable; snapshot loading must inspect raw file bytes before decoding. A production terminal session exposes more input events for a TTY, but is not a general line reader for redirected standard input. `read_contents_sync` is a whole-file reader rather than an interactive input substitute.
 - **Suggested improvement / status:** provide a line reader that rejects NUL and invalid UTF-8 before turning a byte buffer into a `string`, or expose a raw line-reading API. Documented limitation of line input; do not infer from a successful query that all original bytes were inspected.
 
+## COMPILER-OBS-009 — A borrowed parser arena cannot be grown directly
+
+- **Feature / classification / severity:** `mutable ref` and arrays; language/compiler friction, moderate.
+- **Expected:** a recursive descent parser can append an owned node to a mutable-borrowed array.
+- **Actual:** `nodes.push(node)` reports that parameter `nodes` requires a mutable receiver; `nodes = propagate nodes.insert(nodes.length, node)` reports `ImmutableAssignment`. Binding the whole borrowed array to a new local is correctly rejected by second-class reference escape rules (`language-spec/requirements/memory-model.md`).
+- **Impact / alternative:** the precedence-climbing parser threads an owned postorder arena through its progress results. Its node and nesting limits bound both parsing and evaluation, including any copies of the arena. Validation still walks all nodes exactly once per statement before row evaluation.
+- **Suggested improvement / status:** document and test array writes through mutable-reference parameters. This is non-blocking with the bounded owned arena.
+
 ## Investigation notes
 
 - Reviewed the language specification, tutorial, standard-library reference, native testing docs, terminal editor, and Game of Life. Cross-file products, tag checks with `is … into`, string ownership, and fallible access have working fixture patterns. Typed payload assertions should check the tag and compare the extracted fields rather than require whole-payload equality.

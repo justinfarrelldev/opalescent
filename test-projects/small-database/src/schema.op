@@ -1,0 +1,25 @@
+import type IndexAccessErrors from standard.errors
+import type Column, ColumnType from ./schema.types
+import type Value from ./value.types
+
+##
+  Description: Resolves a normalized column name; returns -1 if it is absent.
+##
+public let column_index_of = f(ref columns: Column[], name: string): int64 errors IndexAccessErrors =>
+    let mutable index: int64 = 0
+    while index < columns.length:
+        let column: Column = propagate columns.at(index)
+        if column.name is name:
+            return index
+        index = index + 1
+    return -1
+
+##
+  Description: Checks the declared type without implicit conversion.
+##
+public let value_matches = f(column_type: ColumnType, value: Value): boolean =>
+    if column_type is ColumnType.Integer:
+        return value is Value.Integer
+    if column_type is ColumnType.Text:
+        return value is Value.Text
+    return value is Value.Boolean

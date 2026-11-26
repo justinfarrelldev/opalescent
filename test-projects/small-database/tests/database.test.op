@@ -1,8 +1,9 @@
-import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns from ../src/database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns, execute_select_where from ../src/database
 import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
 import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult from ../src/database.types
-import type ParseResult, Statement from ../src/query.types
+import type ParseResult, Statement, PredicateNode from ../src/query.types
+import type PredicateError from ../src/predicate.types
 import type Column from ../src/schema.types
 import type Value from ../src/value.types
 
@@ -262,4 +263,73 @@ scenario projecting selected columns:
             if result is SelectResult.UnknownColumn into unknown:
                 expect unknown.table_name to be 'tasks'
                 expect unknown.column_name to be 'missing'
+            return void
+
+let select_query = f(ref database: Database, source: string): SelectResult errors IndexOutOfBoundsError, AllocationFailureError =>
+    let query: ParseResult = propagate parse_query(source)
+    expect query to be the Parsed variant of ParseResult
+    if query is ParseResult.Parsed into parsed:
+        let statement: Statement = parsed.statement
+        if statement is Statement.SelectColumns into select:
+            let columns: string[] = select.columns
+            let predicate: PredicateNode[] = select.predicate
+            return propagate execute_select_where(ref database, select.name, ref columns, ref predicate)
+    let unreachable: SelectResult = new SelectResult.UnknownTable:
+        name: 'unreachable'
+    return unreachable
+
+let expect_id = f(ref rows: Value[][], index: int64, expected: int64): void errors IndexOutOfBoundsError =>
+    let row: Value[] = propagate rows.at(index)
+    let cell: Value = propagate row.at(0)
+    expect cell to be the Integer variant of Value
+    if cell is Value.Integer into value:
+        expect value.content to be expected
+    return void
+
+scenario evaluating validated predicates:
+    unit under test: execute_select_where
+    worlds: EmptyDatabase
+
+    it should filter before projecting and respect grouping and case sensitive text:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT, done BOOL);')
+            expect created to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1, \'x\', false);')
+            let first_state: Database = first.state
+            let second: Insertion = propagate insert_query(first_state, 'INSERT INTO tasks VALUES (2, \'X\', true);')
+            let second_state: Database = second.state
+            let third: Insertion = propagate insert_query(second_state, 'INSERT INTO tasks VALUES (3, \'x\', true);')
+            let state: Database = third.state
+            let precedence: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE done != true OR id >= 2 AND title = \'X\';')
+            let grouped: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE (done != true OR id >= 2) AND title = \'X\';')
+            expect precedence to be the Selected variant of SelectResult
+            expect grouped to be the Selected variant of SelectResult
+            if precedence is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 2
+                propagate expect_id(ref rows, 0, 1)
+                propagate expect_id(ref rows, 1, 2)
+            if grouped is SelectResult.Selected into selection:
+                let rows: Value[][] = selection.rows
+                expect rows.length to be 1
+                propagate expect_id(ref rows, 0, 2)
+            return void
+
+    it should validate every branch even when the table is empty:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT, done BOOL);')
+            expect created to be the Created variant of CreateResult
+            let state: Database = db.state
+            let missing: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE id = 1 OR missing = true;')
+            let mismatch: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE id = \'1\';')
+            let unsupported: SelectResult = propagate select_query(ref state, 'SELECT id FROM tasks WHERE done > false;')
+            expect missing to be the InvalidPredicate variant of SelectResult
+            expect mismatch to be the InvalidPredicate variant of SelectResult
+            expect unsupported to be the InvalidPredicate variant of SelectResult
+            if missing is SelectResult.InvalidPredicate into failure:
+                expect failure.problem to be the UnknownColumn variant of PredicateError
+            if mismatch is SelectResult.InvalidPredicate into failure:
+                expect failure.problem to be the TypeMismatch variant of PredicateError
+            if unsupported is SelectResult.InvalidPredicate into failure:
+                expect failure.problem to be the UnsupportedOperator variant of PredicateError
             return void

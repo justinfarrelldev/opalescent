@@ -1,0 +1,110 @@
+import type IndexAccessErrors from standard.errors
+import column_index_of, value_matches from ./schema
+import type Column, ColumnType from ./schema.types
+import type Value from ./value.types
+import type PredicateNode, ComparisonOperator from ./query.types
+import type ResolvedNode, PredicateValidation, PredicateError from ./predicate.types
+
+let invalid = f(problem: PredicateError): PredicateValidation =>
+    return new PredicateValidation.Invalid:
+        problem: problem
+
+##
+  Description: Resolves every predicate column and verifies its comparison before scanning rows.
+##
+public let validate_predicate = f(ref schema: Column[], ref input: PredicateNode[]): PredicateValidation errors IndexAccessErrors =>
+    let mutable output: ResolvedNode[] = []
+    let mutable index: int64 = 0
+    while index < input.length:
+        let node: PredicateNode = propagate input.at(index)
+        if node is PredicateNode.Compare into comparison:
+            let column: int64 = propagate column_index_of(ref schema, comparison.column)
+            if column < 0:
+                let failure: PredicateError = new PredicateError.UnknownColumn:
+                    name: comparison.column
+                return invalid(failure)
+            let definition: Column = propagate schema.at(column)
+            let column_type: ColumnType = definition.column_type
+            let value: Value = comparison.value
+            if not value_matches(column_type, value):
+                let failure: PredicateError = new PredicateError.TypeMismatch:
+                    name: comparison.column
+                    expected: column_type
+                return invalid(failure)
+            let operator: ComparisonOperator = comparison.operator
+            if column_type is not ColumnType.Integer and operator is not ComparisonOperator.Equal and operator is not ComparisonOperator.NotEqual:
+                let failure: PredicateError = new PredicateError.UnsupportedOperator:
+                    name: comparison.column
+                    column_type: column_type
+                return invalid(failure)
+            let resolved: ResolvedNode = new ResolvedNode.Compare:
+                column_index: column
+                operator: operator
+                value: value
+            output.push(resolved)
+        if node is PredicateNode.And into both:
+            let resolved: ResolvedNode = new ResolvedNode.And:
+                left: both.left
+                right: both.right
+            output.push(resolved)
+        if node is PredicateNode.Or into either:
+            let resolved: ResolvedNode = new ResolvedNode.Or:
+                left: either.left
+                right: either.right
+            output.push(resolved)
+        index = index + 1
+    let result: PredicateValidation = new PredicateValidation.Valid:
+        nodes: output
+    return result
+
+let compare_integer = f(left: int64, right: int64, operator: ComparisonOperator): boolean =>
+    if operator is ComparisonOperator.Equal:
+        return left is right
+    if operator is ComparisonOperator.NotEqual:
+        return left is not right
+    if operator is ComparisonOperator.Less:
+        return left < right
+    if operator is ComparisonOperator.LessEqual:
+        return left <= right
+    if operator is ComparisonOperator.Greater:
+        return left > right
+    return left >= right
+
+let compare_values = f(left: Value, right: Value, operator: ComparisonOperator): boolean =>
+    if left is Value.Integer into number:
+        if right is Value.Integer into other:
+            return compare_integer(number.content, other.content, operator)
+    let mutable equal = false
+    if left is Value.Text into text:
+        if right is Value.Text into other:
+            equal = text.content is other.content
+    if left is Value.Boolean into flag:
+        if right is Value.Boolean into other:
+            equal = flag.content is other.content
+    if operator is ComparisonOperator.NotEqual:
+        return not equal
+    return equal
+
+let eval_node = f(ref nodes: ResolvedNode[], ref row: Value[], index: int64): boolean errors IndexAccessErrors =>
+    let node: ResolvedNode = propagate nodes.at(index)
+    if node is ResolvedNode.Compare into comparison:
+        let cell: Value = propagate row.at(comparison.column_index)
+        return compare_values(cell, comparison.value, comparison.operator)
+    if node is ResolvedNode.And into both:
+        let first: boolean = propagate eval_node(ref nodes, ref row, both.left)
+        if not first:
+            return false
+        return propagate eval_node(ref nodes, ref row, both.right)
+    if node is ResolvedNode.Or into either:
+        let first: boolean = propagate eval_node(ref nodes, ref row, either.left)
+        if first:
+            return true
+        return propagate eval_node(ref nodes, ref row, either.right)
+
+##
+  Description: Evaluates the validated predicate with short-circuit AND and OR.
+##
+public let row_matches = f(ref nodes: ResolvedNode[], ref row: Value[]): boolean errors IndexAccessErrors =>
+    if nodes.length is 0:
+        return true
+    return propagate eval_node(ref nodes, ref row, nodes.length - 1)

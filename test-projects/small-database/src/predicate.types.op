@@ -1,0 +1,31 @@
+import type Value from ./value.types
+import type ComparisonOperator from ./query.types
+import type ColumnType from ./schema.types
+
+public type ResolvedNode:
+    Compare:
+        column_index: int64
+        operator: ComparisonOperator
+        value: Value
+    And:
+        left: int64
+        right: int64
+    Or:
+        left: int64
+        right: int64
+
+public type PredicateError:
+    UnknownColumn:
+        name: string
+    TypeMismatch:
+        name: string
+        expected: ColumnType
+    UnsupportedOperator:
+        name: string
+        column_type: ColumnType
+
+public type PredicateValidation:
+    Valid:
+        nodes: ResolvedNode[]
+    Invalid:
+        problem: PredicateError

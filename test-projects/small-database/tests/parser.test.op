@@ -1,5 +1,6 @@
 import parse_query from ../src/parser
-import type ParseResult, ParseErrorKind, Statement from ../src/query.types
+import string_join from standard
+import type ParseResult, ParseErrorKind, Statement, PredicateNode, ComparisonOperator from ../src/query.types
 import type Column, ColumnType from ../src/schema.types
 import type Value from ../src/value.types
 
@@ -161,4 +162,73 @@ scenario parsing explicit projections:
                 expect failure.detail to contain 'column name'
             if trailing is ParseResult.SyntaxFailure into failure:
                 expect failure.detail to contain 'column name'
+            return void
+
+scenario parsing predicates:
+    unit under test: parse_query
+
+    it should bind AND more tightly than OR:
+        f(): void errors inferred =>
+            let result = propagate parse_query('SELECT * FROM tasks WHERE done = false OR id >= 1 AND title <> \'X\';')
+            expect result to be the Parsed variant of ParseResult
+            if result is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the SelectAll variant of Statement
+                if statement is Statement.SelectAll into query:
+                    let nodes: PredicateNode[] = query.predicate
+                    expect nodes.length to be 5
+                    let root: PredicateNode = propagate nodes.at(4)
+                    expect root to be the Or variant of PredicateNode
+                    if root is PredicateNode.Or into either:
+                        let left: PredicateNode = propagate nodes.at(either.left)
+                        let right: PredicateNode = propagate nodes.at(either.right)
+                        expect left to be the Compare variant of PredicateNode
+                        expect right to be the And variant of PredicateNode
+                        if left is PredicateNode.Compare into comparison:
+                            expect comparison.column to be 'done'
+                            expect comparison.operator to be new ComparisonOperator.Equal
+                        if right is PredicateNode.And into both:
+                            let numeric: PredicateNode = propagate nodes.at(both.left)
+                            let text: PredicateNode = propagate nodes.at(both.right)
+                            if numeric is PredicateNode.Compare into comparison:
+                                expect comparison.column to be 'id'
+                                expect comparison.operator to be new ComparisonOperator.GreaterEqual
+                            if text is PredicateNode.Compare into comparison:
+                                expect comparison.column to be 'title'
+                                expect comparison.operator to be new ComparisonOperator.NotEqual
+            return void
+
+    it should use parentheses and reject a missing closing delimiter:
+        f(): void errors inferred =>
+            let grouped = propagate parse_query('SELECT id FROM tasks WHERE ((done = false OR id = 1)) AND title = \'X\';')
+            let missing = propagate parse_query('SELECT id FROM tasks WHERE (done = false;')
+            expect grouped to be the Parsed variant of ParseResult
+            expect missing to be the SyntaxFailure variant of ParseResult
+            if grouped is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the SelectColumns variant of Statement
+                if statement is Statement.SelectColumns into query:
+                    let nodes: PredicateNode[] = query.predicate
+                    expect nodes.length to be 5
+                    let root: PredicateNode = propagate nodes.at(4)
+                    expect root to be the And variant of PredicateNode
+                    if root is PredicateNode.And into both:
+                        let left: PredicateNode = propagate nodes.at(both.left)
+                        expect left to be the Or variant of PredicateNode
+            if missing is ParseResult.SyntaxFailure into failure:
+                expect failure.detail to contain ')'
+            return void
+
+    it should report excessive nesting as a syntax error:
+        f(): void errors inferred =>
+            let mutable opens: string[] = []
+            let mutable index: int64 = 0
+            while index < 80:
+                opens.push('(')
+                index = index + 1
+            let brackets: string = propagate string_join(opens, '')
+            let result: ParseResult = propagate parse_query('SELECT * FROM tasks WHERE {brackets}id = 1;')
+            expect result to be the SyntaxFailure variant of ParseResult
+            if result is ParseResult.SyntaxFailure into failure:
+                expect failure.kind to be new ParseErrorKind.PredicateTooComplex
             return void

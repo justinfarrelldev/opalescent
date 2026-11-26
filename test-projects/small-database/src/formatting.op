@@ -36,7 +36,10 @@ let render_value = f(value: Value): string errors IndexAccessErrors, AllocationE
     if value is Value.Text into text:
         return propagate escape_text(text.content)
 
-let type_label = f(column_type: ColumnType): string =>
+##
+  Description: Returns the canonical query-language spelling of a column type.
+##
+public let type_label = f(column_type: ColumnType): string =>
     if column_type is ColumnType.Integer:
         return 'INT'
     if column_type is ColumnType.Text:

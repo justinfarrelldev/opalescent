@@ -14,9 +14,34 @@ public type Statement:
         values: Value[]
     SelectAll:
         name: string
+        predicate: PredicateNode[]
     SelectColumns:
         name: string
         columns: string[]
+        predicate: PredicateNode[]
+
+public type ComparisonOperator:
+    Equal
+    NotEqual
+    Less
+    LessEqual
+    Greater
+    GreaterEqual
+
+##
+  Description: Postorder predicate node. The last node is the root; an empty array means no WHERE.
+##
+public type PredicateNode:
+    Compare:
+        column: string
+        operator: ComparisonOperator
+        value: Value
+    And:
+        left: int64
+        right: int64
+    Or:
+        left: int64
+        right: int64
 
 public type LiteralParse:
     Literal:
@@ -31,6 +56,7 @@ public type ParseErrorKind:
     UnexpectedEndOfInput
     InvalidIdentifier
     UnsupportedDataType
+    PredicateTooComplex
 
 ##
   Description: Structured statement or positioned diagnostic for a single query.
@@ -46,3 +72,11 @@ public type ParseResult:
         kind: ParseErrorKind
         position: SourcePosition
         detail: string
+
+public type PredicateProgress:
+    Done:
+        next: int64
+        root: int64
+        nodes: PredicateNode[]
+    Failed:
+        result: ParseResult
