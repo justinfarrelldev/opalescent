@@ -1,4 +1,4 @@
-import empty_database, execute_create, execute_insert, execute_select_all from ../src/database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns from ../src/database
 import integer_value, text_value from ../src/value
 import parse_query from ../src/parser
 import type Database, CreateResult, Table, Creation, Insertion, InsertResult, SelectResult from ../src/database.types
@@ -208,4 +208,58 @@ scenario selecting all columns:
                 expect cell to be the Text variant of Value
                 if cell is Value.Text into text:
                     expect text.content to be 'before'
+            return void
+
+scenario projecting selected columns:
+    unit under test: execute_select_columns
+    worlds: EmptyDatabase
+
+    it should retain the requested column and row order including repeated columns:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT, title TEXT);')
+            expect created to be the Created variant of CreateResult
+            let first: Insertion = propagate insert_query(db.state, 'INSERT INTO tasks VALUES (1, \'first\');')
+            let first_state: Database = first.state
+            let second: Insertion = propagate insert_query(first_state, 'INSERT INTO tasks VALUES (2, \'second\');')
+            let state: Database = second.state
+            let wanted: string[] = ['title', 'id', 'title']
+            let result: SelectResult = propagate execute_select_columns(ref state, 'tasks', ref wanted)
+            expect result to be the Selected variant of SelectResult
+            if result is SelectResult.Selected into selected:
+                let columns: Column[] = selected.columns
+                expect columns.length to be 3
+                let rows: Value[][] = selected.rows
+                expect rows.length to be 2
+                let first: Value[] = propagate rows.at(0)
+                let second: Value[] = propagate rows.at(1)
+                expect first.length to be 3
+                let title: Value = propagate first.at(0)
+                let id: Value = propagate first.at(1)
+                let repeated: Value = propagate first.at(2)
+                let next_title: Value = propagate second.at(0)
+                expect title to be the Text variant of Value
+                expect id to be the Integer variant of Value
+                expect repeated to be the Text variant of Value
+                expect next_title to be the Text variant of Value
+                if title is Value.Text into value:
+                    expect value.content to be 'first'
+                if id is Value.Integer into value:
+                    expect value.content to be 1
+                if repeated is Value.Text into value:
+                    expect value.content to be 'first'
+                if next_title is Value.Text into value:
+                    expect value.content to be 'second'
+            return void
+
+    it should validate all projected columns even on empty tables:
+        f(mutable ref db: EmptyDatabase): void errors inferred =>
+            let created = propagate apply_create(mutable ref db.state, 'CREATE TABLE tasks (id INT);')
+            expect created to be the Created variant of CreateResult
+            let state: Database = db.state
+            let wanted: string[] = ['id', 'missing']
+            let result: SelectResult = propagate execute_select_columns(ref state, 'tasks', ref wanted)
+            expect result to be the UnknownColumn variant of SelectResult
+            if result is SelectResult.UnknownColumn into unknown:
+                expect unknown.table_name to be 'tasks'
+                expect unknown.column_name to be 'missing'
             return void

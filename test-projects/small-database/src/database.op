@@ -148,3 +148,58 @@ public let execute_select_all = f(ref database: Database, name: string): SelectR
         columns: columns
         rows: rows
     return selected
+
+let column_index_of = f(ref columns: Column[], name: string): int64 errors IndexAccessErrors =>
+    let mutable index: int64 = 0
+    while index < columns.length:
+        let column: Column = propagate columns.at(index)
+        if column.name is name:
+            return index
+        index = index + 1
+    return -1
+
+let project_row = f(ref row: Value[], ref indices: int64[]): Value[] errors IndexAccessErrors =>
+    let mutable cells: Value[] = []
+    let mutable index: int64 = 0
+    while index < indices.length:
+        let position: int64 = propagate indices.at(index)
+        let cell: Value = propagate row.at(position)
+        cells.push(cell)
+        index = index + 1
+    return cells
+
+##
+  Description: Resolves projected columns once, then gathers cells in the requested order.
+##
+public let execute_select_columns = f(ref database: Database, name: string, ref names: string[]): SelectResult errors IndexAccessErrors =>
+    let all: SelectResult = propagate execute_select_all(ref database, name)
+    if all is SelectResult.Selected into table:
+        let schema: Column[] = table.columns
+        let rows: Value[][] = table.rows
+        let mutable columns: Column[] = []
+        let mutable indices: int64[] = []
+        let mutable index: int64 = 0
+        while index < names.length:
+            let requested: string = propagate names.at(index)
+            let resolved: int64 = propagate column_index_of(ref schema, requested)
+            if resolved < 0:
+                let unknown: SelectResult = new SelectResult.UnknownColumn:
+                    table_name: name
+                    column_name: requested
+                return unknown
+            let column: Column = propagate schema.at(resolved)
+            columns.push(column)
+            indices.push(resolved)
+            index = index + 1
+        let mutable output: Value[][] = []
+        let mutable row_index: int64 = 0
+        while row_index < rows.length:
+            let row: Value[] = propagate rows.at(row_index)
+            let cells: Value[] = propagate project_row(ref row, ref indices)
+            output.push(cells)
+            row_index = row_index + 1
+        let result: SelectResult = new SelectResult.Selected:
+            columns: columns
+            rows: output
+        return result
+    return all

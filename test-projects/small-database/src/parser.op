@@ -140,18 +140,39 @@ let parse_insert = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors 
         index = index + 2
 
 let parse_select = f(ref tokens: Token[]): ParseResult errors IndexAccessErrors =>
-    let star: Token = propagate tokens.at(1)
-    if star.kind is not TokenKind.Asterisk:
-        return expected(star, new ParseErrorKind.UnexpectedToken, '*')
-    let source: Token = propagate tokens.at(2)
+    let first: Token = propagate tokens.at(1)
+    let wildcard: boolean = first.kind is TokenKind.Asterisk
+    let mutable requested: string[] = []
+    let mutable index: int64 = 2
+    if not wildcard:
+        index = 1
+        let mutable next_column = true
+        while next_column:
+            let column: Token = propagate tokens.at(index)
+            let kind: TokenKind = column.kind
+            if kind is TokenKind.Identifier into identifier:
+                requested.push(identifier.name)
+            else:
+                return expected(column, new ParseErrorKind.InvalidIdentifier, 'column name')
+            index = index + 1
+            let separator: Token = propagate tokens.at(index)
+            next_column = separator.kind is TokenKind.Comma
+            if next_column:
+                index = index + 1
+    let source: Token = propagate tokens.at(index)
     if source.kind is not TokenKind.From:
         return expected(source, new ParseErrorKind.UnexpectedToken, 'FROM')
-    let table: Token = propagate tokens.at(3)
+    let table: Token = propagate tokens.at(index + 1)
     let kind: TokenKind = table.kind
     if kind is TokenKind.Identifier into identifier:
-        let statement: Statement = new Statement.SelectAll:
+        if wildcard:
+            let statement: Statement = new Statement.SelectAll:
+                name: identifier.name
+            return propagate finish_statement(ref tokens, index + 2, statement)
+        let statement: Statement = new Statement.SelectColumns:
             name: identifier.name
-        return propagate finish_statement(ref tokens, 4, statement)
+            columns: requested
+        return propagate finish_statement(ref tokens, index + 2, statement)
     return expected(table, new ParseErrorKind.InvalidIdentifier, 'table name')
 
 ##

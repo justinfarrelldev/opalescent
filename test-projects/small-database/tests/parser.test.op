@@ -128,3 +128,37 @@ scenario parsing wildcard selections:
             if reserved is ParseResult.SyntaxFailure into failure:
                 expect failure.kind to be new ParseErrorKind.InvalidIdentifier
             return void
+
+scenario parsing explicit projections:
+    unit under test: parse_query
+
+    it should preserve projected names in order and allow repetitions:
+        f(): void errors inferred =>
+            let result = propagate parse_query('SELECT Title, ID, title FROM Tasks;')
+            expect result to be the Parsed variant of ParseResult
+            if result is ParseResult.Parsed into parsed:
+                let statement: Statement = parsed.statement
+                expect statement to be the SelectColumns variant of Statement
+                if statement is Statement.SelectColumns into selection:
+                    expect selection.name to be 'tasks'
+                    let columns: string[] = selection.columns
+                    expect columns.length to be 3
+                    let first: string = propagate columns.at(0)
+                    let second: string = propagate columns.at(1)
+                    let third: string = propagate columns.at(2)
+                    expect first to be 'title'
+                    expect second to be 'id'
+                    expect third to be 'title'
+            return void
+
+    it should reject an empty projection and a trailing comma:
+        f(): void errors inferred =>
+            let empty = propagate parse_query('SELECT FROM tasks;')
+            let trailing = propagate parse_query('SELECT id, FROM tasks;')
+            expect empty to be the SyntaxFailure variant of ParseResult
+            expect trailing to be the SyntaxFailure variant of ParseResult
+            if empty is ParseResult.SyntaxFailure into failure:
+                expect failure.detail to contain 'column name'
+            if trailing is ParseResult.SyntaxFailure into failure:
+                expect failure.detail to contain 'column name'
+            return void

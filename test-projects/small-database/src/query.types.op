@@ -14,6 +14,9 @@ public type Statement:
         values: Value[]
     SelectAll:
         name: string
+    SelectColumns:
+        name: string
+        columns: string[]
 
 public type LiteralParse:
     Literal:

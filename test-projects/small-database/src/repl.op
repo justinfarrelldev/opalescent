@@ -1,6 +1,6 @@
 import string_is_blank, string_join, take_input, print_text_sync, flush_standard_output_sync from standard
 import type IndexAccessErrors, AllocationErrors, StdoutWriterErrors from standard.errors
-import empty_database, execute_create, execute_insert, execute_select_all from ./database
+import empty_database, execute_create, execute_insert, execute_select_all, execute_select_columns from ./database
 import tokenize from ./lexer
 import parse_tokens from ./parser
 import format_selection, format_schema from ./formatting
@@ -42,10 +42,11 @@ let insert_row = f(database: Database, name: string, ref values: Value[]): Datab
     let state: Database = outcome.state
     return state
 
-let show_selection = f(ref database: Database, name: string): void errors IndexAccessErrors, AllocationErrors =>
-    let result: SelectResult = propagate execute_select_all(ref database, name)
+let show_selection = f(result: SelectResult): void errors IndexAccessErrors, AllocationErrors =>
     if result is SelectResult.UnknownTable into missing:
         print('UnknownTable: table \'{missing.name}\' does not exist.')
+    if result is SelectResult.UnknownColumn into missing:
+        print('UnknownColumn: column \'{missing.column_name}\' does not exist in table \'{missing.table_name}\'.')
     if result is SelectResult.Selected into selected:
         let columns: Column[] = selected.columns
         let rows: Value[][] = selected.rows
@@ -115,7 +116,12 @@ let execute_query = f(database: Database, ref tokens: Token[]): Database errors 
             let values: Value[] = insert.values
             return propagate insert_row(database, insert.name, ref values)
         if statement is Statement.SelectAll into select:
-            propagate show_selection(ref database, select.name)
+            let result: SelectResult = propagate execute_select_all(ref database, select.name)
+            propagate show_selection(result)
+        if statement is Statement.SelectColumns into select:
+            let columns: string[] = select.columns
+            let result: SelectResult = propagate execute_select_columns(ref database, select.name, ref columns)
+            propagate show_selection(result)
     if query is ParseResult.SyntaxFailure into failure:
         let position: SourcePosition = failure.position
         show_syntax_error(position.line, position.column, failure.detail)
